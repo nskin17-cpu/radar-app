@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Перенос данных в Supabase — Radar NR</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 18px; margin-bottom: 8px; }
+    .input-group { margin-bottom: 12px; }
+    .input-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+    .input-group input { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    button { padding: 10px 16px; background: #3478f6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error { color: #c00; font-size: 13px; margin-top: 8px; }
+    .success { color: #0a0; font-size: 13px; margin-top: 8px; }
+    pre { background: #f5f5f5; padding: 12px; border-radius: 6px; font-size: 12px; overflow: auto; white-space: pre-wrap; }
+    #migratePanel { display: none; }
+  </style>
+</head>
+<body>
+  <div id="loginScreen">
+    <h1>Вход</h1>
+    <p style="color:#666;font-size:13px;margin-bottom:16px">Сначала войдите, чтобы скрипт мог читать данные из Google Таблиц.</p>
+    <div class="input-group">
+      <label>Логин</label>
+      <input type="text" id="loginUser" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="input-group">
+      <label>Пароль</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button id="loginBtn" onclick="handleLogin()">Войти</button>
+    <div class="login-error error" id="loginError"></div>
+  </div>
+
+  <div id="migratePanel">
+    <h1>Перенос данных в Supabase</h1>
+    <p style="color:#666;font-size:13px;margin-bottom:16px">Укажите URL и anon key проекта Supabase. Таблицы должны быть созданы по схеме из <code>supabase-schema.sql</code>.</p>
+    <div class="input-group">
+      <label>Supabase URL</label>
+      <input type="url" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+    </div>
+    <div class="input-group">
+      <label>Supabase anon key</label>
+      <input type="password" id="supabaseKey" placeholder="eyJhbG...">
+    </div>
+    <button id="migrateBtn" onclick="runMigrate()">Перенести данные из Google Таблиц в Supabase</button>
+    <div id="migrateResult"></div>
+  </div>
+
+  <script src="radar.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script>
+    (function() {
+      var origLoadAll = window.loadAll;
+      var origShowApp = window.showApp;
+      window.loadAll = function() {};
+      window.showApp = function() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('migratePanel').style.display = 'block';
+        if (document.getElementById('loginUser')) document.getElementById('loginUser').value = '';
+        if (document.getElementById('loginPass')) document.getElementById('loginPass').value = '';
+      };
+      document.getElementById('loginPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') handleLogin(); });
+    })();
+
+    async function runMigrate() {
+      var url = document.getElementById('supabaseUrl').value.trim();
+      var key = document.getElementById('supabaseKey').value.trim();
+      var resultEl = document.getElementById('migrateResult');
+      var btn = document.getElementById('migrateBtn');
+      if (!url || !key) {
+        resultEl.innerHTML = '<p class="error">Укажите Supabase URL и anon key.</p>';
+        return;
+      }
+      btn.disabled = true;
+      resultEl.innerHTML = '<p>Миграция запущена…</p>';
+      try {
+        var out = await window.migrateGoogleToSupabase(window.api, { url: url, anonKey: key });
+        if (out.success) {
+          resultEl.innerHTML = '<p class="success">Готово.</p><pre>' + JSON.stringify(out.results, null, 2) + '</pre>';
+        } else {
+          resultEl.innerHTML = '<p class="error">' + (out.error || 'Ошибка') + '</p><pre>' + JSON.stringify(out.results || {}, null, 2) + '</pre>';
+        }
+      } catch (e) {
+        resultEl.innerHTML = '<p class="error">' + e.message + '</p>';
+      }
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>

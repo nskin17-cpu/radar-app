@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar NR</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 180 180%22%3E%3Crect width=%22180%22 height=%22180%22 rx=%2236%22 fill=%22%231a1a1f%22/%3E%3Ctext x=%2290%22 y=%22114%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2278%22 font-weight=%22700%22 fill=%22%23ffffff%22%3ENR%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 180 180%22%3E%3Crect width=%22180%22 height=%22180%22 rx=%2236%22 fill=%22%231a1a1f%22/%3E%3Ctext x=%2290%22 y=%22114%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2278%22 font-weight=%22700%22 fill=%22%23ffffff%22%3ENR%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NR">
+<meta name="theme-color" content="#e8e8ed">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <div style="margin-bottom:8px;font-family:Inter,sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;color:#1a1a1f">RADAR NR</div>
+    <div class="logo-sub">Мониторинг конкурентов</div>
+    <div class="input-group"><label class="input-label">Логин</label><input type="text" id="loginUser" placeholder="admin" autocomplete="username"></div>
+    <div class="input-group"><label class="input-label">Пароль</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn" id="loginBtn" onclick="handleLogin()" style="margin-top:6px">Войти</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="app" class="app">
+  <div class="mobile-header">
+    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+    <span style="font-weight:700;font-size:13px;letter-spacing:2px">RADAR NR</span>
+    <div style="width:20px"></div>
+  </div>
+  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar(false)"></div>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><span style="font-weight:700;font-size:14px;letter-spacing:2px">RADAR NR</span></div>
+    <div class="sidebar-sub">v3.0</div>
+    <div class="nav-section">Аналитика</div>
+    <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Дашборд по конкурентам</div>
+    <div class="nav-item" data-page="mycompany" onclick="switchPage('mycompany')"><span class="nav-icon">🏢</span> Моя компания</div>
+    <div class="nav-item" data-page="competitors" onclick="switchPage('competitors')"><span class="nav-icon">🎯</span> Конкуренты</div>
+    <div class="nav-item" data-page="compare" onclick="switchPage('compare')"><span class="nav-icon">⚖️</span> Сравнение</div>
+    <div class="nav-section">CRM</div>
+    <div class="nav-item" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon">📋</span> Заказы</div>
+    <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon">📦</span> Склад</div>
+    <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon">📈</span> CRM Дашборд</div>
+    <div class="sidebar-bottom">
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div><div class="user-name" id="userName">admin</div><div class="user-role" id="userRole">Администратор</div></div>
+      </div>
+      <button class="logout-btn" onclick="logout()">← Выйти</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header"><div><div class="page-title">Дашборд по конкурентам</div><div class="page-desc">Сравнение цен и позиций</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm btn-secondary" onclick="refreshDashboard()">↻ Обновить</button>
+        <button class="btn btn-sm" onclick="runAiAnalysis()" id="aiBtn" style="background:#8944d6">🤖 Анализ рынка</button></div></div>
+      <div class="filter-bar" id="cityFilter">
+        <button class="filter-btn active" onclick="setFilter('all',this)">Все города</button>
+        <button class="filter-btn" onclick="setFilter('Ростов-на-Дону',this)">Ростов-на-Дону</button>
+        <button class="filter-btn" onclick="setFilter('Краснодар',this)">Краснодар</button>
+      </div>
+      <!-- AI Analysis Panel -->
+      <div id="aiPanel" style="display:none;background:var(--surface);border:0.5px solid var(--purple-dim);border-left:3px solid #8944d6;border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:#8944d6">🤖 AI-анализ рынка</div>
+          <button class="btn btn-sm btn-secondary" onclick="document.getElementById('aiPanel').style.display='none'" style="padding:2px 8px;font-size:10px">✕</button>
+        </div>
+        <div id="aiResult" style="font-size:12.5px;line-height:1.7;color:var(--text);white-space:pre-wrap"></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card fade-in stagger-1"><div class="stat-label">Конкуренты</div><div class="stat-value dark" id="statTotal">0</div></div>
+        <div class="stat-card fade-in stagger-2"><div class="stat-label">Ср. Непал</div><div class="stat-value blue" id="statNepal">—</div></div>
+        <div class="stat-card fade-in stagger-3"><div class="stat-label">Ср. Лорен</div><div class="stat-value purple" id="statLoren">—</div></div>
+        <div class="stat-card fade-in stagger-4"><div class="stat-label">Ср. доставка</div><div class="stat-value amber" id="statDelivery">—</div></div>
+        <div class="stat-card fade-in stagger-5"><div class="stat-label">Сетап бокалы</div><div class="stat-value green" id="statSetupGlasses">—</div></div>
+        <div class="stat-card fade-in stagger-6"><div class="stat-label">Сетап тарелки</div><div class="stat-value blue" id="statSetupPlates">—</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card"><div class="chart-title">Стул Непал</div><div class="chart-container"><canvas id="chartNepal"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Стул Лорен</div><div class="chart-container"><canvas id="chartLoren"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Доставка по городу</div><div class="chart-container"><canvas id="chartDelivery"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Сетап: бокалы, тарелки, стулья</div><div class="chart-container"><canvas id="chartSetup"></canvas></div></div>
+        <div class="chart-card" style="grid-column:1/-1"><div class="chart-title">Динамика цен по месяцам</div><div class="chart-container" style="height:280px"><canvas id="chartHistory"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- MY COMPANY -->
+    <div id="page-mycompany" class="page">
+      <div class="page-header"><div><div class="page-title">Моя компания</div><div class="page-desc">Данные моей компании</div></div>
+        <button class="btn btn-sm" onclick="saveMyCompany()">💾 Сохранить</button></div>
+      <div class="form-card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="input-group"><label class="input-label">Название</label><input type="text" id="myName" placeholder="Моя компания"></div>
+          <div class="input-group"><label class="input-label">Город</label><select id="myCity"><option value="Ростов-на-Дону">Ростов-на-Дону</option><option value="Краснодар">Краснодар</option><option value="Другой">Другой</option></select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div class="input-group"><label class="input-label">Сайт</label><input type="text" id="myWeb" placeholder="https://..."></div>
+          <div class="input-group"><label class="input-label">Instagram</label><input type="text" id="myInsta" placeholder="@username"></div>
+          <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="myPhone" placeholder="+7..."></div>
+        </div>
+        <div class="modal-section">Стулья</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Непал ₽</label><input type="number" id="myNepal" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Лорен ₽</label><input type="number" id="myLoren" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Модерн ₽</label><input type="number" id="myModern" placeholder="0"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Пластик ₽</label><input type="number" id="myPlasticChair" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Дерево ₽</label><input type="number" id="myWoodChair" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Металл ₽</label><input type="number" id="myMetalChair" placeholder="0"></div>
+        </div>
+        <div class="modal-section">Тарелки</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Закусочные ₽</label><input type="number" id="myPlateSnack" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Обеденные ₽</label><input type="number" id="myPlateDinner" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Подстановочные ₽</label><input type="number" id="myPlateSub" placeholder="0"></div>
+        </div>
+        <div class="modal-section">Бокалы</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Вино/вода ₽</label><input type="number" id="myGlassWine" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Флюте ₽</label><input type="number" id="myGlassFlute" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Мартинка ₽</label><input type="number" id="myGlassMartini" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Рокс ₽</label><input type="number" id="myGlassRocks" placeholder="0"></div>
+        </div>
+        <div class="modal-section">Приборы и доставка</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Комплект приборов ₽</label><input type="number" id="myCutlerySet" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Доставка город ₽</label><input type="number" id="myDelivery" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Загород за км ₽</label><input type="number" id="myDeliveryKm" placeholder="0"></div>
+        </div>
+        <div class="modal-section">Сетап (стоимость за единицу)</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Тарелки ₽</label><input type="number" id="mySetupPlates" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Бокалы ₽</label><input type="number" id="mySetupGlasses" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Приборы ₽</label><input type="number" id="mySetupCutlery" placeholder="0"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="input-group"><label class="input-label">Стулья металл ₽</label><input type="number" id="mySetupMetalChair" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Стулья пластик/дерево ₽</label><input type="number" id="mySetupPlasticChair" placeholder="0"></div>
+          <div class="input-group"><label class="input-label">Стулья с подушкой ₽</label><input type="number" id="mySetupCushionChair" placeholder="0"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px">
+          <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="number" id="myProDiscount" placeholder="0" min="0" max="100"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPETITORS -->
+    <div id="page-competitors" class="page">
+      <div class="page-header"><div><div class="page-title">Конкуренты</div><div class="page-desc">База данных по рынку</div></div>
+        <button class="btn btn-sm" onclick="openAddComp()">+ Добавить</button></div>
+      <div class="table-wrap"><table><thead><tr>
+        <th>Название</th><th>Город</th><th>Непал</th><th>Лорен</th><th>Модерн</th><th>Бокал вино</th><th>Тарелка обед</th><th>Доставка</th><th>Сетап бокалы</th><th>Телефон</th><th></th>
+      </tr></thead><tbody id="compTable"><tr><td colspan="11" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
+    </div>
+
+    <!-- COMPARE -->
+    <div id="page-compare" class="page">
+      <div class="page-header"><div><div class="page-title">Сравнение</div><div class="page-desc">Сравните две компании</div></div></div>
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+        <select id="compareA" onchange="runCompare()" style="width:auto;min-width:180px"></select>
+        <span style="align-self:center;color:var(--text3);font-weight:600;font-size:13px">vs</span>
+        <select id="compareB" onchange="runCompare()" style="width:auto;min-width:180px"></select>
+      </div>
+      <div id="compareResult"></div>
+    </div>
+
+    <!-- CRM ORDERS -->
+    <div id="page-crm" class="page">
+      <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
+        <button class="btn btn-sm" onclick="crmOpenDialog()">+ Новый заказ</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <div class="stat-card" id="crmMonthOrders" onclick="crmSetQuickFilter('month')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">В месяце</div><div class="stat-value dark" id="crmTotalOrders" style="font-size:18px">0</div></div>
+        <div class="stat-card" id="crmNotCompleted" onclick="crmSetQuickFilter('not_completed')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Невыполн.</div><div class="stat-value amber" id="crmActiveOrders" style="font-size:18px">0</div></div>
+        <div class="stat-card" id="crmAssembly" onclick="crmSetQuickFilter('assembly')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Сборка 3д</div><div class="stat-value blue" id="crmAssemblyOrders" style="font-size:18px">0</div></div>
+        <div class="stat-card" id="crmTomorrow" onclick="crmSetQuickFilter('tomorrow')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Завтра</div><div class="stat-value green" id="crmTomorrowOrders" style="font-size:18px">0</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap">
+        <select id="crmYearFilter" style="width:auto"><option value="2026" selected>2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select>
+        <select id="crmCompletionFilter" style="width:auto"><option value="all">Все заказы</option><option value="not_completed" selected>Невыполненные</option><option value="completed">Выполненные</option></select>
+        <input id="crmSearchInput" type="search" placeholder="Поиск: клиент, телефон, адрес" style="width:auto;min-width:200px">
+        <select id="crmStatusFilter" style="width:auto"><option value="all">Статус работы</option><option value="preparing">Подготовка</option><option value="assembly">Сборка</option><option value="in_progress">В работе</option><option value="completed">Выполнен</option></select>
+        <select id="crmPaymentFilter" style="width:auto"><option value="all">Статус оплаты</option><option value="pending_confirmation">На подтверждении</option><option value="confirmed">Подтвержден</option><option value="prepaid">Предоплата</option><option value="paid">Оплачен</option><option value="paid_cash">Оплачен наличными</option></select>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>№</th><th>Клиент</th><th>Доставка</th><th>Период</th><th>Сумма</th><th>Статус работы</th><th>Статус оплаты</th><th></th></tr></thead><tbody id="crmOrdersTable"><tr><td colspan="8" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
+    </div>
+
+    <!-- CRM STOCK -->
+    <div id="page-crmstock" class="page">
+      <div class="page-header"><div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div></div>
+      <div style="margin-bottom:12px"><input id="crmStockSearch" type="search" placeholder="Поиск: изделие, категория" style="max-width:300px"></div>
+      <div class="table-wrap"><table><thead><tr><th>№</th><th>Изделие</th><th>Категория</th><th>Цена</th><th>Кол-во</th></tr></thead><tbody id="crmStockTable"></tbody></table></div>
+    </div>
+
+    <!-- CRM DASHBOARD -->
+    <div id="page-crmdash" class="page">
+      <div class="page-header"><div><div class="page-title">CRM Дашборд</div><div class="page-desc">Аналитика заказов</div></div></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px"><select id="crmDashYear"></select><select id="crmDashMonth"></select></div>
+      <div class="stats-grid" style="margin-bottom:14px">
+        <div class="stat-card"><div class="stat-label">Выручка месяца</div><div class="stat-value blue" id="crmMonthRevenue">0 ₽</div></div>
+        <div class="stat-card"><div class="stat-label">Средний чек</div><div class="stat-value purple" id="crmMonthAvg">0 ₽</div></div>
+        <div class="stat-card"><div class="stat-label">Заказов</div><div class="stat-value dark" id="crmMonthCount">0</div></div>
+        <div class="stat-card"><div class="stat-label">Выручка за год</div><div class="stat-value green" id="crmYearRevenue">0 ₽</div></div>
+        <div class="stat-card"><div class="stat-label">Средний чек за год</div><div class="stat-value purple" id="crmYearAvg">0 ₽</div></div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card"><div class="chart-title">Выручка по месяцам</div><div class="chart-container"><canvas id="crmChartRevenue"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Заказы по месяцам</div><div class="chart-container"><canvas id="crmChartOrders"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Средний чек по месяцам</div><div class="chart-container"><canvas id="crmChartAvg"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Индекс месяца (3 показателя)</div><div class="chart-container"><canvas id="crmChartIndex"></canvas></div><div id="crmIndexSummary" style="font-size:12px;color:var(--text2);padding:8px 4px;font-weight:600"></div></div>
+      </div>
+      <div class="chart-card" style="margin-top:10px">
+        <div class="page-header" style="margin-bottom:10px">
+          <div><div class="chart-title" style="font-size:12px;margin:0">Сравнение по годам</div><div class="page-desc">Выручка (оплаченные), заказы, средний чек</div></div>
+          <select id="crmCompareYear" style="width:auto;min-width:120px"></select>
+        </div>
+        <div class="charts-grid" style="margin-bottom:10px">
+          <div class="chart-card"><div class="chart-title">Выручка по годам</div><div class="chart-container"><canvas id="crmCompareRevenue"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">Заказы по годам</div><div class="chart-container"><canvas id="crmCompareOrders"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">Средний чек по годам</div><div class="chart-container"><canvas id="crmCompareAvg"></canvas></div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Год</th><th>Заказы</th><th>Оплачено</th><th>Выручка</th><th>Средний чек</th><th>Δ к предыдущему году</th></tr></thead>
+            <tbody id="crmCompareTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Competitor -->
+<div class="modal-overlay" id="modalComp">
+  <div class="modal">
+    <div class="modal-title" id="modalCompTitle">Добавить конкурента</div>
+    <input type="hidden" id="cId">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="input-group"><label class="input-label">Название *</label><input type="text" id="cName" placeholder="Компания"></div>
+      <div class="input-group"><label class="input-label">Город *</label><select id="cCity"><option value="Ростов-на-Дону">Ростов-на-Дону</option><option value="Краснодар">Краснодар</option><option value="Другой">Другой</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="input-group"><label class="input-label">Сайт</label><input type="text" id="cWeb" placeholder="https://..."></div>
+      <div class="input-group"><label class="input-label">Instagram</label><input type="text" id="cInsta" placeholder="@username"></div>
+      <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="cPhone" placeholder="+7..."></div>
+    </div>
+    <div class="modal-section">Стулья</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Непал ₽</label><input type="number" id="cNepal" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Лорен ₽</label><input type="number" id="cLoren" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Модерн ₽</label><input type="number" id="cModern" placeholder="0"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Пластик ₽</label><input type="number" id="cPlasticChair" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Дерево ₽</label><input type="number" id="cWoodChair" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Металл ₽</label><input type="number" id="cMetalChair" placeholder="0"></div>
+    </div>
+    <div class="modal-section">Тарелки</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Закусочные ₽</label><input type="number" id="cPlateSnack" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Обеденные ₽</label><input type="number" id="cPlateDinner" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Подстановочные ₽</label><input type="number" id="cPlateSub" placeholder="0"></div>
+    </div>
+    <div class="modal-section">Бокалы</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Вино/вода ₽</label><input type="number" id="cGlassWine" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Флюте ₽</label><input type="number" id="cGlassFlute" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Мартинка ₽</label><input type="number" id="cGlassMartini" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Рокс ₽</label><input type="number" id="cGlassRocks" placeholder="0"></div>
+    </div>
+    <div class="modal-section">Приборы и доставка</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Комплект приборов ₽</label><input type="number" id="cCutlerySet" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Доставка город ₽</label><input type="number" id="cDelivery" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Загород за км ₽</label><input type="number" id="cDeliveryKm" placeholder="0"></div>
+    </div>
+    <div class="modal-section">Сетап</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Тарелки ₽</label><input type="number" id="cSetupPlates" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Бокалы ₽</label><input type="number" id="cSetupGlasses" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Приборы ₽</label><input type="number" id="cSetupCutlery" placeholder="0"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="input-group"><label class="input-label">Стулья металл ₽</label><input type="number" id="cSetupMetalChair" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Стулья пластик/дерево ₽</label><input type="number" id="cSetupPlasticChair" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">Стулья с подушкой ₽</label><input type="number" id="cSetupCushionChair" placeholder="0"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+      <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="number" id="cProDiscount" placeholder="0" min="0" max="100"></div>
+      <div class="input-group"><label class="input-label">Заметки</label><input type="text" id="cNotes" placeholder="..."></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('modalComp')">Отмена</button>
+      <button class="btn btn-sm" onclick="saveComp()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- CRM ORDER DIALOG -->
+<div class="modal-overlay" id="crmOrderModal">
+  <div class="modal" style="width:660px">
+    <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
+    <input type="hidden" id="crmOrderId">
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Клиент *</label><input type="text" id="crmClient"></div>
+      <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmPhone"></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Компания</label><input type="text" id="crmCompany"></div>
+      <div class="input-group"><label class="input-label">Адрес</label><input type="text" id="crmAddress"></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Дата получения</label><input type="date" id="crmStartDate"></div>
+      <div class="input-group"><label class="input-label">Дата возврата</label><input type="date" id="crmEndDate"></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Статус работы</label><select id="crmStatus"><option value="preparing">Подготовка</option><option value="assembly">Сборка</option><option value="in_progress">В работе</option><option value="completed">Выполнен</option></select></div>
+      <div class="input-group"><label class="input-label">Статус оплаты</label><select id="crmPayment"><option value="pending_confirmation">На подтверждении</option><option value="confirmed">Подтвержден</option><option value="prepaid">Предоплата</option><option value="paid">Оплачен</option><option value="paid_cash">Оплачен наличными</option></select></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Тип получения</label><select id="crmDeliveryType"><option value="delivery">Доставка</option><option value="pickup">Самовывоз</option></select></div>
+      <div class="input-group"><label class="input-label">Остаток суммы ₽</label><input type="number" id="crmRemaining" min="0"></div>
+    </div>
+    <div class="crm-grid-2" id="crmDeliveryOptions">
+      <div class="input-group"><label class="input-label">Зона доставки</label><select id="crmDeliveryZone"><option value="city">В черте города</option><option value="outside">За город</option></select></div>
+      <div class="input-group"><label class="input-label">Км за город</label><input type="number" id="crmDeliveryKm" min="0" step="1" value="0"></div>
+    </div>
+    <div class="modal-section">Изделия в заказе</div>
+    <div id="crmItemsList"></div>
+    <button class="btn btn-sm btn-secondary" onclick="crmAddItemRow()" style="margin-top:8px">+ Добавить изделие</button>
+    <div class="modal-section">Стоимость услуг</div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Стоимость доставки ₽</label><input type="number" id="crmDeliveryCost" min="0" value="0" readonly style="background:var(--surface2);font-weight:600"></div>
+      <div class="input-group"><label class="input-label">Стоимость сетапа ₽</label><input type="number" id="crmSetupCost" min="0" value="0" readonly style="background:var(--surface2);font-weight:600"></div>
+    </div>
+    <div class="modal-section">Скидка и итого</div>
+    <div class="crm-grid-3">
+      <div class="input-group"><label class="input-label">Сумма изделий ₽</label><input type="number" id="crmItemsTotal" readonly style="background:var(--surface2);font-weight:600"></div>
+      <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="number" id="crmDiscount" min="0" max="100" value="0" oninput="crmCalcTotal()"></div>
+      <div class="input-group"><label class="input-label">Скидка ₽</label><input type="number" id="crmDiscountAmount" readonly style="background:var(--surface2)"></div>
+    </div>
+    <div class="crm-grid-3">
+      <div class="input-group"><label class="input-label" style="color:var(--blue);font-weight:700">Общая сумма ₽</label><input type="number" id="crmAmount" readonly style="background:var(--blue-dim);font-weight:700;color:var(--blue);font-size:15px"></div>
+      <div class="input-group"><label class="input-label">Бюджет сотрудника ₽</label><input type="number" id="crmBudget" min="0"></div>
+      <div class="input-group"><label class="input-label">Залог ₽</label><input type="number" id="crmDeposit" min="0"></div>
+    </div>
+    <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
+      <button class="btn btn-sm" onclick="crmSaveOrder()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script src="radar.js"></script>
+<script src="crm.js"></script>
+</body>
+</html>
