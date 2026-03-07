@@ -393,13 +393,13 @@ async function crmSaveOrder(){
   if(isPaid)document.getElementById('crmRemaining').value='0';
   const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount:Number(document.getElementById('crmAmount').value)||0,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,remainingAmount:isPaid?0:(Number(document.getElementById('crmRemaining').value)||0),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value};
   if(!o.clientName){showToast('Укажите клиента','error');return}
-  if(id){o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};showToast('Обновлено','success')}
-  else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o))}showToast('Заказ создан','success')}
+  if(id){o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);showToast('Обновлено','success')}
+  else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o)}showToast('Заказ создан','success')}
   crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
 }
 async function crmDeleteOrder(){
   const id=document.getElementById('crmOrderId').value;if(!id||!confirm('Удалить заказ?'))return;
-  await api('deleteOrder',{id});crmOrders=crmOrders.filter(o=>o.id!==id);
+  await api('deleteOrder',{id});sbBackup('deleteOrder',{id});crmOrders=crmOrders.filter(o=>o.id!==id);
   crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();showToast('Удалено','success');
 }
 // CRM Dashboard
@@ -408,11 +408,15 @@ function crmRenderDash(){
   if(!ysel||!msel)return;
   const now=new Date(),cy=now.getFullYear(),cm=now.getMonth();
   const years=[...new Set([cy,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].filter(y=>y>2020).sort((a,b)=>b-a);
-  if(!ysel.options.length||ysel.dataset.init!=='1'){ysel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');ysel.value=cy;ysel.dataset.init='1';
+  // Всегда обновляем список годов (могли добавиться новые заказы)
+  const prevYear=ysel.value;
+  ysel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  if(!ysel.dataset.init){ysel.value=cy;ysel.dataset.init='1';
   ysel.addEventListener('change',crmRenderDash);msel.addEventListener('change',crmRenderDash);
   document.getElementById('crmCompareYear')?.addEventListener('change',crmRenderDash);
   const mLabels=Array.from({length:12},(_,m)=>new Intl.DateTimeFormat('ru-RU',{month:'long'}).format(new Date(cy,m,1)));
   msel.innerHTML=mLabels.map((l,m)=>`<option value="${m}">${l}</option>`).join('');msel.value=cm}
+  else{ysel.value=prevYear||cy}
   const cmpSel=document.getElementById('crmCompareYear');
   if(cmpSel){cmpSel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');if(!cmpSel.value)cmpSel.value=String(cy)}
   const sy=Number(ysel.value),sm=Number(msel.value);

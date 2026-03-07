@@ -1,5 +1,5 @@
 /**
- * Supabase: конфиг и миграция данных из Google Таблиц.
+ * Supabase: конфиг, миграция данных из Google Таблиц, дублирование записей.
  * Подключение: задайте window.SUPABASE_URL и window.SUPABASE_ANON_KEY перед загрузкой скрипта
  * или передайте в migrateGoogleToSupabase({ url, anonKey }).
  */
@@ -102,8 +102,9 @@
         for (var i = 0; i < entries.length; i++) {
           var row = mapCompetitorOrCompanyRow(entries[i]);
           if (row && row.id) {
-            await supabase.from('competitors').upsert(row, { onConflict: 'id' });
-            results.competitors++;
+            var cr = await supabase.from('competitors').upsert(row, { onConflict: 'id' });
+            if (cr.error) console.warn('[migration] competitor upsert error:', cr.error.message);
+            else results.competitors++;
           }
         }
       }
@@ -114,18 +115,20 @@
         var myRow = mapCompetitorOrCompanyRow(myRes.company);
         if (myRow) {
           myRow.id = 'MY';
-          await supabase.from('my_company').upsert(myRow, { onConflict: 'id' });
-          results.myCompany = true;
+          var mr = await supabase.from('my_company').upsert(myRow, { onConflict: 'id' });
+          if (mr.error) console.warn('[migration] my_company upsert error:', mr.error.message);
+          else results.myCompany = true;
         }
       }
 
-      // История
+      // История — upsert по (month, company_id), требует UNIQUE(month, company_id) в схеме
       var histRes = await apiFn('getHistory');
       if (histRes && histRes.success && Array.isArray(histRes.history)) {
         for (var j = 0; j < histRes.history.length; j++) {
           var hRow = mapHistoryRow(histRes.history[j]);
-          await supabase.from('history').insert(hRow);
-          results.history++;
+          var hr = await supabase.from('history').upsert(hRow, { onConflict: 'month,company_id' });
+          if (hr.error) console.warn('[migration] history upsert error:', hr.error.message);
+          else results.history++;
         }
       }
 
@@ -135,19 +138,21 @@
         for (var k = 0; k < ordRes.orders.length; k++) {
           var oRow = mapOrderRow(ordRes.orders[k]);
           if (oRow.id) {
-            await supabase.from('orders').upsert(oRow, { onConflict: 'id' });
-            results.orders++;
+            var or = await supabase.from('orders').upsert(oRow, { onConflict: 'id' });
+            if (or.error) console.warn('[migration] order upsert error:', or.error.message);
+            else results.orders++;
           }
         }
       }
 
-      // Склад (при повторном запуске строки добавятся ещё раз; при необходимости очистите таблицу stock в SQL)
+      // Склад — upsert по (name, category), требует UNIQUE(name, category) в схеме
       var stockRes = await apiFn('getStock');
       if (stockRes && stockRes.success && Array.isArray(stockRes.stock)) {
         for (var s = 0; s < stockRes.stock.length; s++) {
           var stRow = mapStockRow(stockRes.stock[s]);
-          await supabase.from('stock').insert(stRow);
-          results.stock++;
+          var sr = await supabase.from('stock').upsert(stRow, { onConflict: 'name,category' });
+          if (sr.error) console.warn('[migration] stock upsert error:', sr.error.message);
+          else results.stock++;
         }
       }
 
@@ -165,8 +170,9 @@
         if (config && typeof config === 'object') {
           for (var key in config) {
             if (config.hasOwnProperty(key)) {
-              await supabase.from('pricing_config').upsert({ key: key, value: Number(config[key]) || 0 }, { onConflict: 'key' });
-              results.pricing++;
+              var pr = await supabase.from('pricing_config').upsert({ key: key, value: Number(config[key]) || 0 }, { onConflict: 'key' });
+              if (pr.error) console.warn('[migration] pricing upsert error:', pr.error.message);
+              else results.pricing++;
             }
           }
         }
@@ -178,11 +184,63 @@
     }
   }
 
+  /**
+   * Дублирование отдельных записей в Supabase (вызывается из основного приложения).
+   * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
+   * Тихо игнорирует ошибки — если Supabase недоступен, основное хранилище (GS) не затрагивается.
+   *
+   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder'
+   * payload: данные в camelCase формате (как в основном приложении)
+   */
+  async function supabaseWrite(action, payload) {
+    var sb = getSupabase();
+    if (!sb) return; // Supabase не настроен — пропускаем без ошибки
+
+    try {
+      if (action === 'upsertCompetitors') {
+        if (!Array.isArray(payload)) return;
+        for (var i = 0; i < payload.length; i++) {
+          var row = mapCompetitorOrCompanyRow(payload[i]);
+          if (row && row.id) {
+            var res = await sb.from('competitors').upsert(row, { onConflict: 'id' });
+            if (res.error) console.warn('[backup] competitor:', res.error.message);
+          }
+        }
+      } else if (action === 'deleteCompetitor') {
+        if (payload && payload.id) {
+          var res = await sb.from('competitors').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteCompetitor:', res.error.message);
+        }
+      } else if (action === 'upsertMyCompany') {
+        var myRow = mapCompetitorOrCompanyRow(payload);
+        if (myRow) {
+          myRow.id = 'MY';
+          var res = await sb.from('my_company').upsert(myRow, { onConflict: 'id' });
+          if (res.error) console.warn('[backup] my_company:', res.error.message);
+        }
+      } else if (action === 'upsertOrder') {
+        var oRow = mapOrderRow(payload);
+        if (oRow && oRow.id) {
+          var res = await sb.from('orders').upsert(oRow, { onConflict: 'id' });
+          if (res.error) console.warn('[backup] order:', res.error.message);
+        }
+      } else if (action === 'deleteOrder') {
+        if (payload && payload.id) {
+          var res = await sb.from('orders').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteOrder:', res.error.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[Supabase backup]', action, e.message);
+    }
+  }
+
   if (typeof window !== 'undefined') {
     window.getSupabase = getSupabase;
     window.migrateGoogleToSupabase = migrateGoogleToSupabase;
+    window.supabaseWrite = supabaseWrite;
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { getSupabase: getSupabase, migrateGoogleToSupabase: migrateGoogleToSupabase };
+    module.exports = { getSupabase: getSupabase, migrateGoogleToSupabase: migrateGoogleToSupabase, supabaseWrite: supabaseWrite };
   }
 })();
