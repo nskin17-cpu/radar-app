@@ -101,11 +101,11 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
     min-width:132px;
     font-size:10px;
   }
-  #crmItemsList .crm-item-row{
+  #crmItemsList > div{
     grid-template-columns:1fr 1fr!important;
     gap:8px!important;
   }
-  #crmItemsList .crm-item-row [data-price]{
+  #crmItemsList > div [data-price]{
     font-size:12px!important;
     text-align:left;
   }
