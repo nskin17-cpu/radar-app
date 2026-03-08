@@ -105,6 +105,10 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
     grid-template-columns:1fr 1fr!important;
     gap:8px!important;
   }
+  #crmItemsList > div > :nth-child(1),
+  #crmItemsList > div > :nth-child(2){
+    grid-column:1 / -1!important;
+  }
   #crmItemsList > div [data-price]{
     font-size:12px!important;
     text-align:left;
