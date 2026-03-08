@@ -66,6 +66,10 @@
       delivery_type: o.deliveryType || o.delivery_type || 'pickup',
       delivery_address: o.deliveryAddress || o.delivery_address || null,
       setup_required: o.setupRequired || o.setup_required || 'no',
+      carry_floor: o.carryFloor || o.carry_floor || 'no',
+      deposit_status: o.depositStatus || o.deposit_status || 'pending',
+      compensation_amount: Number(o.compensationAmount || o.compensation_amount || 0),
+      compensation_note: o.compensationNote || o.compensation_note || null,
       items: items,
       comment: o.comment || null
     };

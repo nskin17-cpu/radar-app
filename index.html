@@ -197,13 +197,13 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="stat-card" id="crmTomorrow" onclick="crmSetQuickFilter('tomorrow')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Завтра</div><div class="stat-value green" id="crmTomorrowOrders" style="font-size:18px">0</div></div>
       </div>
       <div style="display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap">
+        <input id="crmSearchInput" type="search" placeholder="Поиск: клиент, телефон, адрес" style="width:auto;min-width:200px">
         <select id="crmYearFilter" style="width:auto"><option value="2026" selected>2026</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option></select>
         <select id="crmCompletionFilter" style="width:auto"><option value="all">Все заказы</option><option value="not_completed" selected>Невыполненные</option><option value="completed">Выполненные</option></select>
-        <input id="crmSearchInput" type="search" placeholder="Поиск: клиент, телефон, адрес" style="width:auto;min-width:200px">
         <select id="crmStatusFilter" style="width:auto"><option value="all">Статус работы</option><option value="preparing">Подготовка</option><option value="assembly">Сборка</option><option value="in_progress">В работе</option><option value="completed">Выполнен</option></select>
         <select id="crmPaymentFilter" style="width:auto"><option value="all">Статус оплаты</option><option value="pending_confirmation">На подтверждении</option><option value="confirmed">Подтвержден</option><option value="prepaid">Предоплата</option><option value="paid">Оплачен</option><option value="paid_cash">Оплачен наличными</option></select>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>№</th><th>Клиент</th><th>Доставка</th><th>Период</th><th>Сумма</th><th>Статус работы</th><th>Статус оплаты</th><th></th></tr></thead><tbody id="crmOrdersTable"><tr><td colspan="8" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>№</th><th>Клиент</th><th>↓</th><th>Доставка / Адрес</th><th>Период</th><th>Сумма</th><th>Статус работы</th><th>Статус оплаты</th><th>Залог</th><th></th></tr></thead><tbody id="crmOrdersTable"><tr><td colspan="10" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
     </div>
 
     <!-- CRM STOCK -->
@@ -368,6 +368,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="input-group"><label class="input-label">Зона доставки</label><select id="crmDeliveryZone"><option value="city">В черте города</option><option value="outside">За город</option></select></div>
       <div class="input-group"><label class="input-label">Км за город</label><input type="number" id="crmDeliveryKm" min="0" step="1" value="0"></div>
     </div>
+    <div class="input-group" style="margin-top:8px"><label class="input-label">Пронос / подъём на этаж</label><select id="crmCarryFloor"><option value="no">Нет</option><option value="yes">Да</option></select></div>
     <div class="modal-section">Изделия в заказе</div>
     <div id="crmItemsList"></div>
     <button class="btn btn-sm btn-secondary" onclick="crmAddItemRow()" style="margin-top:8px">+ Добавить изделие</button>
@@ -386,6 +387,15 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="input-group"><label class="input-label" style="color:var(--blue);font-weight:700">Общая сумма ₽</label><input type="number" id="crmAmount" readonly style="background:var(--blue-dim);font-weight:700;color:var(--blue);font-size:15px"></div>
       <div class="input-group"><label class="input-label">Бюджет сотрудника ₽</label><input type="number" id="crmBudget" min="0"></div>
       <div class="input-group"><label class="input-label">Залог ₽</label><input type="number" id="crmDeposit" min="0"></div>
+    </div>
+    <div class="crm-grid-2" style="margin-top:8px">
+      <div class="input-group"><label class="input-label">Статус залога</label><select id="crmDepositStatus" onchange="crmSyncDepositUI()"><option value="pending">Ожидается</option><option value="deposited">Залог внесён</option><option value="returned">Вернули</option><option value="returned_comp">Вернули с компенсацией</option></select></div>
+    </div>
+    <div id="crmCompensationFields" style="display:none;margin-top:8px">
+      <div class="crm-grid-2">
+        <div class="input-group"><label class="input-label">Сумма компенсации ₽</label><input type="number" id="crmCompensationAmount" min="0" value="0"></div>
+        <div class="input-group"><label class="input-label">Описание компенсации</label><input type="text" id="crmCompensationNote"></div>
+      </div>
     </div>
     <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
     <div class="modal-actions">
