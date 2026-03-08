@@ -313,10 +313,10 @@ function crmRenderStock(){
   items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
   let rows='';
   Object.entries(grouped).forEach(([cat,its],idx)=>{
-    rows+=its.map((s,si)=>{const sr=crmItemSetupRate(s.name,s.category);const first=idx>0&&si===0;return`<tr${first?' class="stock-cat-sep"':''}>
+    rows+=its.map((s,si)=>{const first=idx>0&&si===0;return`<tr${first?' class="stock-cat-sep"':''}>
       <td style="font-weight:500">${esc(s.name)}</td>
       <td class="mono">${fN(s.price)}₽</td>
-      <td class="mono">${sr>0?sr+'₽':'—'}</td>
+      <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
       <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
       <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
     </tr>`}).join('');
@@ -332,6 +332,7 @@ function crmOpenStockModal(id){
   document.getElementById('crmStockCat').value=s?.category||'';
   document.getElementById('crmStockName').value=s?.name||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
+  document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
   document.getElementById('crmStockQty').value=s?.qty||0;
   document.getElementById('crmStockUnit').value=s?.unit||'шт';
   document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
@@ -347,6 +348,7 @@ async function crmSaveStockItem(){
     category:document.getElementById('crmStockCat').value.trim(),
     name:document.getElementById('crmStockName').value.trim(),
     price:Number(document.getElementById('crmStockPrice').value)||0,
+    setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
     qty:Number(document.getElementById('crmStockQty').value)||0,
     unit:document.getElementById('crmStockUnit').value.trim()||'шт'
   };
