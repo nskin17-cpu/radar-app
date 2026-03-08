@@ -56,6 +56,7 @@ table{width:100%;border-collapse:collapse;min-width:900px}
 th{text-align:left;padding:8px 10px;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;border-bottom:0.5px solid var(--border);background:var(--surface2);white-space:nowrap}
 td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);vertical-align:middle;white-space:nowrap}tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
 .crm-month-sep td{padding:0;border-bottom:none;background:transparent!important}
+.stock-cat-sep td{border-top:2px solid var(--blue)!important}
 .crm-month-sep span{display:block;padding:6px 10px;border-top:2px solid var(--blue);color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:rgba(52,120,246,0.04)}
 .crm-items-row td{white-space:normal;background:var(--surface2)}
 .crm-items-row ul{margin:0;padding-left:18px}

@@ -188,10 +188,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm btn-outline" onclick="syncAllToSupabase()" title="Синхронизировать все данные с Supabase">↑ Sync</button>
-          <button class="btn btn-sm" onclick="crmOpenDialog()">+ Новый заказ</button>
-        </div></div>
+        <button class="btn btn-sm" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div class="stat-card" id="crmMonthOrders" onclick="crmSetQuickFilter('month')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">В месяце</div><div class="stat-value dark" id="crmTotalOrders" style="font-size:18px">0</div></div>
         <div class="stat-card" id="crmNotCompleted" onclick="crmSetQuickFilter('not_completed')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Невыполн.</div><div class="stat-value amber" id="crmActiveOrders" style="font-size:18px">0</div></div>
