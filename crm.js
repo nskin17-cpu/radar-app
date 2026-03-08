@@ -313,7 +313,7 @@ function crmRenderStock(){
   items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
   let rows='';
   Object.entries(grouped).forEach(([cat,its],idx)=>{
-    if(idx>0)rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
+    rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
     rows+=its.map(s=>`<tr>
       <td style="font-weight:500">${esc(s.name)}</td>
       <td class="mono">${fN(s.price)}₽</td>
