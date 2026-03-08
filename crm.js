@@ -251,7 +251,7 @@ function crmRenderOrders(){
   const t=document.getElementById('crmOrdersTable');if(!t)return;
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
-  const depositBg={pending:'',deposited:'#e6f1ff',returned:'#e4f6e8',returned_comp:'#fff3cd'};
+  const depositBg={pending:'',deposited:'#e6f1ff',returned:'#e4f6e8',returned_comp:'#ffe0f0'};
   const depositLbl={pending:'Залог',deposited:'Внесён',returned:'Вернули',returned_comp:'Компенс.'};
   let prevMonthKey='';
   let rowIndex=0;
@@ -271,9 +271,9 @@ function crmRenderOrders(){
     <td style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
     <td class="mono">${fN(o.orderAmount)}₽</td>
-    <td><select data-crm-status="${o.id}" style="padding:4px 20px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'}">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
-    <td><select data-crm-payment="${o.id}" style="padding:4px 20px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'}">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
-    <td><select data-crm-deposit="${o.id}" style="padding:3px 20px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''}">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'};max-width:130px">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-deposit="${o.id}" style="padding:3px 28px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''};max-width:100px">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
     <td><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></td>
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
   }).join('');
@@ -371,13 +371,13 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   if(!crmOrderDialogInit)crmOrderDialogDirty=true;
   const list=document.getElementById('crmItemsList');
   const row=document.createElement('div');
-  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 60px 24px 60px 24px;gap:6px;margin-bottom:6px;align-items:center';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 60px auto 60px 24px;gap:6px;margin-bottom:6px;align-items:center';
   const legacy=crmIsLegacyYearOrder();
   const catOpts=crmCategories.map(c=>`<option value="${esc(c)}" ${item.category===c?'selected':''}>${esc(c)}</option>`).join('');
   const stockItems=item.category?crmStock.filter(s=>s.category===item.category):[];
   const itemOpts=stockItems.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" ${item.name===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
   const setupChecked=item.setup!==false?'checked':'';
-  row.innerHTML=`<select data-cat style="padding:6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><input type="checkbox" data-setup ${setupChecked} title="Сетап" style="width:18px;height:18px;cursor:pointer;accent-color:var(--blue)"><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
+  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап</label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
   const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('[data-price]'),qtyInp=row.querySelector('[data-qty]');
   catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map(s=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}">${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');priceSpan.textContent='';crmCalcTotal()});
   nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');crmCalcTotal()});
@@ -403,7 +403,7 @@ function crmCalcTotal(){
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
   const discountAmt=Math.round(itemsTotal*discountPct/100);
   const total=(itemsTotal-discountAmt)+deliveryCost+setupCost;
-  if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value=itemsTotal;
+  if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value=itemsTotal-discountAmt;
   if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
   document.getElementById('crmAmount').value=total>0?total:0;
 }
