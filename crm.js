@@ -355,6 +355,8 @@ async function crmSaveStockItem(){
   if(id){item.id=id;r=await api('updateStockItem',{item})}
   else{r=await api('addStockItem',{item})}
   if(r.success){
+    if(!id&&r.id)item.id=r.id;
+    sbBackup('upsertStockItem',item);
     showToast(id?'Обновлено':'Добавлено','success');
     closeModal('crmStockModal');
     const r2=await api('getStock');
@@ -367,6 +369,7 @@ async function crmDeleteStockItem(){
   if(!id||!confirm('Удалить позицию?'))return;
   const r=await api('deleteStockItem',{id});
   if(r.success){
+    sbBackup('deleteStockItem',{id});
     showToast('Удалено','success');
     closeModal('crmStockModal');
     crmStock=crmStock.filter(s=>s.id!==id);

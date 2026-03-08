@@ -233,6 +233,18 @@
           var res = await sb.from('orders').delete().eq('id', payload.id);
           if (res.error) console.warn('[backup] deleteOrder:', res.error.message);
         }
+      } else if (action === 'upsertStockItem') {
+        var stRow = mapStockRow(payload);
+        if (stRow && payload.id) {
+          stRow.id = payload.id;
+          var res = await sb.from('stock').upsert(stRow, { onConflict: 'id' });
+          if (res.error) console.warn('[backup] upsertStockItem:', res.error.message);
+        }
+      } else if (action === 'deleteStockItem') {
+        if (payload && payload.id) {
+          var res = await sb.from('stock').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteStockItem:', res.error.message);
+        }
       }
     } catch (e) {
       console.warn('[Supabase backup]', action, e.message);
