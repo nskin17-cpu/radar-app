@@ -44,6 +44,28 @@ document.getElementById('loginPass').addEventListener('input',()=>{document.getE
 
 async function loadAll(){await loadCompetitors();await loadMyCompanyData();await loadHistory();loadDashboard();loadCompareSelects()}
 
+async function syncAllToSupabase(){
+  if(!window.supabaseWrite){showToast('Supabase не настроен','error');return}
+  showToast('Синхронизация...','info');
+  let ok=0,fail=0;
+  // Заказы
+  const ro=await api('getOrders');
+  if(ro.success&&Array.isArray(ro.orders)){
+    for(const o of ro.orders){
+      try{await window.supabaseWrite('upsertOrder',o);ok++}catch(e){fail++}
+    }
+  }
+  // Конкуренты
+  if(competitors.length){
+    try{await window.supabaseWrite('upsertCompetitors',competitors);ok++}catch(e){fail++}
+  }
+  // Моя компания
+  if(myCompany){
+    try{await window.supabaseWrite('upsertMyCompany',myCompany);ok++}catch(e){fail++}
+  }
+  showToast(`Синхронизировано: ${ok} объектов${fail?', ошибок: '+fail:''}`, fail?'error':'success');
+}
+
 // NAV
 function switchPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item[data-page]').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');const n=document.querySelector(`.nav-item[data-page="${p}"]`);if(n)n.classList.add('active');if(window.innerWidth<=768)toggleSidebar(false);if(p==='dashboard')loadDashboard();if(p==='compare'){loadCompareSelects();runCompare()}if(p==='mycompany')fillMyForm()}
 function toggleSidebar(forceState){
