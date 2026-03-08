@@ -29,8 +29,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <body>
 <div id="loginScreen" class="login-screen">
   <div class="login-box">
-    <div style="margin-bottom:8px;font-family:Inter,sans-serif;font-weight:700;font-size:22px;letter-spacing:2px;color:#1a1a1f">RADAR NR</div>
-    <div class="logo-sub">Мониторинг конкурентов</div>
+    <div class="login-brand">NANDRENT</div>
+    <div class="login-tagline">HELICOPTER VIEW</div>
     <div class="input-group"><label class="input-label">Логин</label><input type="text" id="loginUser" placeholder="admin" autocomplete="username"></div>
     <div class="input-group"><label class="input-label">Пароль</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn" id="loginBtn" onclick="handleLogin()" style="margin-top:6px">Войти</button>
@@ -50,12 +50,12 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="sidebar-logo"><span style="font-weight:700;font-size:14px;letter-spacing:2px">RADAR NR</span></div>
     <div class="sidebar-sub">v3.0</div>
     <div class="nav-section">Аналитика</div>
-    <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Дашборд по конкурентам</div>
+    <div class="nav-item" data-page="dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Дашборд по конкурентам</div>
     <div class="nav-item" data-page="mycompany" onclick="switchPage('mycompany')"><span class="nav-icon">🏢</span> Моя компания</div>
     <div class="nav-item" data-page="competitors" onclick="switchPage('competitors')"><span class="nav-icon">🎯</span> Конкуренты</div>
     <div class="nav-item" data-page="compare" onclick="switchPage('compare')"><span class="nav-icon">⚖️</span> Сравнение</div>
     <div class="nav-section">CRM</div>
-    <div class="nav-item" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon">📋</span> Заказы</div>
+    <div class="nav-item active" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon">📋</span> Заказы</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon">📦</span> Склад</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon">📈</span> CRM Дашборд</div>
     <div class="nav-section">Система</div>
@@ -71,7 +71,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
   <div class="main">
     <!-- DASHBOARD -->
-    <div id="page-dashboard" class="page active">
+    <div id="page-dashboard" class="page">
       <div class="page-header"><div><div class="page-title">Дашборд по конкурентам</div><div class="page-desc">Сравнение цен и позиций</div></div>
         <div style="display:flex;gap:6px"><button class="btn btn-sm btn-secondary" onclick="refreshDashboard()">↻ Обновить</button>
         <button class="btn btn-sm" onclick="runAiAnalysis()" id="aiBtn" style="background:#8944d6">🤖 Анализ рынка</button></div></div>
@@ -187,7 +187,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
 
     <!-- CRM ORDERS -->
-    <div id="page-crm" class="page">
+    <div id="page-crm" class="page active">
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
         <button class="btn btn-sm" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">

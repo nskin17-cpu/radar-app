@@ -35,7 +35,7 @@ async function handleLogin(){
     if(btn){btn.disabled=false;btn.textContent='Войти'}
   }
 }
-function showApp(){document.getElementById('loginScreen').style.display='none';document.getElementById('app').classList.add('active');document.getElementById('userName').textContent=currentUser.username;document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':'Сотрудник';document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();loadAll()}
+function showApp(){document.getElementById('loginScreen').style.display='none';document.getElementById('app').classList.add('active');document.getElementById('userName').textContent=currentUser.username;document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':'Сотрудник';document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();switchPage('crm');loadAll()}
 function logout(){currentUser=null;document.getElementById('app').classList.remove('active');document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginError').textContent=''}
 document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
 document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus()});
