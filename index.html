@@ -12,7 +12,19 @@
 <meta name="theme-color" content="#e8e8ed">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="styles.css">
+<script>
+// Учётные данные Supabase (вшиты для работы с любого устройства)
+window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
+window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
+// Также берём из localStorage если переопределены вручную
+(function(){
+  var u=localStorage.getItem('sbUrl'),k=localStorage.getItem('sbKey');
+  if(u)window.SUPABASE_URL=u;
+  if(k)window.SUPABASE_ANON_KEY=k;
+})();
+</script>
 </head>
 <body>
 <div id="loginScreen" class="login-screen">
@@ -46,6 +58,8 @@
     <div class="nav-item" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon">📋</span> Заказы</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon">📦</span> Склад</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon">📈</span> CRM Дашборд</div>
+    <div class="nav-section">Система</div>
+    <div class="nav-item" data-page="settings" onclick="switchPage('settings')"><span class="nav-icon">⚙️</span> Настройки</div>
     <div class="sidebar-bottom">
       <div class="user-info">
         <div class="user-avatar" id="userAvatar">A</div>
@@ -197,6 +211,28 @@
       <div class="page-header"><div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div></div>
       <div style="margin-bottom:12px"><input id="crmStockSearch" type="search" placeholder="Поиск: изделие, категория" style="max-width:300px"></div>
       <div class="table-wrap"><table><thead><tr><th>№</th><th>Изделие</th><th>Категория</th><th>Цена</th><th>Кол-во</th></tr></thead><tbody id="crmStockTable"></tbody></table></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header"><div><div class="page-title">Настройки</div><div class="page-desc">Резервное хранилище и интеграции</div></div></div>
+      <div class="form-card">
+        <div class="modal-section">Supabase — резервное хранилище</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+          Данные будут автоматически дублироваться в Supabase при каждом сохранении.<br>
+          Google Sheets остаётся основным хранилищем. Supabase — страховочная копия.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;max-width:500px">
+          <div class="input-group"><label class="input-label">Supabase URL</label><input type="text" id="settingsSbUrl" placeholder="https://xxxxxx.supabase.co"></div>
+          <div class="input-group"><label class="input-label">Supabase Anon Key</label><input type="text" id="settingsSbKey" placeholder="eyJhbGci..."></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-sm" onclick="saveSupabaseSettings()">💾 Сохранить</button>
+          <button class="btn btn-sm btn-secondary" onclick="testSupabaseConnection()">🔌 Проверить связь</button>
+          <button class="btn btn-sm btn-danger" onclick="clearSupabaseSettings()" style="margin-left:auto">Очистить</button>
+        </div>
+        <div id="settingsStatus" style="margin-top:10px;font-size:12px"></div>
+      </div>
     </div>
 
     <!-- CRM DASHBOARD -->
@@ -363,7 +399,50 @@
 
 <div class="toast-container" id="toasts"></div>
 
+<script src="supabase.js"></script>
 <script src="radar.js"></script>
 <script src="crm.js"></script>
+<script>
+function saveSupabaseSettings(){
+  const url=document.getElementById('settingsSbUrl').value.trim();
+  const key=document.getElementById('settingsSbKey').value.trim();
+  const st=document.getElementById('settingsStatus');
+  if(!url||!key){st.style.color='var(--red)';st.textContent='Заполните оба поля';return}
+  localStorage.setItem('sbUrl',url);localStorage.setItem('sbKey',key);
+  window.SUPABASE_URL=url;window.SUPABASE_ANON_KEY=key;
+  st.style.color='var(--green)';st.textContent='Сохранено. Дублирование в Supabase активно.';
+}
+function clearSupabaseSettings(){
+  localStorage.removeItem('sbUrl');localStorage.removeItem('sbKey');
+  window.SUPABASE_URL='';window.SUPABASE_ANON_KEY='';
+  document.getElementById('settingsSbUrl').value='';
+  document.getElementById('settingsSbKey').value='';
+  const st=document.getElementById('settingsStatus');
+  st.style.color='var(--text2)';st.textContent='Настройки Supabase удалены. Данные хранятся только в Google Sheets.';
+}
+async function testSupabaseConnection(){
+  const st=document.getElementById('settingsStatus');
+  const sb=typeof window.getSupabase==='function'?window.getSupabase():null;
+  if(!sb){st.style.color='var(--red)';st.textContent='Supabase не настроен. Сохраните URL и ключ.';return}
+  st.style.color='var(--text2)';st.textContent='Проверяю...';
+  try{
+    const r=await sb.from('orders').select('id',{count:'exact',head:true});
+    if(r.error)throw r.error;
+    st.style.color='var(--green)';st.textContent='Соединение успешно. Supabase доступен.';
+  }catch(e){st.style.color='var(--red)';st.textContent='Ошибка: '+e.message}
+}
+// Заполняем поля настроек при переходе на страницу
+const _origSwitchForSettings=switchPage;
+switchPage=function(p){
+  _origSwitchForSettings(p);
+  if(p==='settings'){
+    document.getElementById('settingsSbUrl').value=localStorage.getItem('sbUrl')||'';
+    document.getElementById('settingsSbKey').value=localStorage.getItem('sbKey')||'';
+    const st=document.getElementById('settingsStatus');
+    if(window.SUPABASE_URL){st.style.color='var(--green)';st.textContent='Supabase настроен. Дублирование активно.'}
+    else{st.style.color='var(--text2)';st.textContent='Supabase не настроен. Данные хранятся только в Google Sheets.'}
+  }
+};
+</script>
 </body>
 </html>
