@@ -207,9 +207,33 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- CRM STOCK -->
     <div id="page-crmstock" class="page">
-      <div class="page-header"><div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div></div>
-      <div style="margin-bottom:12px"><input id="crmStockSearch" type="search" placeholder="Поиск: изделие, категория" style="max-width:300px"></div>
-      <div class="table-wrap"><table><thead><tr><th>№</th><th>Изделие</th><th>Категория</th><th>Цена</th><th>Кол-во</th></tr></thead><tbody id="crmStockTable"></tbody></table></div>
+      <div class="page-header">
+        <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
+        <button class="btn btn-sm" onclick="crmOpenStockModal()">+ Добавить</button>
+      </div>
+      <div class="stats-grid" id="crmStockStats" style="margin-bottom:16px"></div>
+      <div style="margin-bottom:14px"><input id="crmStockSearch" type="search" placeholder="Поиск по названию или категории" style="max-width:340px"></div>
+      <div id="crmStockGroups"></div>
+    </div>
+
+    <!-- STOCK ITEM MODAL -->
+    <div class="modal-overlay" id="crmStockModal">
+      <div class="modal" style="width:440px">
+        <div class="modal-title" id="crmStockModalTitle">Добавить позицию</div>
+        <input type="hidden" id="crmStockId">
+        <div class="input-group"><label class="input-label">Категория *</label><input type="text" id="crmStockCat" placeholder="Непал золотая основа" list="crmStockCatList"><datalist id="crmStockCatList"></datalist></div>
+        <div class="input-group"><label class="input-label">Название *</label><input type="text" id="crmStockName" placeholder="Стул Непал белый"></div>
+        <div class="crm-grid-2">
+          <div class="input-group"><label class="input-label">Цена ₽</label><input type="number" id="crmStockPrice" min="0" value="0"></div>
+          <div class="input-group"><label class="input-label">Количество</label><input type="number" id="crmStockQty" min="0" value="0"></div>
+        </div>
+        <div class="input-group"><label class="input-label">Единица</label><input type="text" id="crmStockUnit" value="шт" placeholder="шт"></div>
+        <div class="modal-actions">
+          <button class="btn btn-sm btn-danger" id="crmStockDeleteBtn" onclick="crmDeleteStockItem()" style="display:none;margin-right:auto">Удалить</button>
+          <button class="btn btn-sm btn-secondary" onclick="closeModal('crmStockModal')">Отмена</button>
+          <button class="btn btn-sm" onclick="crmSaveStockItem()">Сохранить</button>
+        </div>
+      </div>
     </div>
 
     <!-- SETTINGS -->

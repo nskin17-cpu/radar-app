@@ -293,11 +293,99 @@ function crmRenderStats(){
 }
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmRenderStock(){
-  const t=document.getElementById('crmStockTable');if(!t)return;
+  const grpEl=document.getElementById('crmStockGroups');if(!grpEl)return;
+  const statsEl=document.getElementById('crmStockStats');
   const q=(document.getElementById('crmStockSearch')?.value||'').toLowerCase();
   const items=crmStock.filter(s=>!q||[s.name,s.category].join(' ').toLowerCase().includes(q));
-  if(!items.length){t.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Нет позиций</td></tr>';return}
-  t.innerHTML=items.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.name)}</td><td><span class="badge badge-blue">${esc(s.category)}</span></td><td class="mono">${fN(s.price)}₽</td><td>${s.qty} ${esc(s.unit||'шт')}</td></tr>`).join('')}
+
+  // Stats
+  if(statsEl){
+    const totalQty=crmStock.reduce((a,s)=>a+Number(s.qty||0),0);
+    const cats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))];
+    // Items in active orders
+    const activeOrders=crmOrders.filter(o=>o.status!=='completed');
+    const inUse={};
+    activeOrders.forEach(o=>(o.items||[]).forEach(it=>{if(it.name)inUse[it.name]=(inUse[it.name]||0)+Number(it.qty||1)}));
+    const inUseTotal=Object.values(inUse).reduce((a,v)=>a+v,0);
+    statsEl.innerHTML=`
+      <div class="stat-card"><div class="stat-label">Позиций</div><div class="stat-value dark">${crmStock.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Категорий</div><div class="stat-value blue">${cats.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Всего единиц</div><div class="stat-value dark">${fN(totalQty)}</div></div>
+      <div class="stat-card"><div class="stat-label">В активных заказах</div><div class="stat-value amber">${inUseTotal}</div></div>`;
+  }
+
+  // Grouped by category
+  if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';return}
+  const grouped={};
+  items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
+  grpEl.innerHTML=Object.entries(grouped).map(([cat,its])=>`
+    <div class="stock-group">
+      <div class="stock-group-header">
+        <span class="stock-group-title">${esc(cat)}</span>
+        <span class="stock-group-count">${its.length} поз. · ${fN(its.reduce((a,s)=>a+Number(s.qty||0),0))} шт</span>
+      </div>
+      <div class="table-wrap" style="margin-bottom:0">
+        <table><thead><tr><th>Название</th><th>Цена</th><th>Кол-во</th><th></th></tr></thead>
+        <tbody>${its.map(s=>`<tr>
+          <td style="font-weight:500">${esc(s.name)}</td>
+          <td class="mono">${fN(s.price)}₽</td>
+          <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
+          <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
+        </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`).join('<div style="height:14px"></div>')}
+
+function crmOpenStockModal(id){
+  const m=document.getElementById('crmStockModal');if(!m)return;
+  const s=id?crmStock.find(x=>x.id===id):null;
+  document.getElementById('crmStockModalTitle').textContent=s?'Редактировать позицию':'Добавить позицию';
+  document.getElementById('crmStockId').value=s?.id||'';
+  document.getElementById('crmStockCat').value=s?.category||'';
+  document.getElementById('crmStockName').value=s?.name||'';
+  document.getElementById('crmStockPrice').value=s?.price||0;
+  document.getElementById('crmStockQty').value=s?.qty||0;
+  document.getElementById('crmStockUnit').value=s?.unit||'шт';
+  document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
+  // Fill datalist
+  const dl=document.getElementById('crmStockCatList');
+  if(dl)dl.innerHTML=crmCategories.map(c=>`<option value="${esc(c)}">`).join('');
+  openModal('crmStockModal');
+}
+async function crmSaveStockItem(){
+  const id=document.getElementById('crmStockId').value;
+  const item={
+    id,
+    category:document.getElementById('crmStockCat').value.trim(),
+    name:document.getElementById('crmStockName').value.trim(),
+    price:Number(document.getElementById('crmStockPrice').value)||0,
+    qty:Number(document.getElementById('crmStockQty').value)||0,
+    unit:document.getElementById('crmStockUnit').value.trim()||'шт'
+  };
+  if(!item.category||!item.name){showToast('Заполните категорию и название','error');return}
+  let r;
+  if(id){item.id=id;r=await api('updateStockItem',{item})}
+  else{r=await api('addStockItem',{item})}
+  if(r.success){
+    showToast(id?'Обновлено':'Добавлено','success');
+    closeModal('crmStockModal');
+    const r2=await api('getStock');
+    if(r2.success){crmStock=r2.stock||[];crmCategories=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort()}
+    crmRenderStock();
+  }else{showToast('Ошибка сохранения','error')}
+}
+async function crmDeleteStockItem(){
+  const id=document.getElementById('crmStockId').value;
+  if(!id||!confirm('Удалить позицию?'))return;
+  const r=await api('deleteStockItem',{id});
+  if(r.success){
+    showToast('Удалено','success');
+    closeModal('crmStockModal');
+    crmStock=crmStock.filter(s=>s.id!==id);
+    crmCategories=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort();
+    crmRenderStock();
+  }else{showToast('Ошибка удаления','error')}
+}
 // CRM Dialog
 function crmOpenDialog(id){
   const m=document.getElementById('crmOrderModal');
@@ -520,6 +608,7 @@ document.getElementById('crmCompletionFilter')?.addEventListener('change',()=>{c
 document.getElementById('crmStatusFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
+document.getElementById('crmStockModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmStockModal'))closeModal('crmStockModal')});
 document.getElementById('crmYearFilter')?.addEventListener('change',e=>{crmYearFilter=Number(e.target.value)||0;crmRenderOrders()});
 document.getElementById('crmStartDate')?.addEventListener('change',crmHandleStartDateChange);
 document.getElementById('crmEndDate')?.addEventListener('change',()=>{crmSyncDateRange(true)});
