@@ -10,6 +10,13 @@ async function api(action,data={}){
   catch(e){try{const p=new URLSearchParams({payload:JSON.stringify({...data,action})});const r2=await fetch(API_URL+'?'+p.toString(),{method:'GET',redirect:'follow'});return await r2.json()}catch(e2){showToast('Ошибка сети','error');return{success:false}}}
 }
 
+// Дублирование данных в Supabase (резервное хранилище, fire-and-forget)
+function sbBackup(action,payload){
+  if(typeof window.supabaseWrite==='function'){
+    window.supabaseWrite(action,payload).catch(()=>{});
+  }
+}
+
 // AUTH
 async function handleLogin(){
   if(isLoggingIn)return;
@@ -52,7 +59,7 @@ function setFilter(city,btn){cityFilter=city;document.querySelectorAll('.filter-
 function filtered(){if(cityFilter==='all')return competitors;return competitors.filter(c=>c.city===cityFilter)}
 
 // COMPETITORS
-async function loadCompetitors(){const r=await api('getCompetitors');if(r.success){competitors=r.entries||r.competitors||[];renderCompetitors()}}
+async function loadCompetitors(){const r=await api('getCompetitors');if(r.success){competitors=r.entries||r.competitors||[];renderCompetitors();sbBackup('upsertCompetitors',competitors)}}
 function renderCompetitors(){
   const t=document.getElementById('compTable');
   if(!competitors.length){t.innerHTML='<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Добавьте первого конкурента</div></div></td></tr>';return}
@@ -68,12 +75,12 @@ function openAddComp(){document.getElementById('modalCompTitle').textContent='Д
 function editComp(id){const c=competitors.find(x=>x.id===id);if(!c)return;document.getElementById('modalCompTitle').textContent='Редактировать';document.getElementById('cId').value=c.id;ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)el.value=c[f]||''});openModal('modalComp')}
 function getCompForm(){const o={};ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});return o}
 async function saveComp(){const id=document.getElementById('cId').value;const comp=getCompForm();if(!comp.name){showToast('Укажите название','error');return}if(id){comp.id=id;await api('updateCompetitor',{competitor:comp});showToast('Обновлено','success')}else{await api('addCompetitor',{competitor:comp});showToast('Добавлено','success')}closeModal('modalComp');await loadAll()}
-async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
+async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});sbBackup('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
 
 // MY COMPANY (Google Sheets)
 async function loadMyCompanyData(){const r=await api('getMyCompany');if(r.success&&r.company)myCompany=r.company;fillMyForm()}
 function fillMyForm(){if(!myCompany)return;ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)el.value=myCompany[f]||''})}
-async function saveMyCompany(){const o={};ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});const r=await api('saveMyCompany',{company:o});if(r.success){myCompany={...o,id:'MY'};showToast('Сохранено','success');loadDashboard();loadCompareSelects()}else showToast('Ошибка сохранения','error')}
+async function saveMyCompany(){const o={};ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});const r=await api('saveMyCompany',{company:o});if(r.success){myCompany={...o,id:'MY'};sbBackup('upsertMyCompany',myCompany);showToast('Сохранено','success');loadDashboard();loadCompareSelects()}else showToast('Ошибка сохранения','error')}
 
 // HISTORY
 async function loadHistory(){const r=await api('getHistory');if(r.success)history=r.history||[]}
@@ -159,9 +166,9 @@ async function runAiAnalysis(){
     }
     prompt+='Фильтр: '+(cityFilter==='all'?'все города':cityFilter)+'\n\n';
     prompt+='Дай краткий анализ:\n1. ПОЗИЦИЯ НА РЫНКЕ\n2. СИЛЬНЫЕ СТОРОНЫ\n3. СЛАБЫЕ СТОРОНЫ\n4. РЕКОМЕНДАЦИИ\nБудь конкретен, используй цифры.';
-    const response=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-    const data=await response.json();
-    const text=data.content?.map(i=>i.text||'').join('\n')||'Не удалось получить ответ';
+    // Запрос идёт через Google Apps Script (прокси) — так не нужен API-ключ в браузере и нет CORS-ограничений
+    const r=await api('aiAnalysis',{prompt});
+    const text=r.success?(r.text||r.response||r.content||'Нет ответа от AI'):'Функция AI-анализа не настроена. Добавьте обработчик действия aiAnalysis в ваш Google Apps Script с вызовом Claude API.';
     result.textContent=text;
   }catch(err){result.textContent='Ошибка: '+err.message}
   btn.disabled=false;btn.textContent='🤖 Анализ рынка';

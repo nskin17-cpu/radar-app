@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS history (
   nepal NUMERIC,
   loren NUMERIC,
   modern NUMERIC,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(month, company_id)
 );
 
 -- Заказы CRM
@@ -127,7 +128,8 @@ CREATE TABLE IF NOT EXISTS stock (
   price NUMERIC NOT NULL DEFAULT 0,
   qty NUMERIC DEFAULT 0,
   unit TEXT DEFAULT 'шт',
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(name, category)
 );
 
 -- Настройки цен CRM (key-value)
