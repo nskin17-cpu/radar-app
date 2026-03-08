@@ -8,7 +8,8 @@ const crmPricingDefaults={
   setupChairNepalMetal:80,
   setupChairNepal:105,
   setupChairModern:60,
-  setupChairModernCushion:85,
+  setupChairModernWood:50,
+  setupChairModernCushion:70,
   setupChairLoren:125,
   setupGlass:55,
   setupPlate:45
@@ -141,6 +142,7 @@ function crmItemSetupRate(name,category){
   const s=`${String(name||'')} ${String(category||'')}`.toLowerCase();
   if(s.includes('лорен'))return crmPricing.setupChairLoren;
   if(s.includes('модерн')&&s.includes('подуш'))return crmPricing.setupChairModernCushion;
+  if(s.includes('модерн')&&(s.includes('вяз')||s.includes('дерево')))return crmPricing.setupChairModernWood;
   if(s.includes('модерн'))return crmPricing.setupChairModern;
   if(s.includes('непал')&&(s.includes('метал')||s.includes('спинк')))return crmPricing.setupChairNepalMetal;
   if(s.includes('непал'))return crmPricing.setupChairNepal;
