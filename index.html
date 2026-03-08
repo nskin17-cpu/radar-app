@@ -224,10 +224,13 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="input-group"><label class="input-label">Категория *</label><input type="text" id="crmStockCat" placeholder="Непал золотая основа" list="crmStockCatList"><datalist id="crmStockCatList"></datalist></div>
         <div class="input-group"><label class="input-label">Название *</label><input type="text" id="crmStockName" placeholder="Стул Непал белый"></div>
         <div class="crm-grid-2">
-          <div class="input-group"><label class="input-label">Цена ₽</label><input type="number" id="crmStockPrice" min="0" value="0"></div>
-          <div class="input-group"><label class="input-label">Количество</label><input type="number" id="crmStockQty" min="0" value="0"></div>
+          <div class="input-group"><label class="input-label">Цена аренды ₽</label><input type="number" id="crmStockPrice" min="0" value="0"></div>
+          <div class="input-group"><label class="input-label">Сетап за ед. ₽</label><input type="number" id="crmStockSetupRate" min="0" value="0"></div>
         </div>
-        <div class="input-group"><label class="input-label">Единица</label><input type="text" id="crmStockUnit" value="шт" placeholder="шт"></div>
+        <div class="crm-grid-2">
+          <div class="input-group"><label class="input-label">Количество</label><input type="number" id="crmStockQty" min="0" value="0"></div>
+          <div class="input-group"><label class="input-label">Единица</label><input type="text" id="crmStockUnit" value="шт" placeholder="шт"></div>
+        </div>
         <div class="modal-actions">
           <button class="btn btn-sm btn-danger" id="crmStockDeleteBtn" onclick="crmDeleteStockItem()" style="display:none;margin-right:auto">Удалить</button>
           <button class="btn btn-sm btn-secondary" onclick="closeModal('crmStockModal')">Отмена</button>
