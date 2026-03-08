@@ -80,7 +80,6 @@
       name: s.name || '',
       category: s.category || '',
       price: Number(s.price || 0),
-      setup_rate: Number(s.setupRate || s.setup_rate || 0),
       qty: Number(s.qty || 0),
       unit: s.unit || 'шт'
     };

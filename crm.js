@@ -314,13 +314,13 @@ function crmRenderStock(){
   let rows='';
   Object.entries(grouped).forEach(([cat,its])=>{
     rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
-    rows+=its.map(s=>`<tr>
+    rows+=its.map(s=>{const sr=crmItemSetupRate(s.name,s.category);return`<tr>
       <td style="font-weight:500">${esc(s.name)}</td>
       <td class="mono">${fN(s.price)}₽</td>
-      <td class="mono">${Number(s.setupRate)>0?s.setupRate+'₽':'—'}</td>
+      <td class="mono">${sr>0?sr+'₽':'—'}</td>
       <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
       <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
-    </tr>`).join('');
+    </tr>`}).join('');
   });
   grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -333,7 +333,6 @@ function crmOpenStockModal(id){
   document.getElementById('crmStockCat').value=s?.category||'';
   document.getElementById('crmStockName').value=s?.name||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
-  document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
   document.getElementById('crmStockQty').value=s?.qty||0;
   document.getElementById('crmStockUnit').value=s?.unit||'шт';
   document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
@@ -349,7 +348,6 @@ async function crmSaveStockItem(){
     category:document.getElementById('crmStockCat').value.trim(),
     name:document.getElementById('crmStockName').value.trim(),
     price:Number(document.getElementById('crmStockPrice').value)||0,
-    setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
     qty:Number(document.getElementById('crmStockQty').value)||0,
     unit:document.getElementById('crmStockUnit').value.trim()||'шт'
   };
