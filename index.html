@@ -215,26 +215,6 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       </div>
       <div class="stats-grid" id="crmStockStats" style="margin-bottom:16px"></div>
 
-      <!-- STOCK USAGE DASHBOARD -->
-      <div class="crm-card" style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <div style="font-weight:600;font-size:14px">📊 Использование изделий в заказах</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="crmStockDashYear" onchange="crmRenderStockDash()" style="padding:5px 10px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface)">
-              <option value="">Все годы</option>
-            </select>
-            <select id="crmStockDashMonth" onchange="crmRenderStockDash()" style="padding:5px 10px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface)">
-              <option value="">Все месяцы</option>
-              <option value="1">Январь</option><option value="2">Февраль</option><option value="3">Март</option>
-              <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
-              <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
-              <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
-            </select>
-            <input id="crmStockDashItemFilter" type="search" placeholder="Фильтр по изделию" oninput="crmRenderStockDash()" style="padding:5px 10px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);max-width:180px">
-          </div>
-        </div>
-        <div id="crmStockDashTable" style="overflow-x:auto"></div>
-      </div>
 
       <div style="margin-bottom:14px"><input id="crmStockSearch" type="search" placeholder="Поиск по названию или категории" style="max-width:340px"></div>
       <div id="crmStockGroups"></div>
