@@ -183,9 +183,8 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryType')?.addEventListener('change',()=>{crmSyncDeliveryControls();crmCalcTotal()});
   document.getElementById('crmDeliveryZone')?.addEventListener('change',()=>{crmSyncDeliveryControls(true);crmCalcTotal()});
   document.getElementById('crmDeliveryKm')?.addEventListener('input',crmCalcTotal);
-  document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
-  document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
-  document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
+  document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
+  document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
 }
 function crmHandleStartDateChange(){
   crmSyncDateRange(true);
@@ -479,7 +478,6 @@ function crmOpenDialog(id){
     document.getElementById('crmCompensationAmount').value=o.compensationAmount||0;
     document.getElementById('crmCompensationNote').value=o.compensationNote||'';
     crmSyncDepositUI();
-    const budgetEl=document.getElementById('crmBudget');if(budgetEl)budgetEl.dataset.manual=o.budgetAmount>0?'1':'';
     const dcEl=document.getElementById('crmDeliveryCost');if(dcEl)dcEl.dataset.manual='1';
     const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
     setTimeout(crmCalcTotal,100);
@@ -502,7 +500,6 @@ function crmOpenDialog(id){
     document.getElementById('crmCompensationAmount').value='0';
     document.getElementById('crmCompensationNote').value='';
     crmSyncDepositUI();
-    const budgetEl=document.getElementById('crmBudget');if(budgetEl)budgetEl.dataset.manual='';
     const dcEl2=document.getElementById('crmDeliveryCost');if(dcEl2)dcEl2.dataset.manual='';
     const scEl2=document.getElementById('crmSetupCost');if(scEl2)scEl2.dataset.manual='';
     crmAddItemRow();
@@ -548,7 +545,7 @@ function crmCalcTotal(){
   if(deliveryCostEl&&deliveryCostEl.dataset.manual!=='1')deliveryCostEl.value=deliveryCost;
   if(setupCostEl&&setupCostEl.dataset.manual!=='1')setupCostEl.value=setupCost;
   const budgetEl=document.getElementById('crmBudget');
-  if(budgetEl&&budgetEl.dataset.manual!=='1')budgetEl.value=deliveryCost+setupCost;
+  if(budgetEl)budgetEl.value=deliveryCost+setupCost;
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
   const discountAmt=Math.round(itemsTotal*discountPct/100);
   const total=(itemsTotal-discountAmt)+deliveryCost+setupCost;
