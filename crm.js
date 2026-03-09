@@ -605,6 +605,8 @@ function crmGetPdfOrderData(){
     discountPct:Number(document.getElementById('crmDiscount').value)||0,
     depositAmt:Number(document.getElementById('crmDeposit').value)||0,
     carryFloor:document.getElementById('crmCarryFloor')?.value||'no',
+    deliveryZone:document.getElementById('crmDeliveryZone')?.value||'city',
+    deliveryKm:Number(document.getElementById('crmDeliveryKm')?.value)||0,
     items:crmGetItems(),
   };
 }
@@ -627,14 +629,15 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
 function crmBuildEstimateHTML(d,withDiscount){
-  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,items}=d;
+  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const itemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
   const itemsAfterDiscount=itemsTotal-discountAmt;
   const grandTotal=itemsAfterDiscount+deliveryCost+setupCost;
   const prepay=Math.round(grandTotal*0.5);
   const today=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':(deliveryAddress||'—');
+  const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
+  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
   const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
   const docSubtitle=withDiscount?`Для профессионала · № ${orderId}`:`№ ${orderId}`;
@@ -654,16 +657,19 @@ function crmBuildEstimateHTML(d,withDiscount){
   const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
   const setupRow=setupCost>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">Сетап</div><div style="${iDetail}">Сумма: ${crmFmtN(setupCost)} ₽</div></div>`:'';
 
-  const tr=(label,val,color='#444',size='12px',weight='400',bTop=false)=>
-    `<tr><td style="padding:3px 12px;font-size:${size};color:${color};font-weight:${weight};font-family:sans-serif;${bTop?'border-top:1px solid #ddd;padding-top:10px':''}"> ${label}</td><td style="padding:3px 12px;font-size:${size};color:${color};font-weight:${weight};font-family:sans-serif;text-align:right;${bTop?'border-top:1px solid #ddd;padding-top:10px':''}">${val}</td></tr>`;
-  let totalsRows=tr('Сумма товаров',crmFmtN(itemsTotal)+' ₽','#888','11px');
+  const totRow=(label,val,color='#888',size='12px',weight='400')=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-family:sans-serif;font-size:${size};color:${color};font-weight:${weight}"><span>${label}</span><span style="white-space:nowrap;font-variant-numeric:tabular-nums;min-width:80px;text-align:right;color:${color}">${val}</span></div>`;
+  let totalsBlock=`<div style="margin-top:16px;border-top:2px solid #1a1a1a;padding-top:14px;display:flex;justify-content:center"><div style="width:400px">`;
+  totalsBlock+=`<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:10px">Итог</div>`;
+  totalsBlock+=totRow('Сумма товаров',crmFmtN(itemsTotal)+' ₽');
   if(withDiscount&&discountAmt>0){
-    totalsRows+=tr(`Скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽','#7a9e7e','12px','600');
-    totalsRows+=tr('Товары со скидкой',crmFmtN(itemsAfterDiscount)+' ₽','#888','11px');
+    totalsBlock+=totRow(`↓ Скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽','#7a9e7e','12px','600');
+    totalsBlock+=totRow('Товары со скидкой',crmFmtN(itemsAfterDiscount)+' ₽');
   }
-  if(deliveryCost>0)totalsRows+=tr('Доставка',crmFmtN(deliveryCost)+' ₽','#888','11px');
-  if(setupCost>0)totalsRows+=tr('Сетап',crmFmtN(setupCost)+' ₽','#888','11px');
-  totalsRows+=tr('Итого к оплате',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700',true);
+  if(deliveryCost>0)totalsBlock+=totRow('Доставка',crmFmtN(deliveryCost)+' ₽');
+  if(setupCost>0)totalsBlock+=totRow('Сетап',crmFmtN(setupCost)+' ₽');
+  totalsBlock+=`<hr style="border:none;border-top:1px solid #ccc;margin:8px 0">`;
+  totalsBlock+=totRow('Итого к оплате',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
+  totalsBlock+=`</div></div>`;
 
   const discountBadge=withDiscount&&discountPct>0
     ?`<span style="font-size:14px;font-weight:700;font-family:sans-serif">${discountPct}%</span><span style="display:inline-block;background:#1a1a1a;color:#fff;font-family:sans-serif;font-size:9.5px;letter-spacing:1px;padding:2px 9px;margin-left:7px">− ${crmFmtN(discountAmt)} ₽</span>`
@@ -697,7 +703,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
   <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>
-  <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
+  ${totalsBlock}
   <div style="margin-top:20px;padding:16px 20px;background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
@@ -707,9 +713,10 @@ function crmBuildEstimateHTML(d,withDiscount){
 </div></div>`;
 }
 function crmBuildActHTML(d){
-  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,items}=d;
+  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const today=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':(deliveryAddress||'—');
+  const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
+  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
   const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
