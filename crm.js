@@ -332,10 +332,10 @@ function crmRenderStockDash(){
   let rows=Object.values(counts).filter(r=>!itemQ||r.name.toLowerCase().includes(itemQ)||r.category.toLowerCase().includes(itemQ)).sort((a,b)=>b.orders-a.orders);
   if(!rows.length){tbl.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Нет данных по заказам</div>';return;}
   const maxOrders=rows[0].orders;
-  tbl.innerHTML=`<table class="crm-table" style="width:100%"><thead><tr>
+  tbl.innerHTML=`<div class="table-wrap"><table style="width:100%"><thead><tr>
     <th>Изделие</th><th>Категория</th>
-    <th class="mono" style="text-align:center">Заказов</th>
-    <th class="mono" style="text-align:center">Единиц</th>
+    <th style="text-align:center">Заказов</th>
+    <th style="text-align:center">Единиц</th>
     <th style="width:140px">Популярность</th>
   </tr></thead><tbody>${rows.map(r=>`<tr>
     <td style="font-weight:500">${esc(r.name)}</td>
@@ -343,7 +343,7 @@ function crmRenderStockDash(){
     <td class="mono" style="text-align:center">${r.orders}</td>
     <td class="mono" style="text-align:center">${r.qty}</td>
     <td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round(r.orders/maxOrders*100)}%;border-radius:4px;transition:width .3s"></div></div></td>
-  </tr>`).join('')}</tbody></table>`;
+  </tr>`).join('')}</tbody></table></div>`;
 }
 function crmRenderStock(){
   crmRenderStockDash();
