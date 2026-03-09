@@ -450,8 +450,10 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
-      <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой для профессионала">Смета (со скидкой)</button>
+      <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой">Смета (со скидкой)</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateBtn" onclick="crmGenerateEstimatePDF(false)" style="display:none" title="Смета без скидки">Смета (без скидки)</button>
+      <button class="btn btn-sm btn-secondary" id="crmActBtn" onclick="crmGenerateActPDF()" style="display:none" title="Акт передачи">Акт</button>
+      <button class="btn btn-sm btn-secondary" id="crmAllDocsBtn" onclick="crmDownloadAllPDF(true)" style="display:none" title="Смета со скидкой + Акт одним файлом">Скачать всё</button>
       <div style="flex:1"></div>
       <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
       <button class="btn btn-sm" onclick="crmSaveOrder()">Сохранить</button>
