@@ -689,12 +689,12 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${lastRow}
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:52%"><col style="width:12%"><col style="width:18%"><col style="width:18%"></colgroup>
+  <table style="width:674px;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:350px"><col style="width:81px"><col style="width:121px"><col style="width:122px"></colgroup>
     <thead><tr><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол-во</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена за шт, ₽</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
     <tbody>${itemsRowsHTML}${deliveryRow}${setupRow}</tbody>
   </table>
-  <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
+  <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:674px;border-collapse:collapse">${totalsRows}</table></div>
   <div style="margin-top:20px;padding:16px 20px;background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
@@ -741,8 +741,8 @@ function crmBuildActHTML(d){
     <div style="${PL};border-bottom:none"></div>
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
+  <table style="width:674px;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:404px"><col style="width:135px"><col style="width:135px"></colgroup>
     <thead><tr><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
     <tbody>${itemsRowsHTML}</tbody>
   </table>
@@ -765,30 +765,12 @@ function crmGenerateActPDF(){
   showToast('Генерируем акт…','info');
   crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`);
 }
-function crmDownloadAllPDF(withDiscount){
+function crmDownloadAllPDF(){
   const d=crmGetPdfOrderData();
-  showToast('Генерируем документы…','info');
-  const estimateHTML=crmBuildEstimateHTML(d,withDiscount);
-  const actHTML=crmBuildActHTML(d);
-  const doAct=(estimatePdf)=>{
-    const container=document.createElement('div');
-    container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
-    container.innerHTML=actHTML;
-    document.body.appendChild(container);
-    html2canvas(container.firstElementChild,{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(canvas=>{
-      document.body.removeChild(container);
-      const{jsPDF}=window.jspdf;
-      const pdfW=estimatePdf.internal.pageSize.getWidth(),pdfH=estimatePdf.internal.pageSize.getHeight();
-      const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
-      estimatePdf.addPage();
-      let offset=0;
-      while(offset<totalH){if(offset>0)estimatePdf.addPage();estimatePdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
-      const fname=withDiscount?`Документы_профессионал_${d.orderId}.pdf`:`Документы_${d.orderId}.pdf`;
-      estimatePdf.save(fname);
-      showToast('PDF скачан','success');
-    }).catch(()=>showToast('Ошибка генерации акта','error'));
-  };
-  crmRenderAndSavePDF(estimateHTML,null,doAct);
+  showToast('Генерируем 3 документа…','info');
+  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),`Смета_профессионал_${d.orderId}.pdf`);
+  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),`Смета_${d.orderId}.pdf`),1200);
+  setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`),2400);
 }
 // CRM Dashboard
 function crmRenderDash(){
