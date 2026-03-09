@@ -446,7 +446,6 @@ function crmOpenDialog(id){
   document.getElementById('crmEstimateProBtn').style.display=id?'inline-block':'none';
   document.getElementById('crmEstimateBtn').style.display=id?'inline-block':'none';
   document.getElementById('crmActBtn').style.display=id?'inline-block':'none';
-  document.getElementById('crmAllDocsBtn').style.display=id?'inline-block':'none';
   document.getElementById('crmItemsList').innerHTML='';
   if(id){
     const o=crmOrders.find(x=>x.id===id);if(!o)return;
