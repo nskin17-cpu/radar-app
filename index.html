@@ -12,6 +12,8 @@
 <meta name="theme-color" content="#e8e8ed">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="styles.css">
 <script>
@@ -448,6 +450,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
+      <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой для профессионала">Смета (со скидкой)</button>
+      <button class="btn btn-sm btn-secondary" id="crmEstimateBtn" onclick="crmGenerateEstimatePDF(false)" style="display:none" title="Смета без скидки">Смета (без скидки)</button>
       <div style="flex:1"></div>
       <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
       <button class="btn btn-sm" onclick="crmSaveOrder()">Сохранить</button>
