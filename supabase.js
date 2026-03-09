@@ -236,14 +236,13 @@
         }
       } else if (action === 'upsertStockItem') {
         var stRow = mapStockRow(payload);
-        if (stRow && payload.id) {
-          stRow.id = payload.id;
-          var res = await sb.from('stock').upsert(stRow, { onConflict: 'id' });
+        if (stRow && stRow.name) {
+          var res = await sb.from('stock').upsert(stRow, { onConflict: 'name,category' });
           if (res.error) console.warn('[backup] upsertStockItem:', res.error.message);
         }
       } else if (action === 'deleteStockItem') {
-        if (payload && payload.id) {
-          var res = await sb.from('stock').delete().eq('id', payload.id);
+        if (payload && payload.name) {
+          var res = await sb.from('stock').delete().eq('name', payload.name).eq('category', payload.category || '');
           if (res.error) console.warn('[backup] deleteStockItem:', res.error.message);
         }
       }
