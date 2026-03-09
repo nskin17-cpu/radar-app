@@ -62,12 +62,10 @@ function crmSyncLegacyMode(){
     itemsTotal.style.background=legacy?'var(--surface)':'var(--surface2)';
   }
   if(deliveryCost){
-    deliveryCost.readOnly=!legacy;
-    deliveryCost.style.background=legacy?'var(--surface)':'var(--surface2)';
+    deliveryCost.style.background='var(--surface)';
   }
   if(setupCost){
-    setupCost.readOnly=!legacy;
-    setupCost.style.background=legacy?'var(--surface)':'var(--surface2)';
+    setupCost.style.background='var(--surface)';
   }
 }
 function crmRefreshRowsForYearMode(){
@@ -186,6 +184,8 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryZone')?.addEventListener('change',()=>{crmSyncDeliveryControls(true);crmCalcTotal()});
   document.getElementById('crmDeliveryKm')?.addEventListener('input',crmCalcTotal);
   document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
+  document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
+  document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
 }
 function crmHandleStartDateChange(){
   crmSyncDateRange(true);
@@ -480,6 +480,8 @@ function crmOpenDialog(id){
     document.getElementById('crmCompensationNote').value=o.compensationNote||'';
     crmSyncDepositUI();
     const budgetEl=document.getElementById('crmBudget');if(budgetEl)budgetEl.dataset.manual=o.budgetAmount>0?'1':'';
+    const dcEl=document.getElementById('crmDeliveryCost');if(dcEl)dcEl.dataset.manual='1';
+    const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
     setTimeout(crmCalcTotal,100);
   }else{
     document.getElementById('crmOrderId').value='';
@@ -501,6 +503,8 @@ function crmOpenDialog(id){
     document.getElementById('crmCompensationNote').value='';
     crmSyncDepositUI();
     const budgetEl=document.getElementById('crmBudget');if(budgetEl)budgetEl.dataset.manual='';
+    const dcEl2=document.getElementById('crmDeliveryCost');if(dcEl2)dcEl2.dataset.manual='';
+    const scEl2=document.getElementById('crmSetupCost');if(scEl2)scEl2.dataset.manual='';
     crmAddItemRow();
   }
   crmSyncDeliveryControls();
@@ -515,7 +519,9 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const legacy=crmIsLegacyYearOrder();
   const catOpts=crmCategories.map(c=>`<option value="${esc(c)}" ${item.category===c?'selected':''}>${esc(c)}</option>`).join('');
   const stockItems=item.category?crmStock.filter(s=>s.category===item.category):[];
-  const itemOpts=stockItems.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${item.name===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
+  const savedInStock=!item.name||stockItems.some(s=>s.name===item.name);
+  const fallbackOpt=(!savedInStock&&item.name)?`<option value="${esc(item.name)}" selected data-price="${item.price||0}" data-setup-rate="0">${esc(item.name)}</option>`:'';
+  const itemOpts=fallbackOpt+stockItems.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${item.name===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
   const setupChecked=item.setup!==false?'checked':'';
   const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
   row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
@@ -535,10 +541,12 @@ function crmCalcTotal(){
     const price=opt?Number(opt.dataset.price||0):0;
     itemsTotal+=price*Number(q.value||1);
   });
-  const deliveryCost=crmCalcDeliveryCost();
-  const setupCost=crmCalcSetupCost();
-  if(document.getElementById('crmDeliveryCost'))document.getElementById('crmDeliveryCost').value=deliveryCost;
-  if(document.getElementById('crmSetupCost'))document.getElementById('crmSetupCost').value=setupCost;
+  const deliveryCostEl=document.getElementById('crmDeliveryCost');
+  const setupCostEl=document.getElementById('crmSetupCost');
+  const deliveryCost=deliveryCostEl?.dataset.manual==='1'?Number(deliveryCostEl.value||0):crmCalcDeliveryCost();
+  const setupCost=setupCostEl?.dataset.manual==='1'?Number(setupCostEl.value||0):crmCalcSetupCost();
+  if(deliveryCostEl&&deliveryCostEl.dataset.manual!=='1')deliveryCostEl.value=deliveryCost;
+  if(setupCostEl&&setupCostEl.dataset.manual!=='1')setupCostEl.value=setupCost;
   const budgetEl=document.getElementById('crmBudget');
   if(budgetEl&&budgetEl.dataset.manual!=='1')budgetEl.value=deliveryCost+setupCost;
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
