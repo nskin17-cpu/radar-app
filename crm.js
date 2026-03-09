@@ -642,11 +642,11 @@ function crmBuildEstimateHTML(d,withDiscount){
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
-    const td='padding:7px 4px;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
+    const td='padding:6px 3px;font-size:10px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(unitPrice)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
   }).join('');
-  const svc='padding:7px 4px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
-  const svcL='padding:7px 4px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
+  const svc='padding:6px 3px;font-size:10px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
+  const svcL='padding:6px 3px;font-size:10px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
   const deliveryRow=deliveryCost>0?`<tr><td style="${svcL}">Доставка</td><td style="${svc}">—</td><td style="${svc}">—</td><td style="${svc}">${crmFmtN(deliveryCost)}</td></tr>`:'';
   const setupRow=setupCost>0?`<tr><td style="${svcL.replace('border-bottom:1px solid #f0f0f0','')}">Сетап</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">${crmFmtN(setupCost)}</td></tr>`:'';
 
