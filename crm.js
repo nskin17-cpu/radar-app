@@ -637,10 +637,10 @@ function crmBuildEstimateHTML(d,withDiscount){
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
-  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:13px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
+  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:14px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
-  const iName='font-size:11.5px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
-  const iDetail='font-size:10.5px;color:#888;font-family:sans-serif';
+  const iName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
+  const iDetail='font-size:12.5px;color:#888;font-family:sans-serif';
   const iRow='padding:7px 0;border-bottom:1px solid #f0f0f0';
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
@@ -713,10 +713,10 @@ function crmBuildActHTML(d){
   const PR='border-right:1px solid #ebebeb;';
   const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:12px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
-  const itemsRowsHTML=items.map(i=>{
-    const td='padding:6px 0;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
-    return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right;color:#ccc"> </td></tr>`;
-  }).join('');
+  const aName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
+  const aDetail='font-size:12.5px;color:#888;font-family:sans-serif';
+  const aRow='padding:9px 0;border-bottom:1px solid #f0f0f0';
+  const itemsRowsHTML=items.map(i=>`<div style="${aRow}"><div style="${aName}">${i.name}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`).join('');
 
   const sigLine=(label)=>`<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:32px;font-family:sans-serif;font-size:12px;color:#333">
     <span style="white-space:nowrap">${label}</span>
@@ -740,11 +740,7 @@ function crmBuildActHTML(d){
     <div style="${PL};border-bottom:none"></div>
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:50%"><col style="width:25%"><col style="width:25%"></colgroup>
-    <thead><tr><th style="width:50%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:25%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="width:25%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
-    <tbody>${itemsRowsHTML}</tbody>
-  </table>
+  <div>${itemsRowsHTML}</div>
   <div style="margin-top:40px;font-family:sans-serif;font-size:12px;color:#333">
     ${sigLine('«Получено» подтверждаю:')}
     ${sigLine('«Возвращено» подтверждаю:')}
