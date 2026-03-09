@@ -276,7 +276,7 @@ function crmRenderOrders(){
     const remain=Number(o.remainingAmount||0);
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
-    const itemsList=(o.items||[]).map(i=>{const d=(i.category&&i.category!==i.name)?`${i.category}: ${i.name}`:i.name;return`${esc(d)} ×${i.qty}`}).join(', ')||'—';
+    const itemsList=(o.items||[]).map(i=>`${esc(i.name)} ×${i.qty}`).join(', ')||'—';
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}</td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
