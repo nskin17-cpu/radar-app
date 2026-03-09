@@ -642,11 +642,11 @@ function crmBuildEstimateHTML(d,withDiscount){
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
-    const td='padding:6px 3px;font-size:10px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
+    const td='padding:5px 2px;font-size:9.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(unitPrice)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
   }).join('');
-  const svc='padding:6px 3px;font-size:10px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
-  const svcL='padding:6px 3px;font-size:10px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
+  const svc='padding:5px 2px;font-size:9.5px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
+  const svcL='padding:5px 2px;font-size:9.5px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
   const deliveryRow=deliveryCost>0?`<tr><td style="${svcL}">Доставка</td><td style="${svc}">—</td><td style="${svc}">—</td><td style="${svc}">${crmFmtN(deliveryCost)}</td></tr>`:'';
   const setupRow=setupCost>0?`<tr><td style="${svcL.replace('border-bottom:1px solid #f0f0f0','')}">Сетап</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">${crmFmtN(setupCost)}</td></tr>`:'';
 
@@ -694,7 +694,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed">
     <colgroup><col style="width:44%"><col style="width:8%"><col style="width:24%"><col style="width:24%"></colgroup>
-    <thead><tr><th style="width:44%;padding:8px 4px 8px 0;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:8%;padding:8px 4px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол</th><th style="width:24%;padding:8px 4px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена, ₽</th><th style="width:24%;padding:8px 4px 8px 0;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
+    <thead><tr><th style="width:44%;padding:7px 2px 7px 0;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:8%;padding:7px 2px;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол</th><th style="width:24%;padding:7px 2px;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена, ₽</th><th style="width:24%;padding:7px 2px 7px 0;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
     <tbody>${itemsRowsHTML}${deliveryRow}${setupRow}</tbody>
   </table>
   <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
