@@ -305,7 +305,48 @@ function crmRenderStats(){
   document.getElementById('crmTomorrowOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===tm.getTime()&&o.status!=='completed'}).length;
 }
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
+function crmRenderStockDash(){
+  const tbl=document.getElementById('crmStockDashTable');if(!tbl)return;
+  const selYear=document.getElementById('crmDashYear');
+  const year=Number(selYear?.value||0);
+  const month=Number(document.getElementById('crmDashMonth')?.value||0);
+  const itemQ=(document.getElementById('crmDashItemFilter')?.value||'').toLowerCase();
+  // populate year options once
+  if(selYear&&selYear.options.length<=1){
+    const years=[...new Set(crmOrders.map(o=>{const d=crmParseDateLocal(o.startDate);return d?d.getFullYear():null}).filter(Boolean))].sort((a,b)=>b-a);
+    years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;selYear.appendChild(o)});
+  }
+  // aggregate
+  const counts={};
+  crmOrders.forEach(o=>{
+    const d=crmParseDateLocal(o.startDate);if(!d)return;
+    if(year&&d.getFullYear()!==year)return;
+    if(month&&(d.getMonth()+1)!==month)return;
+    (o.items||[]).forEach(it=>{
+      if(!it.name)return;
+      if(!counts[it.name])counts[it.name]={name:it.name,category:it.category||'',orders:0,qty:0};
+      counts[it.name].orders++;
+      counts[it.name].qty+=Math.max(0,Number(it.qty||0));
+    });
+  });
+  let rows=Object.values(counts).filter(r=>!itemQ||r.name.toLowerCase().includes(itemQ)||r.category.toLowerCase().includes(itemQ)).sort((a,b)=>b.orders-a.orders);
+  if(!rows.length){tbl.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Нет данных по заказам</div>';return;}
+  const maxOrders=rows[0].orders;
+  tbl.innerHTML=`<table class="crm-table" style="width:100%"><thead><tr>
+    <th>Изделие</th><th>Категория</th>
+    <th class="mono" style="text-align:center">Заказов</th>
+    <th class="mono" style="text-align:center">Единиц</th>
+    <th style="width:140px">Популярность</th>
+  </tr></thead><tbody>${rows.map(r=>`<tr>
+    <td style="font-weight:500">${esc(r.name)}</td>
+    <td style="color:var(--text2);font-size:12px">${esc(r.category)}</td>
+    <td class="mono" style="text-align:center">${r.orders}</td>
+    <td class="mono" style="text-align:center">${r.qty}</td>
+    <td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round(r.orders/maxOrders*100)}%;border-radius:4px;transition:width .3s"></div></div></td>
+  </tr>`).join('')}</tbody></table>`;
+}
 function crmRenderStock(){
+  crmRenderStockDash();
   const grpEl=document.getElementById('crmStockGroups');if(!grpEl)return;
   const statsEl=document.getElementById('crmStockStats');
   const q=(document.getElementById('crmStockSearch')?.value||'').toLowerCase();
@@ -354,6 +395,7 @@ function crmOpenStockModal(id){
   const dl=document.getElementById('crmStockCatList');
   if(dl)dl.innerHTML=crmCategories.map(c=>`<option value="${esc(c)}">`).join('');
   openModal('crmStockModal');
+  crmApplyZeroClearBehavior(m);
 }
 async function crmSaveStockItem(){
   const id=document.getElementById('crmStockId').value;
