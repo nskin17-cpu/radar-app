@@ -637,16 +637,16 @@ function crmBuildEstimateHTML(d,withDiscount){
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
-  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:13px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
+  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:13px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
-    const td='padding:5px 2px;font-size:9.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
+    const td='padding:6px 0;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(unitPrice)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
   }).join('');
-  const svc='padding:5px 2px;font-size:9.5px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
-  const svcL='padding:5px 2px;font-size:9.5px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
+  const svc='padding:6px 0;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
+  const svcL='padding:6px 0;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
   const deliveryRow=deliveryCost>0?`<tr><td style="${svcL}">Доставка</td><td style="${svc}">—</td><td style="${svc}">—</td><td style="${svc}">${crmFmtN(deliveryCost)}</td></tr>`:'';
   const setupRow=setupCost>0?`<tr><td style="${svcL.replace('border-bottom:1px solid #f0f0f0','')}">Сетап</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">${crmFmtN(setupCost)}</td></tr>`:'';
 
@@ -666,7 +666,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     :'';
 
   // meta rows — always: клиент, период, доставка, сетап, залог, пронос, [скидка, исполнитель]
-  const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong>`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
+  const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`${crmFmtN(depositAmt)} ₽`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
     :`<div style="${P}${PR}">${ML('Пронос / Подъём на этаж',carryMeta)}</div><div style="${PL}"></div>`;
   const lastRow=withDiscount&&discountPct>0
     ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель','Компания NANDRENT')}</div>`
@@ -684,7 +684,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#888;margin-top:3px">${docSubtitle}</div><div style="font-size:10.5px;color:#888;margin-top:2px">Дата: ${today}</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Клиент','<strong>'+clientName+'</strong>'+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${P}${PR}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${PL}">${ML('Период аренды',crmFmtDate(startDate)+'<br>— '+crmFmtDate(endDate))}</div>
     <div style="${P}${PR}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
@@ -693,8 +693,8 @@ function crmBuildEstimateHTML(d,withDiscount){
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:44%"><col style="width:8%"><col style="width:24%"><col style="width:24%"></colgroup>
-    <thead><tr><th style="width:44%;padding:7px 2px 7px 0;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:8%;padding:7px 2px;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол</th><th style="width:24%;padding:7px 2px;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена, ₽</th><th style="width:24%;padding:7px 2px 7px 0;font-family:sans-serif;font-size:8.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
+    <colgroup><col style="width:30%"><col style="width:10%"><col style="width:30%"><col style="width:30%"></colgroup>
+    <thead><tr><th style="width:30%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:10%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол</th><th style="width:30%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена, ₽</th><th style="width:30%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
     <tbody>${itemsRowsHTML}${deliveryRow}${setupRow}</tbody>
   </table>
   <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
@@ -715,10 +715,10 @@ function crmBuildActHTML(d){
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
-  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:12px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
+  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:12px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
   const itemsRowsHTML=items.map(i=>{
-    const td='padding:8px 10px;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
+    const td='padding:6px 0;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right;color:#ccc"> </td></tr>`;
   }).join('');
 
@@ -735,18 +735,18 @@ function crmBuildActHTML(d){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT')}</div>
-    <div style="${PL}">${ML('Клиент','<strong>'+clientName+'</strong>'+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${PL}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${P}${PR}">${ML('Сетап',setupMeta)}</div>
     <div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>
-    <div style="${P}${PR};border-bottom:none">${ML('Залог принят',depositAmt>0?`<strong>${crmFmtN(depositAmt)} ₽</strong>`:'—')}</div>
+    <div style="${P}${PR};border-bottom:none">${ML('Залог принят',depositAmt>0?`${crmFmtN(depositAmt)} ₽`:'—')}</div>
     <div style="${PL};border-bottom:none"></div>
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
   <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
-    <thead><tr><th style="width:60%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:20%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="width:20%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
+    <colgroup><col style="width:50%"><col style="width:25%"><col style="width:25%"></colgroup>
+    <thead><tr><th style="width:50%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:25%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="width:25%;padding:8px 0;font-family:sans-serif;font-size:9px;letter-spacing:0.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
     <tbody>${itemsRowsHTML}</tbody>
   </table>
   <div style="margin-top:40px;font-family:sans-serif;font-size:12px;color:#333">
