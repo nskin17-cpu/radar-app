@@ -604,7 +604,7 @@ function crmGetPdfOrderData(){
     items:crmGetItems(),
   };
 }
-function crmRenderAndSavePDF(htmlStr,filename,cb){
+function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
   const container=document.createElement('div');
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=htmlStr;
@@ -617,7 +617,9 @@ function crmRenderAndSavePDF(htmlStr,filename,cb){
     const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
     let offset=0;
     while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
-    if(cb)cb(pdf);else{pdf.save(filename);showToast('PDF скачан','success');}
+    if(cb)cb(pdf);
+    else if(openInTab){const url=URL.createObjectURL(pdf.output('blob'));window.open(url,'_blank');}
+    else{pdf.save(filename);showToast('PDF скачан','success');}
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
 function crmBuildEstimateHTML(d,withDiscount){
@@ -638,14 +640,15 @@ function crmBuildEstimateHTML(d,withDiscount){
   const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:13px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
   const itemsRowsHTML=items.map(i=>{
-    const sum=Number(i.price)*Number(i.qty);
-    const td='padding:8px 10px;font-size:11.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
-    return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(i.price)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
+    const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
+    const sum=unitPrice*Number(i.qty);
+    const td='padding:8px 8px;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
+    return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(unitPrice)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
   }).join('');
-  const svc='padding:8px 12px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
-  const svcL='padding:8px 12px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
+  const svc='padding:8px 8px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
+  const svcL='padding:8px 8px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0';
   const deliveryRow=deliveryCost>0?`<tr><td style="${svcL}">Доставка</td><td style="${svc}">—</td><td style="${svc}">—</td><td style="${svc}">${crmFmtN(deliveryCost)}</td></tr>`:'';
-  const setupRow=setupCost>0?`<tr><td style="${svcL.replace('border-bottom:1px solid #f0f0f0','')}" >Сетап</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">${crmFmtN(setupCost)}</td></tr>`:'';
+  const setupRow=setupCost>0?`<tr><td style="${svcL.replace('border-bottom:1px solid #f0f0f0','')}">Сетап</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">—</td><td style="${svc.replace('border-bottom:1px solid #f0f0f0','')}">${crmFmtN(setupCost)}</td></tr>`:'';
 
   const tr=(label,val,color='#444',size='12px',weight='400',bTop=false)=>
     `<tr><td style="padding:3px 12px;font-size:${size};color:${color};font-weight:${weight};font-family:sans-serif;${bTop?'border-top:1px solid #ddd;padding-top:10px':''}"> ${label}</td><td style="padding:3px 12px;font-size:${size};color:${color};font-weight:${weight};font-family:sans-serif;text-align:right;${bTop?'border-top:1px solid #ddd;padding-top:10px':''}">${val}</td></tr>`;
@@ -675,7 +678,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`
     :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`;
 
-  return`<div style="width:794px;background:#fff;padding:44px 60px 40px;font-family:Georgia,serif;box-sizing:border-box">
+  return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
     <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#888;margin-top:3px">${docSubtitle}</div><div style="font-size:10.5px;color:#888;margin-top:2px">Дата: ${today}</div></div>
@@ -689,19 +692,19 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${lastRow}
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:674px;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:350px"><col style="width:81px"><col style="width:121px"><col style="width:122px"></colgroup>
-    <thead><tr><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол-во</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена за шт, ₽</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:52%"><col style="width:10%"><col style="width:19%"><col style="width:19%"></colgroup>
+    <thead><tr><th style="width:52%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:10%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол-во</th><th style="width:19%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена за шт</th><th style="width:19%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
     <tbody>${itemsRowsHTML}${deliveryRow}${setupRow}</tbody>
   </table>
-  <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:674px;border-collapse:collapse">${totalsRows}</table></div>
+  <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
   <div style="margin-top:20px;padding:16px 20px;background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
   </div>
   <div style="margin-top:14px;padding:10px 14px;border:1px solid #e0e0e0;font-family:sans-serif;font-size:9.5px;color:#888;line-height:1.45"><strong style="color:#555">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения — удерживается полная стоимость аренды.</div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#ccc;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:9px;color:#ccc;font-family:sans-serif">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
-</div>`;
+</div></div>`;
 }
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,items}=d;
@@ -725,7 +728,7 @@ function crmBuildActHTML(d){
     <span style="white-space:nowrap">Исполнитель</span><span style="flex:1;border-bottom:1px solid #1a1a1a;min-width:100px"></span>
   </div>`;
 
-  return`<div style="width:794px;background:#fff;padding:44px 60px 40px;font-family:Georgia,serif;box-sizing:border-box">
+  return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
     <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Акт передачи</div><div style="font-size:10.5px;color:#888;margin-top:3px">№ ${orderId} · ${today}</div></div>
@@ -741,9 +744,9 @@ function crmBuildActHTML(d){
     <div style="${PL};border-bottom:none"></div>
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:674px;border-collapse:collapse;table-layout:fixed">
-    <colgroup><col style="width:404px"><col style="width:135px"><col style="width:135px"></colgroup>
-    <thead><tr><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
+    <thead><tr><th style="width:60%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="width:20%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="width:20%;padding:8px 8px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
     <tbody>${itemsRowsHTML}</tbody>
   </table>
   <div style="margin-top:40px;font-family:sans-serif;font-size:12px;color:#333">
@@ -752,7 +755,7 @@ function crmBuildActHTML(d){
     <div style="display:flex;align-items:flex-end;gap:14px"><span style="white-space:nowrap">С условиями ознакомлен/а. Услуга оказана в полном объёме</span><span style="flex:1;border-bottom:1px solid #1a1a1a;min-width:80px"></span></div>
   </div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#ccc;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:9px;color:#ccc;font-family:sans-serif">Залог возвращается после возврата и проверки изделий</span></div>
-</div>`;
+</div></div>`;
 }
 function crmGenerateEstimatePDF(withDiscount){
   const d=crmGetPdfOrderData();
@@ -767,10 +770,10 @@ function crmGenerateActPDF(){
 }
 function crmDownloadAllPDF(){
   const d=crmGetPdfOrderData();
-  showToast('Генерируем 3 документа…','info');
-  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),`Смета_профессионал_${d.orderId}.pdf`);
-  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),`Смета_${d.orderId}.pdf`),1200);
-  setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`),2400);
+  showToast('Открываем 3 документа…','info');
+  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,null,true);
+  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,null,true),1200);
+  setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
 }
 // CRM Dashboard
 function crmRenderDash(){
