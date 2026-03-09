@@ -307,10 +307,10 @@ function crmRenderStats(){
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmRenderStockDash(){
   const tbl=document.getElementById('crmStockDashTable');if(!tbl)return;
-  const selYear=document.getElementById('crmDashYear');
+  const selYear=document.getElementById('crmStockDashYear');
   const year=Number(selYear?.value||0);
-  const month=Number(document.getElementById('crmDashMonth')?.value||0);
-  const itemQ=(document.getElementById('crmDashItemFilter')?.value||'').toLowerCase();
+  const month=Number(document.getElementById('crmStockDashMonth')?.value||0);
+  const itemQ=(document.getElementById('crmStockDashItemFilter')?.value||'').toLowerCase();
   // populate year options once
   if(selYear&&selYear.options.length<=1){
     const years=[...new Set(crmOrders.map(o=>{const d=crmParseDateLocal(o.startDate);return d?d.getFullYear():null}).filter(Boolean))].sort((a,b)=>b-a);
