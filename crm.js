@@ -635,11 +635,11 @@ function crmBuildEstimateHTML(d,withDiscount){
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
-  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:12px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
+  const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:13px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
   const itemsRowsHTML=items.map(i=>{
     const sum=Number(i.price)*Number(i.qty);
-    const td='padding:8px 12px;font-size:11.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif';
+    const td='padding:8px 10px;font-size:11.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right">${crmFmtN(i.price)}</td><td style="${td};text-align:right">${crmFmtN(sum)}</td></tr>`;
   }).join('');
   const svc='padding:8px 12px;font-size:11px;color:#888;font-style:italic;font-family:sans-serif;border-bottom:1px solid #f0f0f0;text-align:right';
@@ -669,7 +669,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель','Компания NANDRENT')}</div>`
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель','Компания NANDRENT')}</div><div style="${PL};border-bottom:none"></div>`;
 
-  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:11px;color:#333;line-height:1.6"><span style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
+  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:12px;color:#333;line-height:1.6"><span style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
   const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий`):'';
   const payGrid=depositAmt>0
     ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`
@@ -689,8 +689,9 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${lastRow}
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:100%;border-collapse:collapse">
-    <thead><tr style="background:#1a1a1a"><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left">Наименование</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right">Кол-во</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right">Цена за шт, ₽</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right">Сумма, ₽</th></tr></thead>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:52%"><col style="width:12%"><col style="width:18%"><col style="width:18%"></colgroup>
+    <thead><tr><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Кол-во</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Цена за шт, ₽</th><th style="padding:8px 10px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Сумма, ₽</th></tr></thead>
     <tbody>${itemsRowsHTML}${deliveryRow}${setupRow}</tbody>
   </table>
   <div style="border-top:2px solid #1a1a1a;padding-top:12px;margin-top:14px"><table style="width:100%;border-collapse:collapse">${totalsRows}</table></div>
@@ -698,7 +699,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
   </div>
-  <div style="margin-top:14px;padding:11px 16px;border:1px solid #e0e0e0;font-family:sans-serif;font-size:10.5px;color:#888;line-height:1.5"><strong style="color:#555">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения — удерживается полная стоимость аренды.</div>
+  <div style="margin-top:14px;padding:10px 14px;border:1px solid #e0e0e0;font-family:sans-serif;font-size:9.5px;color:#888;line-height:1.45"><strong style="color:#555">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения — удерживается полная стоимость аренды.</div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#ccc;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:9px;color:#ccc;font-family:sans-serif">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div>`;
 }
@@ -714,7 +715,7 @@ function crmBuildActHTML(d){
   const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:12px;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
   const itemsRowsHTML=items.map(i=>{
-    const td='padding:8px 12px;font-size:11.5px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif';
+    const td='padding:8px 10px;font-size:11px;color:#333;border-bottom:1px solid #f0f0f0;font-family:sans-serif;word-break:break-word';
     return`<tr><td style="${td}">${i.name}</td><td style="${td};text-align:right">${i.qty}</td><td style="${td};text-align:right;color:#ccc"> </td></tr>`;
   }).join('');
 
@@ -740,8 +741,9 @@ function crmBuildActHTML(d){
     <div style="${PL};border-bottom:none"></div>
   </div>
   <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
-  <table style="width:100%;border-collapse:collapse">
-    <thead><tr style="background:#1a1a1a"><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left">Наименование</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right">Получено, шт</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right">Возвращено, шт</th></tr></thead>
+  <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+    <colgroup><col style="width:60%"><col style="width:20%"><col style="width:20%"></colgroup>
+    <thead><tr><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:left;background-color:#000000">Наименование</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Получено, шт</th><th style="padding:8px 12px;font-family:sans-serif;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#fff;font-weight:600;text-align:right;background-color:#000000">Возвращено, шт</th></tr></thead>
     <tbody>${itemsRowsHTML}</tbody>
   </table>
   <div style="margin-top:40px;font-family:sans-serif;font-size:12px;color:#333">
