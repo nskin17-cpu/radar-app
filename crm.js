@@ -763,7 +763,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   // meta rows — always: клиент, период, доставка, сетап, залог, пронос, [скидка, исполнитель]
   const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`${crmFmtN(depositAmt)} ₽`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
     :`<div style="${P}${PR}">${ML('Пронос / Подъём на этаж',carryMeta)}</div><div style="${PL}"></div>`;
-  const executor='Компания NANDRENT<br>тел 89668668666';
+  const executor='Компания NANDRENT<br>тел. +7 (966) 866-86-66';
   const lastRow=withDiscount&&discountPct>0
     ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
@@ -794,7 +794,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
   </div>
-  <div style="margin-top:14px;padding:12px 14px;border:1px solid #d9c89a;border-left:4px solid #b8860b;background:#fffaf0;font-family:sans-serif;font-size:10.5px;color:#5f4b1f;line-height:1.5"><strong style="color:#3f2f0f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:10.5px;color:#4f4f4f;line-height:1.5"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div></div>`;
 }
@@ -826,7 +826,7 @@ function crmBuildActHTML(d){
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Акт передачи</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел 89668668666')}</div>
+    <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел. +7 (966) 866-86-66')}</div>
     <div style="${PL}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
@@ -842,7 +842,7 @@ function crmBuildActHTML(d){
     ${sigLine('«Возвращено» подтверждаю:')}
     <div style="display:flex;align-items:flex-end;gap:14px"><span style="white-space:nowrap">С условиями ознакомлен/а. Услуга оказана в полном объёме</span><span style="flex:1;border-bottom:1px solid #1a1a1a;min-width:80px"></span></div>
   </div>
-  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#ccc;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:9px;color:#ccc;font-family:sans-serif">Залог возвращается после возврата и проверки изделий</span></div>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #e3e3e3;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#b0b0b0;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#6a6a6a;font-family:sans-serif;font-weight:600">Залог возвращается после возврата и проверки изделий.</span></div>
 </div></div>`;
 }
 function crmGenerateEstimatePDF(withDiscount){
