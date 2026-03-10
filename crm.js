@@ -79,7 +79,9 @@ function crmRefreshRowsForYearMode(){
     if(!catSel||!nameSel)return;
     const selectedName=nameSel.value;
     const its=crmStock.filter(s=>s.category===catSel.value);
-    nameSel.innerHTML='<option value="">Изделие</option>'+its.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" ${selectedName===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
+    const selInStock=its.some(s=>s.name===selectedName);
+    const selFallback=selectedName&&!selInStock?`<option value="${esc(selectedName)}" selected data-price="0" data-setup-rate="0">${esc(selectedName)}</option>`:'';
+    nameSel.innerHTML='<option value="">Изделие</option>'+selFallback+its.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${selectedName===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
     const opt=nameSel.selectedOptions[0];
     priceSpan.textContent=legacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');
   });
@@ -228,7 +230,7 @@ async function crmInit(){
 function crmNormalize(o){
   let items=Array.isArray(o.items)?o.items:[];
   if(typeof o.items==='string')try{items=JSON.parse(o.items)}catch{items=[]}
-  return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount:Number(o.orderAmount||0),budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),remainingAmount:Number(o.remainingAmount||0),status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||''),qty:String(i.qty||'1'),category:String(i.category||''),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
+  return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount:Number(o.orderAmount||0),budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),remainingAmount:Number(o.remainingAmount||0),status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
 }
 function crmRenderAll(){crmRenderOrders();crmRenderStats();crmRenderStock();crmRenderDash();crmSyncQuickFilterUI()}
 function crmSyncQuickFilterUI(){
@@ -523,7 +525,7 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
   row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
   const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('[data-price]'),qtyInp=row.querySelector('[data-qty]');
-  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map(s=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}">${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');priceSpan.textContent='';crmCalcTotal()});
+  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');if(rateSpan){const r=Number(opt?.dataset.setupRate||0);rateSpan.textContent=r>0?' '+r+'₽':'';}crmCalcTotal()});
   nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');if(rateSpan){const r=Number(opt?.dataset.setupRate||0);rateSpan.textContent=r>0?' '+r+'₽':'';}crmCalcTotal()});
   qtyInp.addEventListener('input',crmCalcTotal);
   list.appendChild(row);
@@ -556,7 +558,7 @@ function crmCalcTotal(){
 function crmGetItems(){
   const items=[];
   document.getElementById('crmItemsList').querySelectorAll('[data-qty]').forEach(q=>{
-    const row=q.parentElement;const name=row.querySelector('[data-name]').value;
+    const row=q.parentElement;const name=(row.querySelector('[data-name]').value||'').trim();
     const cat=row.querySelector('[data-cat]').value;const opt=row.querySelector('[data-name]').selectedOptions[0];
     if(name)items.push({name,category:cat,qty:q.value||'1',price:Number(opt?.dataset.price||0),setup:row.querySelector('[data-setup]')?.checked!==false});
   });
@@ -569,7 +571,10 @@ async function crmSaveOrder(){
   if(isPaid)document.getElementById('crmRemaining').value='0';
   const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount:Number(document.getElementById('crmAmount').value)||0,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,remainingAmount:isPaid?0:(Number(document.getElementById('crmRemaining').value)||0),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||''};
   if(!o.clientName){showToast('Укажите клиента','error');return}
-  if(id){o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);showToast('Обновлено','success')}
+  if(id){
+    const prevItems=(crmOrders.find(x=>x.id===id)?.items||[]).filter(i=>i.name);
+    if(prevItems.length>0&&o.items.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
+    o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);showToast('Обновлено','success')}
   else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o)}showToast('Заказ создан','success')}
   crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
 }
