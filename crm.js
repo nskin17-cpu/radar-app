@@ -238,6 +238,25 @@ function crmNormalize(o){
   if(typeof o.items==='string')try{items=JSON.parse(o.items)}catch{items=[]}
   return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount:Number(o.orderAmount||0),budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),remainingAmount:Number(o.remainingAmount||0),status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
 }
+function crmCleanItemName(name){
+  return String(name||'').replace(/\s*[—-]\s*\d[\d\s]*\s*₽\s*$/,'').trim();
+}
+function crmGetItemDisplayName(item){
+  const name=crmCleanItemName(item?.name||'');
+  const category=String(item?.category||'').trim();
+  if(name&&category&&name!==category){
+    const ln=name.toLowerCase(),lc=category.toLowerCase();
+    if(ln.startsWith(lc))return name;
+    return `${category}: ${name}`;
+  }
+  return name||category||'—';
+}
+function crmGetSelectedItemName(nameSel,category){
+  const rawValue=crmCleanItemName(nameSel?.value||'');
+  const optionText=crmCleanItemName(nameSel?.selectedOptions?.[0]?.textContent||'');
+  if(optionText&&rawValue===String(category||'').trim()&&optionText!==rawValue)return optionText;
+  return rawValue||optionText;
+}
 function crmRenderAll(){crmRenderOrders();crmRenderStats();crmRenderStock();crmRenderDash();crmSyncQuickFilterUI()}
 function crmSyncQuickFilterUI(){
   const map={month:'crmMonthOrders',not_completed:'crmNotCompleted',assembly:'crmAssembly',tomorrow:'crmTomorrow'};
@@ -284,7 +303,9 @@ function crmRenderOrders(){
     const remain=Number(o.remainingAmount||0);
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
-    const itemsList=(o.items||[]).map(i=>`${esc(i.name)} ×${i.qty}`).join(', ')||'—';
+    const itemsList=(o.items||[]).length
+      ? `<div style="display:flex;flex-direction:column;gap:2px">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
+      : '—';
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}</td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
@@ -621,8 +642,11 @@ function crmCalcTotal(){
 function crmGetItems(){
   const items=[];
   document.getElementById('crmItemsList').querySelectorAll('[data-qty]').forEach(q=>{
-    const row=q.parentElement;const name=(row.querySelector('[data-name]').value||'').trim();
-    const cat=row.querySelector('[data-cat]').value;const opt=row.querySelector('[data-name]').selectedOptions[0];
+    const row=q.parentElement;
+    const nameSel=row.querySelector('[data-name]');
+    const cat=row.querySelector('[data-cat]').value;
+    const name=crmGetSelectedItemName(nameSel,cat);
+    const opt=nameSel?.selectedOptions?.[0];
     if(name)items.push({name,category:cat,qty:q.value||'1',price:Number(opt?.dataset.price||0),setup:row.querySelector('[data-setup]')?.checked!==false});
   });
   return items;
@@ -720,7 +744,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
-    const iDisplay=(i.category&&i.category!==i.name)?`${i.category}: ${i.name}`:i.name;
+    const iDisplay=crmGetItemDisplayName(i);
     return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
   }).join('');
   const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
@@ -796,7 +820,7 @@ function crmBuildActHTML(d){
   const aName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
   const aDetail='font-size:12.5px;color:#888;font-family:sans-serif';
   const aRow='padding:9px 0;border-bottom:1px solid #f0f0f0';
-  const itemsRowsHTML=items.map(i=>{const aDisplay=(i.category&&i.category!==i.name)?`${i.category}: ${i.name}`:i.name;return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
+  const itemsRowsHTML=items.map(i=>{const aDisplay=crmGetItemDisplayName(i);return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
 
   const sigLine=(label)=>`<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:32px;font-family:sans-serif;font-size:12px;color:#333">
     <span style="white-space:nowrap">${label}</span>
