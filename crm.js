@@ -244,11 +244,6 @@ function crmCleanItemName(name){
 function crmGetItemDisplayName(item){
   const name=crmCleanItemName(item?.name||'');
   const category=String(item?.category||'').trim();
-  if(name&&category&&name!==category){
-    const ln=name.toLowerCase(),lc=category.toLowerCase();
-    if(ln.startsWith(lc))return name;
-    return `${category}: ${name}`;
-  }
   return name||category||'—';
 }
 function crmGetSelectedItemName(nameSel,category){
@@ -303,9 +298,7 @@ function crmRenderOrders(){
     const remain=Number(o.remainingAmount||0);
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
-    const itemsList=(o.items||[]).length
-      ? `<div style="display:flex;flex-direction:column;gap:2px">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
-      : '—';
+    const itemsList=(o.items||[]).map(i=>`${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}`).join(', ')||'—';
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}</td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
@@ -727,12 +720,11 @@ function crmBuildEstimateHTML(d,withDiscount){
   const itemsAfterDiscount=itemsTotal-discountAmt;
   const grandTotal=itemsAfterDiscount+deliveryCost+setupCost;
   const prepay=Math.round(grandTotal*0.5);
-  const today=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
   const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
-  const docSubtitle=withDiscount?`Для профессионала · № ${orderId}`:`№ ${orderId}`;
+  const docSubtitle=withDiscount?'Для профессионала':'Стандарт';
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
@@ -771,9 +763,10 @@ function crmBuildEstimateHTML(d,withDiscount){
   // meta rows — always: клиент, период, доставка, сетап, залог, пронос, [скидка, исполнитель]
   const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`${crmFmtN(depositAmt)} ₽`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
     :`<div style="${P}${PR}">${ML('Пронос / Подъём на этаж',carryMeta)}</div><div style="${PL}"></div>`;
+  const executor='Компания NANDRENT<br>тел 89668668666';
   const lastRow=withDiscount&&discountPct>0
-    ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель','Компания NANDRENT')}</div>`
-    :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель','Компания NANDRENT')}</div><div style="${PL};border-bottom:none"></div>`;
+    ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
+    :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
 
   const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:12px;color:#333;line-height:1.6"><span style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
   const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий`):'';
@@ -784,7 +777,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
     <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
-    <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#888;margin-top:3px">${docSubtitle}</div><div style="font-size:10.5px;color:#888;margin-top:2px">Дата: ${today}</div></div>
+    <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
@@ -801,13 +794,12 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
   </div>
-  <div style="margin-top:14px;padding:10px 14px;border:1px solid #e0e0e0;font-family:sans-serif;font-size:9.5px;color:#888;line-height:1.45"><strong style="color:#555">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения — удерживается полная стоимость аренды.</div>
-  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#ccc;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:9px;color:#ccc;font-family:sans-serif">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
+  <div style="margin-top:14px;padding:12px 14px;border:1px solid #d9c89a;border-left:4px solid #b8860b;background:#fffaf0;font-family:sans-serif;font-size:10.5px;color:#5f4b1f;line-height:1.5"><strong style="color:#3f2f0f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div></div>`;
 }
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
-  const today=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
@@ -831,10 +823,10 @@ function crmBuildActHTML(d){
   return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
     <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
-    <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Акт передачи</div><div style="font-size:10.5px;color:#888;margin-top:3px">№ ${orderId} · ${today}</div></div>
+    <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Акт передачи</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT')}</div>
+    <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел 89668668666')}</div>
     <div style="${PL}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
