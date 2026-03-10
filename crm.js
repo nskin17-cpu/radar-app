@@ -1,5 +1,5 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmQuickFilter='all',crmYearFilter=new Date().getFullYear();
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear();
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const crmPricingDefaults={
   deliveryBaseCity:7200,
@@ -220,9 +220,15 @@ async function crmFillSetupRates(){
   }
 }
 async function crmInit(){
-  const[r1,r2,r3]=await Promise.all([api('getOrders'),api('getStock'),api('getPricingConfig')]);
+  const[r1,r2,r3,r4]=await Promise.all([api('getOrders'),api('getStock'),api('getPricingConfig'),api('getCategories')]);
   if(r1.success)crmOrders=(r1.orders||[]).map(crmNormalize);
-  if(r2.success){crmStock=r2.stock||[];crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort()}
+  if(r2.success)crmStock=r2.stock||[];
+  if(r4?.success&&(r4.categories||[]).length){
+    crmCategoriesData=r4.categories||[];
+    crmCategories=crmCategoriesData.map(c=>c.name);
+  }else{
+    crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort();
+  }
   crmApplyPricingConfig(crmExtractPricingConfig(r3));
   crmRenderAll();
   crmFillSetupRates();
@@ -346,28 +352,30 @@ function crmRenderStockDash(){
     <td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round(r.orders/maxOrders*100)}%;border-radius:4px;transition:width .3s"></div></div></td>
   </tr>`).join('')}</tbody></table></div>`;
 }
+function crmSetStockCat(cat){crmActiveStockCategory=cat;crmRenderStock()}
 function crmRenderStock(){
   crmRenderStockDash();
+  // Category tabs
+  const tabs=document.getElementById('crmStockCatTabs');
+  if(tabs){
+    const allCats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort();
+    tabs.innerHTML='<button class="filter-btn'+(crmActiveStockCategory===''?' active':'')+'" onclick="crmSetStockCat(\'\')">Все</button>'+
+      allCats.map(c=>`<button class="filter-btn${crmActiveStockCategory===c?' active':''}" onclick="crmSetStockCat('${esc(c)}')">${esc(c)}</button>`).join('');
+  }
   const grpEl=document.getElementById('crmStockGroups');if(!grpEl)return;
   const statsEl=document.getElementById('crmStockStats');
   const q=(document.getElementById('crmStockSearch')?.value||'').toLowerCase();
-  const items=crmStock.filter(s=>!q||[s.name,s.category].join(' ').toLowerCase().includes(q));
-
-  // Stats — только 2 карточки
+  let items=crmStock.filter(s=>!q||[s.name,s.category].join(' ').toLowerCase().includes(q));
+  if(crmActiveStockCategory)items=items.filter(s=>s.category===crmActiveStockCategory);
   if(statsEl){
     const cats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))];
-    statsEl.innerHTML=`
-      <div class="stat-card"><div class="stat-label">Позиций</div><div class="stat-value dark">${crmStock.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Категорий</div><div class="stat-value blue">${cats.length}</div></div>`;
+    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Позиций</div><div class="stat-value dark">${crmStock.length}</div></div><div class="stat-card"><div class="stat-label">Категорий</div><div class="stat-value blue">${cats.length}</div></div>`;
   }
-
-  if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';return}
-
-  // Один общий стол с разделителями-строками (как месяцы в заказах)
+  if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';crmRenderPricingSection();return}
   const grouped={};
   items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
   let rows='';
-  Object.entries(grouped).forEach(([cat,its],idx)=>{
+  Object.entries(grouped).forEach(([cat,its])=>{
     rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
     rows+=its.map(s=>`<tr>
       <td style="font-weight:500">${esc(s.name)}</td>
@@ -378,6 +386,50 @@ function crmRenderStock(){
     </tr>`).join('');
   });
   grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  crmRenderPricingSection();
+}
+function crmRenderPricingSection(){
+  const el=document.getElementById('crmPricingSection');if(!el)return;
+  const catRows=crmCategoriesData.map(c=>`<tr>
+    <td style="font-weight:500">${esc(c.name)}</td>
+    <td class="mono">${c.setupRate>0?fN(c.setupRate)+' ₽/ед.':'—'}</td>
+    <td style="width:32px"><button class="btn-icon" onclick="crmOpenCatRateModal('${esc(c.id)}')">✎</button></td>
+  </tr>`).join('');
+  const minSetup=crmPricing.setupMin||2500;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px">
+    <div class="form-card">
+      <div class="modal-section" style="margin-bottom:12px">Сетап по категориям</div>
+      ${catRows?`<div class="table-wrap"><table style="width:100%"><thead><tr><th>Категория</th><th>Ставка за ед.</th><th></th></tr></thead><tbody>${catRows}</tbody></table></div>`:'<div style="color:var(--text2);font-size:13px">Нет данных — запустите createCategoriesSheet в Apps Script</div>'}
+    </div>
+    <div class="form-card">
+      <div class="modal-section" style="margin-bottom:12px">Доставка и минимум</div>
+      <div style="display:grid;gap:0">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border)"><span style="color:var(--text2);font-size:13px">В пределах города</span><span class="mono" style="font-weight:600">${fN(crmPricing.deliveryBaseCity)} ₽</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:0.5px solid var(--border)"><span style="color:var(--text2);font-size:13px">За каждый км (за городом)</span><span class="mono" style="font-weight:600">${fN(crmPricing.deliveryPerKm)} ₽/км</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0"><span style="color:var(--text2);font-size:13px">Минимум сетапа</span><span class="mono" style="font-weight:600">${fN(minSetup)} ₽</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+function crmOpenCatRateModal(id){
+  const cat=crmCategoriesData.find(c=>c.id===id);if(!cat)return;
+  document.getElementById('crmCatRateId').value=cat.id;
+  document.getElementById('crmCatRateName').textContent=cat.name;
+  document.getElementById('crmCatRateVal').value=cat.setupRate||0;
+  openModal('crmCatRateModal');
+  crmApplyZeroClearBehavior(document.getElementById('crmCatRateModal'));
+}
+async function crmSaveCatRate(){
+  const id=document.getElementById('crmCatRateId').value;
+  const rate=Number(document.getElementById('crmCatRateVal').value)||0;
+  const cat=crmCategoriesData.find(c=>c.id===id);if(!cat)return;
+  const r=await api('updateCategory',{category:{id,name:cat.name,setupRate:rate}});
+  if(r.success){
+    cat.setupRate=rate;
+    showToast('Сохранено','success');
+    closeModal('crmCatRateModal');
+    crmRenderPricingSection();
+  }else{showToast('Ошибка сохранения','error')}
 }
 
 function crmOpenStockModal(id){
@@ -385,16 +437,28 @@ function crmOpenStockModal(id){
   const s=id?crmStock.find(x=>x.id===id):null;
   document.getElementById('crmStockModalTitle').textContent=s?'Редактировать позицию':'Добавить позицию';
   document.getElementById('crmStockId').value=s?.id||'';
-  document.getElementById('crmStockCat').value=s?.category||'';
+  // Populate category select
+  const catSel=document.getElementById('crmStockCat');
+  if(catSel){
+    const catList=crmCategoriesData.length?crmCategoriesData:crmCategories.map(n=>({id:n,name:n,setupRate:0}));
+    catSel.innerHTML='<option value="">Выберите категорию</option>'+
+      catList.map(c=>`<option value="${esc(c.name)}" data-rate="${c.setupRate||0}" ${s?.category===c.name?'selected':''}>${esc(c.name)}</option>`).join('');
+    if(!catSel.dataset.bound){
+      catSel.dataset.bound='1';
+      catSel.addEventListener('change',()=>{
+        const opt=catSel.selectedOptions[0];
+        const rate=Number(opt?.dataset.rate||0);
+        const rateEl=document.getElementById('crmStockSetupRate');
+        if(rateEl&&!document.getElementById('crmStockId').value)rateEl.value=rate;
+      });
+    }
+  }
   document.getElementById('crmStockName').value=s?.name||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
   document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
   document.getElementById('crmStockQty').value=s?.qty||0;
   document.getElementById('crmStockUnit').value=s?.unit||'шт';
   document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
-  // Fill datalist
-  const dl=document.getElementById('crmStockCatList');
-  if(dl)dl.innerHTML=crmCategories.map(c=>`<option value="${esc(c)}">`).join('');
   openModal('crmStockModal');
   crmApplyZeroClearBehavior(m);
 }
@@ -419,7 +483,7 @@ async function crmSaveStockItem(){
     showToast(id?'Обновлено':'Добавлено','success');
     closeModal('crmStockModal');
     const r2=await api('getStock');
-    if(r2.success){crmStock=r2.stock||[];crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort()}
+    if(r2.success)crmStock=r2.stock||[];
     crmRenderStock();
   }else{showToast('Ошибка сохранения','error')}
 }
@@ -432,7 +496,6 @@ async function crmDeleteStockItem(){
     showToast('Удалено','success');
     closeModal('crmStockModal');
     crmStock=crmStock.filter(s=>s.id!==id);
-    crmCategories=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort();
     crmRenderStock();
   }else{showToast('Ошибка удаления','error')}
 }
@@ -525,8 +588,8 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
   row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
   const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('[data-price]'),qtyInp=row.querySelector('[data-qty]');
-  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');if(rateSpan){const r=Number(opt?.dataset.setupRate||0);rateSpan.textContent=r>0?' '+r+'₽':'';}crmCalcTotal()});
-  nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');if(rateSpan){const r=Number(opt?.dataset.setupRate||0);rateSpan.textContent=r>0?' '+r+'₽':'';}crmCalcTotal()});
+  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r0=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r0>0?' '+r0+'₽':'';const setupCb0=row.querySelector('[data-setup]');if(setupCb0&&r0===0)setupCb0.checked=false;crmCalcTotal()});
+  nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r>0?' '+r+'₽':'';const setupCb=row.querySelector('[data-setup]');if(setupCb&&r===0)setupCb.checked=false;crmCalcTotal()});
   qtyInp.addEventListener('input',crmCalcTotal);
   list.appendChild(row);
   row.querySelector('[data-setup]')?.addEventListener('change',crmCalcTotal);
