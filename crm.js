@@ -367,8 +367,8 @@ function crmRenderStockDash(){
   const modeSel=document.getElementById('crmStockDemandMode');
   const metricSel=document.getElementById('crmStockDemandMetric');
   const statsEl=document.getElementById('crmStockDemandStats');
-  const topEl=document.getElementById('crmStockTopList');
-  const lowEl=document.getElementById('crmStockLowList');
+  const topCatsEl=document.getElementById('crmStockTopCategories');
+  const topItemsEl=document.getElementById('crmStockTopItems');
   const selYear=document.getElementById('crmStockDashYears');
   const selMonth=document.getElementById('crmStockDashMonths');
   const selCats=document.getElementById('crmStockDashCategories');
@@ -401,26 +401,55 @@ function crmRenderStockDash(){
   const itemsSet=new Set(crmGetMultiValues('crmStockDashItems'));
 
   const counts={};
+  const countsByCategory={};
+  const countsByItem={};
+  const periodSet=new Set();
+  const periodData={};
   paidOrders.forEach((o,ix)=>{
     const d=crmParseDateLocal(o.startDate);if(!d)return;
     if(yearsSet.size&&!yearsSet.has(d.getFullYear()))return;
     if(monthsSet.size&&!monthsSet.has(d.getMonth()))return;
     const orderKey=o.id||`ROW_${ix}`;
+    const periodKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    periodSet.add(periodKey);
     const perOrder={};
+    const perCat={};
+    const perItem={};
     (o.items||[]).forEach(it=>{
       const cat=String(it.category||'').trim()||'Без категории';
       const nm=String(it.name||'').trim();
+      const qty=Math.max(0,Number(it.qty||0));
+      if(!perCat[cat])perCat[cat]={orders:new Set(),qty:0};
+      perCat[cat].orders.add(orderKey);perCat[cat].qty+=qty;
+      if(nm){
+        if(!perItem[nm])perItem[nm]={orders:new Set(),qty:0,category:cat};
+        perItem[nm].orders.add(orderKey);perItem[nm].qty+=qty;
+      }
       if(catsSet.size&&!catsSet.has(cat))return;
       if(mode==='item'&&itemsSet.size&&!itemsSet.has(nm))return;
       const key=mode==='category'?cat:nm;
       if(!key)return;
       if(!perOrder[key])perOrder[key]={key,category:cat,qty:0};
-      perOrder[key].qty+=Math.max(0,Number(it.qty||0));
+      perOrder[key].qty+=qty;
+    });
+    Object.entries(perCat).forEach(([k,v])=>{
+      if(!countsByCategory[k])countsByCategory[k]={name:k,count:0,qty:0};
+      countsByCategory[k].count+=v.orders.size;
+      countsByCategory[k].qty+=v.qty;
+    });
+    Object.entries(perItem).forEach(([k,v])=>{
+      if(!countsByItem[k])countsByItem[k]={name:k,category:v.category,count:0,qty:0};
+      countsByItem[k].count+=v.orders.size;
+      countsByItem[k].qty+=v.qty;
     });
     Object.values(perOrder).forEach(p=>{
       if(!counts[p.key])counts[p.key]={name:p.key,category:p.category,orders:new Set(),qty:0};
       const r=counts[p.key];
       r.orders.add(orderKey);r.qty+=p.qty;
+      if(!periodData[p.key])periodData[p.key]={};
+      if(!periodData[p.key][periodKey])periodData[p.key][periodKey]={orders:new Set(),qty:0};
+      periodData[p.key][periodKey].orders.add(orderKey);
+      periodData[p.key][periodKey].qty+=p.qty;
     })
   });
 
@@ -433,23 +462,40 @@ function crmRenderStockDash(){
     const trips=rows.reduce((s,r)=>s+r.count,0);
     const qty=rows.reduce((s,r)=>s+r.qty,0);
     const top=rows[0];
-    const low=rows.length?rows[rows.length-1]:null;
+    const low=rows.length?[...rows].sort((a,b)=>(metric==='qty'?a.qty-b.qty:a.count-b.count)||a.count-b.count)[0]:null;
     statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Сходили в заказы</div><div class="stat-value dark">${fN(trips)}</div></div><div class="stat-card"><div class="stat-label">Выдано единиц</div><div class="stat-value blue">${fN(qty)}</div></div><div class="stat-card"><div class="stat-label">Топ периода</div><div class="stat-value purple" style="font-size:14px">${top?esc(top.name):'—'}</div></div><div class="stat-card"><div class="stat-label">Худшая позиция</div><div class="stat-value green" style="font-size:14px">${low?esc(low.name):'—'}</div></div>`;
   }
-  const topRows=[...rows].slice(0,8);
-  const lowRows=[...rows].filter(r=>r.count>0||r.qty>0).sort((a,b)=>(metric==='qty'?a.qty-b.qty:a.count-b.count)||a.count-b.count).slice(0,8);
-  if(topEl)topEl.innerHTML=topRows.length?topRows.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
-  if(lowEl)lowEl.innerHTML=lowRows.length?lowRows.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
+  const topCats=Object.values(countsByCategory).sort((a,b)=>(metric==='qty'?b.qty-a.qty:b.count-a.count)||b.count-a.count).slice(0,10);
+  const topItems=Object.values(countsByItem).sort((a,b)=>(metric==='qty'?b.qty-a.qty:b.count-a.count)||b.count-a.count).slice(0,10);
+  if(topCatsEl)topCatsEl.innerHTML=topCats.length?topCats.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
+  if(topItemsEl)topItemsEl.innerHTML=topItems.length?topItems.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
 
   if(!rows.length){tbl.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Нет данных по заказам</div>';return;}
   const chartCanvas=document.getElementById('crmStockDemandChart');
   if(window.crmStockDemandChartInst)window.crmStockDemandChartInst.destroy();
   if(chartCanvas){
-    const chartRows=rows.slice(0,12);
+    const labels=[...periodSet].sort();
+    const selectedKeys=mode==='category'
+      ? (catsSet.size?[...catsSet]:rows.slice(0,5).map(r=>r.name))
+      : (itemsSet.size?[...itemsSet]:rows.slice(0,5).map(r=>r.name));
+    const palette=['#3478f6','#8944d6','#2a9d52','#d48806','#e5352b','#5ac8fa','#ff9f40','#9c27b0'];
+    const datasets=selectedKeys.map((k,i)=>({
+      label:k,
+      data:labels.map(lb=>{
+        const p=periodData[k]?.[lb];
+        if(!p)return 0;
+        return metric==='qty'?p.qty:p.orders.size;
+      }),
+      borderColor:palette[i%palette.length],
+      backgroundColor:palette[i%palette.length]+'33',
+      tension:.28,
+      pointRadius:2,
+      fill:false
+    }));
     window.crmStockDemandChartInst=new Chart(chartCanvas,{
-      type:'bar',
-      data:{labels:chartRows.map(r=>r.name),datasets:[{label:metric==='qty'?'Единиц':'Заказов',data:chartRows.map(r=>metric==='qty'?r.qty:r.count),backgroundColor:'rgba(52,120,246,0.45)',borderColor:'#3478f6',borderWidth:1,borderRadius:4}]},
-      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}}}
+      type:'line',
+      data:{labels,datasets},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{ticks:{maxRotation:0,minRotation:0}}}}
     });
   }
   const maxCount=Math.max(...rows.map(r=>metric==='qty'?r.qty:r.count),1);

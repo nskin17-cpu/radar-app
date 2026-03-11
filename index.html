@@ -219,8 +219,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px;margin-bottom:10px" id="crmStockDemandFilters">
           <select id="crmStockDemandMode">
-            <option value="item">По изделиям</option>
             <option value="category">По категориям</option>
+            <option value="item">По изделиям</option>
           </select>
           <select id="crmStockDemandMetric">
             <option value="qty">По количеству (шт.)</option>
@@ -233,15 +233,15 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           <select id="crmStockDashItems" multiple size="5" style="grid-column:1/-1"></select>
         </div>
         <div class="stats-grid" id="crmStockDemandStats" style="margin-bottom:10px"></div>
-        <div class="chart-card" style="margin-bottom:10px"><div class="chart-title">График спроса за выбранный период</div><div class="chart-container" style="height:260px"><canvas id="crmStockDemandChart"></canvas></div></div>
+        <div class="chart-card" style="margin-bottom:10px"><div class="chart-title">Сравнительный график по выбранным позициям</div><div class="chart-container" style="height:280px"><canvas id="crmStockDemandChart"></canvas></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="table-wrap" style="padding:10px">
-            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего ходят</div>
-            <div id="crmStockTopList"></div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Топ-10 категорий</div>
+            <div id="crmStockTopCategories"></div>
           </div>
           <div class="table-wrap" style="padding:10px">
-            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Реже всего ходят</div>
-            <div id="crmStockLowList"></div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Топ-10 изделий</div>
+            <div id="crmStockTopItems"></div>
           </div>
         </div>
         <div id="crmStockDashTable"></div>
