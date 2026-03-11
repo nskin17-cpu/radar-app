@@ -298,7 +298,9 @@ function crmRenderOrders(){
     const remain=Number(o.remainingAmount||0);
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
-    const itemsList=(o.items||[]).map(i=>`${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}`).join(', ')||'—';
+    const itemsList=(o.items||[]).length
+      ? `<div style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
+      : '—';
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}</td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
@@ -699,8 +701,19 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
   const container=document.createElement('div');
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=htmlStr;
+  const docRoot=container.firstElementChild;
+  const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
+  if(docRoot){
+    docRoot.style.setProperty('-webkit-text-size-adjust','100%');
+    docRoot.style.setProperty('text-size-adjust','100%');
+    if(isMobile){
+      // Mobile Safari tends to enlarge text in offscreen render; pre-scale keeps PDF typography consistent.
+      docRoot.style.transform='scale(0.9)';
+      docRoot.style.transformOrigin='top left';
+    }
+  }
   document.body.appendChild(container);
-  html2canvas(container.firstElementChild,{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(canvas=>{
+  html2canvas(container.firstElementChild,{scale:isMobile?1.8:2,useCORS:true,logging:false,backgroundColor:'#ffffff',windowWidth:1200}).then(canvas=>{
     document.body.removeChild(container);
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
