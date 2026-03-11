@@ -1,7 +1,61 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear();
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear();
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
+const CRM_CLIENTS_PRESET=[
+  {name:'Светлана Новикова',company:'Семицветик',phone:'8-928-175-59-97'},
+  {name:'Ирина Лазарь',company:'Lazar decor',phone:'8-928-145-35-67'},
+  {name:'Алеся Вавилова',company:'Лютик',phone:'8-903-462-04-40'},
+  {name:'Ирина Пушкарева',company:'Организатор',phone:'8-928-773-79-70'},
+  {name:'Анастасия Фисун',company:'Perlamutr decor',phone:'8-938-104-70-12'},
+  {name:'Дарья Садчикова',company:'Русские сезоны',phone:'8-928-279-49-82'},
+  {name:'Ирина Нечипоренко',company:'COBA',phone:'8-903-400-66-70'},
+  {name:'Дарья Речиц',company:'Decoral',phone:'8-928-172-46-32'},
+  {name:'Варт Данелян',company:'Sweet Rose',phone:'8-903-488-88-11'},
+  {name:'Дарья Сидоровская/Менеджер',company:'Lazar decor',phone:'8-988-991-10-92'},
+  {name:'Анастасия Штукатурова',company:'Lu Flowers',phone:'8-961-412-53-88'},
+  {name:'Елена Алякина',company:'Для тебя',phone:'8-961-415-62-64'},
+  {name:'Галина Хангалдова',company:'Gallawedding',phone:'8-989-702-95-03'},
+  {name:'Ксения Карпенко',company:'Madrina Wedding',phone:'8-961-432-66-00'},
+  {name:'Татьяна Голотова',company:'White Studio',phone:'8-988-540-58-59'},
+  {name:'Лусине Кочарян',company:'Lusi Decor',phone:'8-951-837-04-42'},
+  {name:'Анна Запорожцева',company:'Decoral',phone:'8-908-184-94-34'},
+  {name:'Анастасия Моисеенко/Менеджер',company:'Студия Анастасии Аникановой',phone:'8-952-562-87-97'},
+  {name:'Рена Кочарян',company:'Wedding Rena',phone:'8-928-142-72-57'},
+  {name:'Анна Антонова',company:'',phone:'8-938-119-13-51'},
+  {name:'Елена Шарганова',company:'',phone:'8-918-561-11-00'},
+  {name:'Мария/Администратор',company:'Голицын/Администратор',phone:'8-928-150-83-83'},
+  {name:'Екатерина',company:'Theferst_event',phone:''},
+  {name:'Елена Притоцкая',company:'Event Bureau',phone:'8-989-214-53-34'},
+  {name:'Екатерина Самохвалова/Организатор',company:'',phone:'8-928-270-97-57'},
+  {name:'Ирина Ковалева',company:'',phone:'8-918-528-88-38'},
+  {name:'Анастасия Михайлова',company:'',phone:'8-938-106-05-35'},
+  {name:'Виктория Попова',company:'',phone:'8-908-507-67-85'},
+  {name:'Анастасия Аниканова',company:'Студия Анастасии Аникановой',phone:'8-952-562-87-07'},
+  {name:'Валерия Шилова',company:'Perlamutr decor',phone:'8-908-173-05-14'},
+  {name:'Полина Мазитова/Организатор',company:'Holly Polly',phone:'8-928-270-85-56'},
+  {name:'Галина Кравченко',company:'',phone:'8-909-433-04-77'},
+  {name:'Екатерина Сухомлинова',company:'Оливка декор',phone:'8-918-515-24-05'},
+  {name:'Маргарита Саламатина',company:'Perlamutr decor',phone:'8-989-716-47-06'},
+  {name:'Екатерина Богунова',company:'BLOOMROOM',phone:'8-988-536-27-98'},
+  {name:'Диана Филипченко',company:'',phone:'8-989-505-16-18'},
+  {name:'Анна Атанова',company:'',phone:'8-938-118-13-51'},
+  {name:'Елена Селина',company:'Частник',phone:'8-928-270-70-67'},
+  {name:'Яна Мигас/координатор',company:'',phone:'8-928-214-01-14'},
+  {name:'Анна Живая',company:'Воздушные шары/Зефир Декор',phone:'8-928-901-44-80'},
+  {name:'Евгения Костенко',company:'',phone:'8-961-324-34-36'},
+  {name:'Анна Вошанова',company:'Holly Polly',phone:'8-938-149-77-47'},
+  {name:'Астра/менеджер Пушкаревой',company:'',phone:'8-988-255-88-55'},
+  {name:'Юлия Павлятенко',company:'',phone:'8-928-904-12-20'},
+  {name:'Юлия Болонкина',company:'',phone:'8-918-593-29-79'},
+  {name:'Эдвард Нерсесян/ведущий',company:'',phone:'8-961-433-11-11'},
+  {name:'Нина Булатенко',company:'',phone:'8-928-900-09-19'},
+  {name:'Анастасия Ганина',company:'Влада Веддинг',phone:'8-928-198-00-15'},
+  {name:'Елена Патлань/организатор',company:'',phone:'8-918-592-87-07'},
+  {name:'Ирина Быкова',company:'Лазарь Декор',phone:'8-903-434-86-03'},
+  {name:'Екатерина Витковская',company:'',phone:''},
+  {name:'Галина Данковцева/флорист, декоратор',company:'Flowers Skalet',phone:'8-918-147-25-47'}
+];
 const crmPricingDefaults={
   deliveryBaseCity:7200,
   deliveryPerKm:110,
@@ -221,7 +275,7 @@ async function crmFillSetupRates(){
   }
 }
 async function crmInit(){
-  const[r1,r2,r3,r4]=await Promise.all([api('getOrders'),api('getStock'),api('getPricingConfig'),api('getCategories')]);
+  const[r1,r2,r3,r4,r5]=await Promise.all([api('getOrders'),api('getStock'),api('getPricingConfig'),api('getCategories'),api('getClients')]);
   if(r1.success)crmOrders=(r1.orders||[]).map(crmNormalize);
   if(r2.success)crmStock=r2.stock||[];
   if(r4?.success&&(r4.categories||[]).length){
@@ -230,6 +284,11 @@ async function crmInit(){
   }else{
     crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort();
   }
+  if(r5?.success&&Array.isArray(r5.clients))crmClients=r5.clients.map(crmNormalizeClient);
+  const derived=crmDeriveClientsFromOrders();
+  const preset=crmPresetClients();
+  crmClients=crmMergeClients(crmClients,derived);
+  crmClients=crmMergeClients(crmClients,preset);
   crmApplyPricingConfig(crmExtractPricingConfig(r3));
   crmRenderAll();
   crmFillSetupRates();
@@ -238,6 +297,53 @@ function crmNormalize(o){
   let items=Array.isArray(o.items)?o.items:[];
   if(typeof o.items==='string')try{items=JSON.parse(o.items)}catch{items=[]}
   return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount:Number(o.orderAmount||0),budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),remainingAmount:Number(o.remainingAmount||0),status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
+}
+function crmNormalizeClient(c){
+  return{
+    id:String(c?.id||''),
+    name:String(c?.name||c?.clientName||'').trim(),
+    company:String(c?.company||c?.companyName||'').trim(),
+    phone:String(c?.phone||c?.clientPhone||'').trim(),
+    proDiscount:Number(c?.proDiscount||c?.pro_discount||0)||0
+  };
+}
+function crmDeriveClientsFromOrders(){
+  const map={};
+  crmOrders.forEach((o,ix)=>{
+    const name=String(o.clientName||'').trim();
+    if(!name)return;
+    const key=name.toLowerCase();
+    if(!map[key])map[key]={id:`LOCAL_${ix}`,name,company:String(o.companyName||'').trim(),phone:String(o.clientPhone||'').trim(),proDiscount:Number(o.discount||0)||0};
+    if(!map[key].phone&&o.clientPhone)map[key].phone=String(o.clientPhone).trim();
+    if(!map[key].company&&o.companyName)map[key].company=String(o.companyName).trim();
+    map[key].proDiscount=Math.max(map[key].proDiscount,Number(o.discount||0)||0);
+  });
+  return Object.values(map).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+}
+function crmPresetClients(){
+  return CRM_CLIENTS_PRESET.map((c,i)=>({
+    id:`PRESET_${String(i+1).padStart(3,'0')}`,
+    name:String(c.name||'').trim(),
+    company:String(c.company||'').trim(),
+    phone:String(c.phone||'').trim(),
+    proDiscount:0
+  })).filter(c=>c.name);
+}
+function crmMergeClients(base,extra){
+  const out=[...(base||[])];
+  const byName={};
+  out.forEach((c,idx)=>{byName[String(c.name||'').trim().toLowerCase()]=idx});
+  (extra||[]).forEach(c=>{
+    const key=String(c.name||'').trim().toLowerCase();
+    if(!key)return;
+    const idx=byName[key];
+    if(idx==null){byName[key]=out.length;out.push(c);return}
+    const cur=out[idx];
+    if(!cur.phone&&c.phone)cur.phone=c.phone;
+    if(!cur.company&&c.company)cur.company=c.company;
+    if((Number(cur.proDiscount)||0)<(Number(c.proDiscount)||0))cur.proDiscount=Number(c.proDiscount)||0;
+  });
+  return out.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
 }
 function crmCleanItemName(name){
   return String(name||'').replace(/\s*[—-]\s*\d[\d\s]*\s*₽\s*$/,'').trim();
@@ -253,7 +359,7 @@ function crmGetSelectedItemName(nameSel,category){
   if(optionText&&rawValue===String(category||'').trim()&&optionText!==rawValue)return optionText;
   return rawValue||optionText;
 }
-function crmRenderAll(){crmRenderOrders();crmRenderStats();crmRenderStock();crmRenderDash();crmSyncQuickFilterUI()}
+function crmRenderAll(){crmRenderOrders();crmRenderStats();crmRenderClients();crmRenderStock();crmRenderDash();crmSyncQuickFilterUI()}
 function crmSyncQuickFilterUI(){
   const map={month:'crmMonthOrders',not_completed:'crmNotCompleted',assembly:'crmAssembly',tomorrow:'crmTomorrow'};
   Object.entries(map).forEach(([key,id])=>document.getElementById(id)?.classList.toggle('active',crmQuickFilter===key));
@@ -344,6 +450,171 @@ function crmRenderStats(){
   document.getElementById('crmAssemblyOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&o.status!=='completed'&&d>=now2&&d<=lim}).length;
   const tm=new Date();tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);
   document.getElementById('crmTomorrowOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===tm.getTime()&&o.status!=='completed'}).length;
+}
+function crmClientMetrics(c,year){
+  const name=String(c.name||'').trim().toLowerCase();
+  let ordersCount=0,turnover=0,revenueNoLog=0;
+  crmOrders.forEach(o=>{
+    if(!crmPaidStatuses.has(o.paymentStatus))return;
+    const d=crmParseDateLocal(o.startDate);if(!d)return;
+    if(year&&d.getFullYear()!==year)return;
+    if(String(o.clientName||'').trim().toLowerCase()!==name)return;
+    const amount=Number(o.orderAmount||0);
+    ordersCount++;
+    turnover+=amount;
+    revenueNoLog+=Math.max(0,amount-Number(o.deliveryCost||0)-Number(o.setupCost||0));
+  });
+  return{ordersCount,turnover,revenueNoLog};
+}
+function crmFillClientsYearOptions(){
+  const sel=document.getElementById('crmClientsYear');if(!sel)return;
+  const nowY=new Date().getFullYear();
+  const years=[...new Set([nowY,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+  sel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  if(!years.includes(crmClientsYear))crmClientsYear=years[0]||nowY;
+  sel.value=String(crmClientsYear);
+}
+function crmFillClientSelect(selectedName=''){
+  const sel=document.getElementById('crmClient');if(!sel)return;
+  const sName=String(selectedName||'').trim();
+  const opts=crmClients.map(c=>`<option value="${esc(c.name)}"${c.name===sName?' selected':''}>${esc(c.name)}</option>`).join('');
+  sel.innerHTML='<option value="">Выберите клиента</option>'+opts;
+  if(sName&&!crmClients.some(c=>c.name===sName)){
+    sel.innerHTML+='<option value="'+esc(sName)+'" selected>'+esc(sName)+' (не в базе)</option>';
+  }
+}
+function crmClientApplyToOrder(name){
+  const c=crmClients.find(x=>x.name===name);if(!c)return;
+  const phone=document.getElementById('crmPhone');
+  const company=document.getElementById('crmCompany');
+  const discount=document.getElementById('crmDiscount');
+  if(phone)phone.value=c.phone||'';
+  if(company)company.value=c.company||'';
+  if(discount)discount.value=Number(c.proDiscount||0);
+  crmCalcTotal();
+}
+function crmRenderClients(){
+  const t=document.getElementById('crmClientsTable');if(!t)return;
+  crmFillClientsYearOptions();
+  crmFillClientSelect(document.getElementById('crmClient')?.value||'');
+  const q=(document.getElementById('crmClientsSearch')?.value||'').toLowerCase().trim();
+  const list=crmClients.filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q));
+  if(!list.length){t.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
+  t.innerHTML=list.map(c=>{
+    const m=crmClientMetrics(c,crmClientsYear);
+    return`<tr>
+      <td style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')">${esc(c.name)}</td>
+      <td>${esc(c.company||'—')}</td>
+      <td>${esc(c.phone||'—')}</td>
+      <td class="mono">${Number(c.proDiscount||0)}%</td>
+      <td class="mono">${m.ordersCount}</td>
+      <td class="mono">${fN(Math.round(m.turnover))}₽</td>
+      <td class="mono">${fN(Math.round(m.revenueNoLog))}₽</td>
+      <td><button class="btn btn-sm btn-secondary" onclick="crmOpenClientModal('${esc(c.id)}')" style="padding:4px 8px;font-size:11px">✎</button></td>
+    </tr>`
+  }).join('');
+}
+function crmOpenClientProfile(id){
+  const c=crmClients.find(x=>x.id===id);if(!c)return;
+  const year=crmClientsYear;
+  const normName=String(c.name||'').trim().toLowerCase();
+  const paidOrdersYear=crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)&&crmParseDateLocal(o.startDate)?.getFullYear()===year);
+  const my=paidOrdersYear.filter(o=>String(o.clientName||'').trim().toLowerCase()===normName);
+  const totalYearRevenue=paidOrdersYear.reduce((s,o)=>s+Number(o.orderAmount||0),0);
+  const myRevenue=my.reduce((s,o)=>s+Number(o.orderAmount||0),0);
+  const sharePct=totalYearRevenue?Math.round(myRevenue/totalYearRevenue*1000)/10:0;
+  const cat={},items={};
+  my.forEach(o=>{
+    (o.items||[]).forEach(i=>{
+      const k=String(i.category||'Без категории').trim()||'Без категории';
+      const n=String(i.name||'').trim();
+      const q=Math.max(0,Number(i.qty||0));
+      if(!cat[k])cat[k]=0;cat[k]+=q;
+      if(n){if(!items[n])items[n]=0;items[n]+=q}
+    });
+  });
+  const topCat=Object.entries(cat).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const topItems=Object.entries(items).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  document.getElementById('crmClientProfileTitle').textContent=`Карточка клиента — ${c.name}`;
+  document.getElementById('crmClientProfileBody').innerHTML=`
+    <div class="stats-grid" style="margin-bottom:10px">
+      <div class="stat-card"><div class="stat-label">Оплаченных заказов (${year})</div><div class="stat-value dark">${my.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Оборот (${year})</div><div class="stat-value blue">${fN(Math.round(myRevenue))}₽</div></div>
+      <div class="stat-card"><div class="stat-label">Доля клиента в выручке (${year})</div><div class="stat-value purple">${sharePct}%</div></div>
+      <div class="stat-card"><div class="stat-label">Выручка без доставки/сетапа (${year})</div><div class="stat-value green">${fN(Math.round(my.reduce((s,o)=>s+Math.max(0,Number(o.orderAmount||0)-Number(o.deliveryCost||0)-Number(o.setupCost||0)),0)))}₽</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="table-wrap" style="padding:10px"><div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего берёт по категориям</div>${topCat.length?topCat.map(([n,v],i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(n)}</span><span class="mono">${v}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}</div>
+      <div class="table-wrap" style="padding:10px"><div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего берёт по изделиям</div>${topItems.length?topItems.map(([n,v],i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(n)}</span><span class="mono">${v}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}</div>
+    </div>`;
+  openModal('crmClientProfileModal');
+}
+function crmOpenClientModal(id=''){
+  const c=id?crmClients.find(x=>x.id===id):null;
+  document.getElementById('crmClientModalTitle').textContent=c?'Редактировать клиента':'Новый клиент';
+  document.getElementById('crmClientId').value=c?.id||'';
+  document.getElementById('crmClientNameInput').value=c?.name||'';
+  document.getElementById('crmClientCompanyInput').value=c?.company||'';
+  document.getElementById('crmClientPhoneInput').value=c?.phone||'';
+  document.getElementById('crmClientDiscountInput').value=c?.proDiscount||0;
+  document.getElementById('crmClientDeleteBtn').style.display=c?'inline-block':'none';
+  openModal('crmClientModal');
+}
+async function crmSaveClient(){
+  const id=document.getElementById('crmClientId').value;
+  const client=crmNormalizeClient({
+    id,
+    name:document.getElementById('crmClientNameInput').value,
+    company:document.getElementById('crmClientCompanyInput').value,
+    phone:document.getElementById('crmClientPhoneInput').value,
+    proDiscount:document.getElementById('crmClientDiscountInput').value
+  });
+  if(!client.name){showToast('Укажите имя клиента','error');return}
+  let r={success:false};
+  if(id)r=await api('updateClient',{client});
+  else r=await api('addClient',{client});
+  if(r.success){
+    if(!id)client.id=r.id||('C_'+Date.now());
+    if(id){const i=crmClients.findIndex(x=>x.id===id);if(i>=0)crmClients[i]=client;}
+    else crmClients.push(client);
+    crmClients.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+    sbBackup('upsertClient',client);
+    closeModal('crmClientModal');
+    crmRenderClients();
+    showToast('Сохранено','success');
+  }else{
+    showToast('Не удалось сохранить (проверьте лист Clients в Apps Script)','error');
+  }
+}
+async function crmDeleteClient(){
+  const id=document.getElementById('crmClientId').value;
+  if(!id||!confirm('Удалить клиента?'))return;
+  const r=await api('deleteClient',{id});
+  if(r.success){
+    crmClients=crmClients.filter(c=>c.id!==id);
+    sbBackup('deleteClient',{id});
+    closeModal('crmClientModal');
+    crmRenderClients();
+    showToast('Удалено','success');
+  }else showToast('Не удалось удалить','error');
+}
+async function crmSyncPresetClients(){
+  const preset=crmPresetClients();
+  const currentByName=new Set(crmClients.map(c=>String(c.name||'').trim().toLowerCase()));
+  const missing=preset.filter(c=>!currentByName.has(c.name.toLowerCase()));
+  if(!missing.length){showToast('Список уже загружен','success');return}
+  let ok=0,fail=0;
+  for(const c of missing){
+    try{
+      const r=await api('addClient',{client:c});
+      if(r?.success){
+        c.id=r.id||c.id;ok++;crmClients.push(c);sbBackup('upsertClient',c);
+      }else fail++;
+    }catch{fail++}
+  }
+  crmClients=crmMergeClients(crmClients,[]);
+  crmRenderClients();
+  showToast(`Загружено клиентов: ${ok}${fail?`, ошибок: ${fail}`:''}`, fail?'error':'success');
 }
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmGetMultiValues(id){
@@ -691,7 +962,8 @@ function crmOpenDialog(id){
   if(id){
     const o=crmOrders.find(x=>x.id===id);if(!o)return;
     document.getElementById('crmOrderId').value=o.id;
-    document.getElementById('crmClient').value=o.clientName;
+    crmFillClientSelect(o.clientName||'');
+    document.getElementById('crmClient').value=o.clientName||'';
     document.getElementById('crmPhone').value=o.clientPhone;
     document.getElementById('crmCompany').value=o.companyName||'';
     document.getElementById('crmStartDate').value=o.startDate;
@@ -725,7 +997,9 @@ function crmOpenDialog(id){
     setTimeout(crmCalcTotal,100);
   }else{
     document.getElementById('crmOrderId').value='';
-    ['crmClient','crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
+    crmFillClientSelect('');
+    ['crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('crmClient').value='';
     document.getElementById('crmAmount').value='';document.getElementById('crmBudget').value='';document.getElementById('crmDeposit').value='';
     document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value='';if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
     document.getElementById('crmDeliveryType').value='delivery';
@@ -814,6 +1088,7 @@ async function crmSaveOrder(){
   if(isPaid)document.getElementById('crmRemaining').value='0';
   const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount:Number(document.getElementById('crmAmount').value)||0,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,remainingAmount:isPaid?0:(Number(document.getElementById('crmRemaining').value)||0),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||''};
   if(!o.clientName){showToast('Укажите клиента','error');return}
+  if(!crmClients.some(c=>c.name===o.clientName)){showToast('Клиента нет в базе. Сначала добавьте клиента в разделе Клиенты.','error');return}
   if(id){
     const prevItems=(crmOrders.find(x=>x.id===id)?.items||[]).filter(i=>i.name);
     if(prevItems.length>0&&o.items.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
@@ -1123,6 +1398,9 @@ document.getElementById('crmSearchInput')?.addEventListener('input',()=>crmRende
 document.getElementById('crmCompletionFilter')?.addEventListener('change',()=>{crmQuickFilter='all';crmRenderOrders()});
 document.getElementById('crmStatusFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRenderOrders());
+document.getElementById('crmClient')?.addEventListener('change',e=>crmClientApplyToOrder(e.target.value));
+document.getElementById('crmClientsSearch')?.addEventListener('input',()=>crmRenderClients());
+document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYear=Number(e.target.value)||new Date().getFullYear();crmRenderClients()});
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
 document.getElementById('crmStockDemandMode')?.addEventListener('change',()=>crmRenderStockDash());
 document.getElementById('crmStockDemandMetric')?.addEventListener('change',()=>crmRenderStockDash());
@@ -1132,10 +1410,12 @@ document.getElementById('crmStockDashCategories')?.addEventListener('change',()=
 document.getElementById('crmStockDashItems')?.addEventListener('change',()=>crmRenderStockDash());
 document.getElementById('crmStockDashItemFilter')?.addEventListener('input',()=>crmRenderStockDash());
 document.getElementById('crmStockModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmStockModal'))closeModal('crmStockModal')});
+document.getElementById('crmClientModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientModal'))closeModal('crmClientModal')});
+document.getElementById('crmClientProfileModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientProfileModal'))closeModal('crmClientProfileModal')});
 document.getElementById('crmYearFilter')?.addEventListener('change',e=>{crmYearFilter=Number(e.target.value)||0;crmRenderOrders()});
 document.getElementById('crmStartDate')?.addEventListener('change',crmHandleStartDateChange);
 document.getElementById('crmEndDate')?.addEventListener('change',()=>{crmSyncDateRange(true)});
 window.canCloseModal=(id)=>id==='crmOrderModal'?crmCanCloseOrderDialog():true;
 // Init CRM on page switch
 const origSwitchPage=switchPage;
-switchPage=function(p){origSwitchPage(p);if(p==='crm'||p==='crmstock'||p==='crmdash'){if(!crmOrders.length&&!crmStock.length)crmInit();else crmRenderAll()}}
+switchPage=function(p){origSwitchPage(p);if(p==='crm'||p==='clients'||p==='crmstock'||p==='crmdash'){if(!crmOrders.length&&!crmStock.length)crmInit();else crmRenderAll()}}

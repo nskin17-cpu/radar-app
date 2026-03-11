@@ -85,6 +85,15 @@
       unit: s.unit || 'шт'
     };
   }
+  function mapClientRow(c) {
+    return {
+      id: c.id || '',
+      name: c.name || c.clientName || '',
+      company: c.company || c.companyName || null,
+      phone: c.phone || c.clientPhone || null,
+      pro_discount: Number(c.proDiscount || c.pro_discount || 0)
+    };
+  }
 
   /**
    * Переносит все данные из Google Таблиц (через текущий api) в Supabase.
@@ -97,7 +106,7 @@
     if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
     if (typeof apiFn !== 'function') return { success: false, error: 'Нужна функция api(action, data)' };
 
-    var results = { competitors: 0, myCompany: false, history: 0, orders: 0, stock: 0, pricing: 0 };
+    var results = { competitors: 0, myCompany: false, history: 0, orders: 0, stock: 0, clients: 0, pricing: 0 };
 
     try {
       // Конкуренты
@@ -161,6 +170,19 @@
         }
       }
 
+      // Клиенты
+      var clientsRes = await apiFn('getClients');
+      if (clientsRes && clientsRes.success && Array.isArray(clientsRes.clients)) {
+        for (var c = 0; c < clientsRes.clients.length; c++) {
+          var clRow = mapClientRow(clientsRes.clients[c]);
+          if (clRow.id) {
+            var clr = await supabase.from('clients').upsert(clRow, { onConflict: 'id' });
+            if (clr.error) console.warn('[migration] clients upsert error:', clr.error.message);
+            else results.clients++;
+          }
+        }
+      }
+
       // Pricing config
       var priceRes = await apiFn('getPricingConfig');
       if (priceRes && priceRes.success) {
@@ -194,7 +216,7 @@
    * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
    * Тихо игнорирует ошибки — если Supabase недоступен, основное хранилище (GS) не затрагивается.
    *
-   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder'
+   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient'
    * payload: данные в camelCase формате (как в основном приложении)
    */
   async function supabaseWrite(action, payload) {
@@ -244,6 +266,17 @@
         if (payload && payload.name) {
           var res = await sb.from('stock').delete().eq('name', payload.name).eq('category', payload.category || '');
           if (res.error) console.warn('[backup] deleteStockItem:', res.error.message);
+        }
+      } else if (action === 'upsertClient') {
+        var cRow = mapClientRow(payload);
+        if (cRow && cRow.id) {
+          var res = await sb.from('clients').upsert(cRow, { onConflict: 'id' });
+          if (res.error) console.warn('[backup] upsertClient:', res.error.message);
+        }
+      } else if (action === 'deleteClient') {
+        if (payload && payload.id) {
+          var res = await sb.from('clients').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteClient:', res.error.message);
         }
       }
     } catch (e) {

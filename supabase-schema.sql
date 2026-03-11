@@ -124,6 +124,17 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Клиенты CRM
+CREATE TABLE IF NOT EXISTS clients (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  company TEXT,
+  phone TEXT,
+  pro_discount NUMERIC DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Склад (каталог изделий)
 CREATE TABLE IF NOT EXISTS stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -149,6 +160,7 @@ ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE my_company ENABLE ROW LEVEL SECURITY;
 ALTER TABLE history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_config ENABLE ROW LEVEL SECURITY;
 
@@ -157,5 +169,6 @@ CREATE POLICY "Allow all for anon" ON competitors FOR ALL USING (true) WITH CHEC
 CREATE POLICY "Allow all for anon" ON my_company FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON history FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON orders FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON stock FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON pricing_config FOR ALL USING (true) WITH CHECK (true);

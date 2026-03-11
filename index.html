@@ -57,6 +57,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="nav-item" data-page="compare" onclick="switchPage('compare')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v12"/><path d="M2 4l2.5-2.5L7 4"/><path d="M7 10l2.5 2.5L12 10"/></svg></span> Сравнение</div>
     <div class="nav-section">CRM</div>
     <div class="nav-item active" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M5 5h4M5 8h4M5 11h2"/></svg></span> Заказы</div>
+    <div class="nav-item" data-page="clients" onclick="switchPage('clients')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="2.2"/><path d="M1.5 11c.9-1.6 2.4-2.5 3.5-2.5s2.6.9 3.5 2.5"/><path d="M9 4h3M9 7h3M9 10h3"/></svg></span> Клиенты</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4l6-3 6 3v6l-6 3-6-3V4z"/><path d="M7 1v12M1 4l6 3 6-3"/></svg></span> Склад</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 11l3-4 3 2 3-5 3 3"/></svg></span> CRM Дашборд</div>
     <div class="nav-section">Система</div>
@@ -207,6 +208,27 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="table-wrap"><table><thead><tr><th>№</th><th>Клиент</th><th>↓</th><th>Доставка / Адрес</th><th>Период</th><th>Сумма</th><th>Статус работы</th><th>Статус оплаты</th><th>Залог</th><th></th></tr></thead><tbody id="crmOrdersTable"><tr><td colspan="10" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
     </div>
 
+    <!-- CRM CLIENTS -->
+    <div id="page-clients" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Клиенты</div><div class="page-desc">База клиентов и финансовые показатели</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-secondary" onclick="crmSyncPresetClients()">↻ Залить список</button>
+          <button class="btn btn-sm" onclick="crmOpenClientModal()">+ Добавить клиента</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input id="crmClientsSearch" type="search" placeholder="Поиск: имя, компания, телефон" style="width:auto;min-width:240px">
+        <select id="crmClientsYear" style="width:auto;min-width:120px"></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Клиент</th><th>Компания</th><th>Телефон</th><th>Проф. скидка</th><th>Заказов</th><th>Оборот</th><th>Выручка без доставки/сетапа</th><th></th></tr></thead>
+          <tbody id="crmClientsTable"><tr><td colspan="8" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- CRM STOCK -->
     <div id="page-crmstock" class="page">
       <div class="page-header">
@@ -272,6 +294,33 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           <button class="btn btn-sm btn-danger" id="crmStockDeleteBtn" onclick="crmDeleteStockItem()" style="display:none;margin-right:auto">Удалить</button>
           <button class="btn btn-sm btn-secondary" onclick="closeModal('crmStockModal')">Отмена</button>
           <button class="btn btn-sm" onclick="crmSaveStockItem()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENT MODAL -->
+    <div class="modal-overlay" id="crmClientModal">
+      <div class="modal" style="width:430px">
+        <div class="modal-title" id="crmClientModalTitle">Новый клиент</div>
+        <input type="hidden" id="crmClientId">
+        <div class="input-group"><label class="input-label">Имя Фамилия *</label><input type="text" id="crmClientNameInput" placeholder="Иван Иванов"></div>
+        <div class="input-group"><label class="input-label">Компания</label><input type="text" id="crmClientCompanyInput" placeholder="ООО Пример"></div>
+        <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmClientPhoneInput" placeholder="+7..."></div>
+        <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="number" id="crmClientDiscountInput" min="0" max="100" value="0"></div>
+        <div class="modal-actions">
+          <button class="btn btn-sm btn-danger" id="crmClientDeleteBtn" onclick="crmDeleteClient()" style="display:none;margin-right:auto">Удалить</button>
+          <button class="btn btn-sm btn-secondary" onclick="closeModal('crmClientModal')">Отмена</button>
+          <button class="btn btn-sm" onclick="crmSaveClient()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="crmClientProfileModal">
+      <div class="modal" style="width:680px">
+        <div class="modal-title" id="crmClientProfileTitle">Карточка клиента</div>
+        <div id="crmClientProfileBody"></div>
+        <div class="modal-actions">
+          <button class="btn btn-sm btn-secondary" onclick="closeModal('crmClientProfileModal')">Закрыть</button>
         </div>
       </div>
     </div>
@@ -422,7 +471,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
     <input type="hidden" id="crmOrderId">
     <div class="crm-grid-2">
-      <div class="input-group"><label class="input-label">Клиент *</label><input type="text" id="crmClient"></div>
+      <div class="input-group"><label class="input-label">Клиент *</label><select id="crmClient"><option value="">Выберите клиента</option></select></div>
       <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmPhone"></div>
     </div>
     <div class="crm-grid-2">
