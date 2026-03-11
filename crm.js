@@ -299,10 +299,10 @@ function crmRenderOrders(){
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
     const itemsList=(o.items||[]).length
-      ? `<div style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
+      ? `<div class="crm-items-mobile-list" style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
       : '—';
     return `${sep}<tr>
-    <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}</td>
+    <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}<div class="crm-delivery-mobile">${deliveryCell}</div></td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
     <td style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
