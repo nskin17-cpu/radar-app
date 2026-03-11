@@ -1,5 +1,6 @@
 // ========== CRM MODULE ==========
 let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear();
+let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const crmPricingDefaults={
   deliveryBaseCity:7200,
@@ -285,6 +286,7 @@ function crmRenderOrders(){
   const t=document.getElementById('crmOrdersTable');if(!t)return;
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
+  const isMobile=window.innerWidth<=768;
   const depositBg={pending:'',deposited:'#e6f1ff',returned:'#e4f6e8',returned_comp:'#ffe0f0'};
   const depositLbl={pending:'Залог',deposited:'Внесён',returned:'Вернули',returned_comp:'Компенс.'};
   let prevMonthKey='';
@@ -301,6 +303,22 @@ function crmRenderOrders(){
     const itemsList=(o.items||[]).length
       ? `<div class="crm-items-mobile-list" style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
       : '—';
+    if(isMobile){
+      return `${sep}<tr class="crm-order-mobile-card"><td colspan="10">
+      <div class="crm-om-head">
+        <div class="crm-om-client"><span class="crm-om-num">#${rowIndex}</span><strong>${esc(o.clientName)}</strong><span>${esc(o.clientPhone||'')}</span>${showRemain?`<span class="badge badge-amber">Остаток: ${fN(remain)}₽</span>`:''}</div>
+        <div class="crm-om-actions"><button onclick="crmToggleItems('${o.id}')" class="crm-om-toggle" title="Показать изделия">↓</button><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></div>
+      </div>
+      <div class="crm-om-line"><span>Период</span><strong>${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</strong></div>
+      <div class="crm-om-line"><span>Сумма</span><strong>${fN(o.orderAmount)}₽</strong></div>
+      <div class="crm-om-line"><span>Доставка</span><strong>${deliveryCell}</strong></div>
+      <div class="crm-om-grid">
+        <div><span>Статус работы</span><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'};width:100%">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div><span>Статус оплаты</span><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'};width:100%">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <div class="crm-om-line"><span>Залог</span><select data-crm-deposit="${o.id}" style="padding:3px 28px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''};min-width:120px">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </td></tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:6px 10px 8px 12px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
+    }
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}<div class="crm-delivery-mobile">${deliveryCell}</div></td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
@@ -373,10 +391,23 @@ function crmRenderStock(){
   crmRenderStockDash();
   // Category tabs
   const tabs=document.getElementById('crmStockCatTabs');
+  const isMobile=window.innerWidth<=768;
   if(tabs){
     const allCats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort();
-    tabs.innerHTML='<button class="filter-btn'+(crmActiveStockCategory===''?' active':'')+'" onclick="crmSetStockCat(\'\')">Все</button>'+
-      allCats.map(c=>`<button class="filter-btn${crmActiveStockCategory===c?' active':''}" onclick="crmSetStockCat('${esc(c)}')">${esc(c)}</button>`).join('');
+    if(isMobile){
+      const current=crmActiveStockCategory||'Все категории';
+      tabs.innerHTML=`<details class="stock-cat-mobile-dd"><summary>${esc(current)}</summary><div class="stock-cat-mobile-list"><button type="button" class="filter-btn${crmActiveStockCategory===''?' active':''}" data-stock-cat="">Все</button>${allCats.map(c=>`<button type="button" class="filter-btn${crmActiveStockCategory===c?' active':''}" data-stock-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div></details>`;
+      tabs.querySelectorAll('[data-stock-cat]').forEach(btn=>btn.addEventListener('click',e=>{
+        e.preventDefault();
+        const cat=e.currentTarget.getAttribute('data-stock-cat')||'';
+        const details=tabs.querySelector('.stock-cat-mobile-dd');
+        if(details)details.open=false;
+        crmSetStockCat(cat);
+      }));
+    }else{
+      tabs.innerHTML='<button class="filter-btn'+(crmActiveStockCategory===''?' active':'')+'" onclick="crmSetStockCat(\'\')">Все</button>'+
+        allCats.map(c=>`<button class="filter-btn${crmActiveStockCategory===c?' active':''}" onclick="crmSetStockCat('${esc(c)}')">${esc(c)}</button>`).join('');
+    }
   }
   const grpEl=document.getElementById('crmStockGroups');if(!grpEl)return;
   const statsEl=document.getElementById('crmStockStats');
@@ -390,18 +421,33 @@ function crmRenderStock(){
   if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';crmRenderPricingSection();return}
   const grouped={};
   items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
-  let rows='';
-  Object.entries(grouped).forEach(([cat,its])=>{
-    rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
-    rows+=its.map(s=>`<tr>
-      <td style="font-weight:500">${esc(s.name)}</td>
-      <td class="mono">${fN(s.price)}₽</td>
-      <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
-      <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
-      <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
-    </tr>`).join('');
-  });
-  grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  if(isMobile){
+    grpEl.innerHTML=Object.entries(grouped).map(([cat,its],idx)=>{
+      const isOpen=crmStockOpenGroups[cat]!==undefined?crmStockOpenGroups[cat]:idx===0;
+      const rows=its.map(s=>`<tr>
+        <td style="font-weight:500">${esc(s.name)}</td>
+        <td class="mono">${fN(s.price)}₽</td>
+        <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
+        <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
+        <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
+      </tr>`).join('');
+      return `<details class="stock-mobile-group" data-stock-group="${esc(cat)}" ${isOpen?'open':''}><summary><span>${esc(cat)}</span><span>${its.length} поз.</span></summary><div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена</th><th>Сетап</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    }).join('');
+    grpEl.querySelectorAll('.stock-mobile-group').forEach(el=>el.addEventListener('toggle',()=>{crmStockOpenGroups[el.getAttribute('data-stock-group')||'']=el.open}));
+  }else{
+    let rows='';
+    Object.entries(grouped).forEach(([cat,its])=>{
+      rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
+      rows+=its.map(s=>`<tr>
+        <td style="font-weight:500">${esc(s.name)}</td>
+        <td class="mono">${fN(s.price)}₽</td>
+        <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
+        <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
+        <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
+      </tr>`).join('');
+    });
+    grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
   crmRenderPricingSection();
 }
 function crmRenderPricingSection(){
