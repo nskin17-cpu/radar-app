@@ -91,7 +91,10 @@
       name: c.name || c.clientName || '',
       company: c.company || c.companyName || null,
       phone: c.phone || c.clientPhone || null,
-      pro_discount: Number(c.proDiscount || c.pro_discount || 0)
+      pro_discount: Number(c.proDiscount || c.pro_discount || 0),
+      total_orders: Number(c.totalOrders || c.total_orders || 0),
+      total_turnover: Number(c.totalTurnover || c.total_turnover || 0),
+      total_revenue: Number(c.totalRevenue || c.total_revenue || 0)
     };
   }
 

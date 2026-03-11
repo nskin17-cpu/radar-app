@@ -284,11 +284,8 @@ async function crmInit(){
   }else{
     crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort();
   }
-  if(r5?.success&&Array.isArray(r5.clients))crmClients=r5.clients.map(crmNormalizeClient);
-  const derived=crmDeriveClientsFromOrders();
-  const preset=crmPresetClients();
-  crmClients=crmMergeClients(crmClients,derived);
-  crmClients=crmMergeClients(crmClients,preset);
+  if(r5?.success&&Array.isArray(r5.clients))crmClients=crmDedupClients(r5.clients);
+  else crmClients=[];
   crmApplyPricingConfig(crmExtractPricingConfig(r3));
   crmRenderAll();
   crmFillSetupRates();
@@ -306,6 +303,30 @@ function crmNormalizeClient(c){
     phone:String(c?.phone||c?.clientPhone||'').trim(),
     proDiscount:Number(c?.proDiscount||c?.pro_discount||0)||0
   };
+}
+function crmClientKey(name){
+  return String(name||'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function crmDedupClients(list){
+  const out=[];
+  const byName={};
+  (list||[]).forEach((raw,ix)=>{
+    const c=crmNormalizeClient(raw);
+    const key=crmClientKey(c.name);
+    if(!key)return;
+    const found=byName[key];
+    if(found==null){
+      if(!c.id)c.id='LOCAL_'+ix;
+      byName[key]=out.length;
+      out.push(c);
+      return;
+    }
+    const cur=out[found];
+    if(!cur.phone&&c.phone)cur.phone=c.phone;
+    if(!cur.company&&c.company)cur.company=c.company;
+    if((Number(cur.proDiscount)||0)<(Number(c.proDiscount)||0))cur.proDiscount=Number(c.proDiscount)||0;
+  });
+  return out.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
 }
 function crmDeriveClientsFromOrders(){
   const map={};
@@ -330,11 +351,11 @@ function crmPresetClients(){
   })).filter(c=>c.name);
 }
 function crmMergeClients(base,extra){
-  const out=[...(base||[])];
+  const out=crmDedupClients(base||[]);
   const byName={};
-  out.forEach((c,idx)=>{byName[String(c.name||'').trim().toLowerCase()]=idx});
+  out.forEach((c,idx)=>{byName[crmClientKey(c.name)]=idx});
   (extra||[]).forEach(c=>{
-    const key=String(c.name||'').trim().toLowerCase();
+    const key=crmClientKey(c.name);
     if(!key)return;
     const idx=byName[key];
     if(idx==null){byName[key]=out.length;out.push(c);return}
@@ -343,7 +364,7 @@ function crmMergeClients(base,extra){
     if(!cur.company&&c.company)cur.company=c.company;
     if((Number(cur.proDiscount)||0)<(Number(c.proDiscount)||0))cur.proDiscount=Number(c.proDiscount)||0;
   });
-  return out.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  return crmDedupClients(out);
 }
 function crmCleanItemName(name){
   return String(name||'').replace(/\s*[—-]\s*\d[\d\s]*\s*₽\s*$/,'').trim();
@@ -495,14 +516,16 @@ function crmClientApplyToOrder(name){
 }
 function crmRenderClients(){
   const t=document.getElementById('crmClientsTable');if(!t)return;
+  crmClients=crmDedupClients(crmClients);
   crmFillClientsYearOptions();
   crmFillClientSelect(document.getElementById('crmClient')?.value||'');
   const q=(document.getElementById('crmClientsSearch')?.value||'').toLowerCase().trim();
   const list=crmClients.filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q));
-  if(!list.length){t.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
-  t.innerHTML=list.map(c=>{
+  if(!list.length){t.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
+  t.innerHTML=list.map((c,idx)=>{
     const m=crmClientMetrics(c,crmClientsYear);
     return`<tr>
+      <td class="mono">${idx+1}</td>
       <td style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')">${esc(c.name)}</td>
       <td>${esc(c.company||'—')}</td>
       <td>${esc(c.phone||'—')}</td>
@@ -615,6 +638,16 @@ async function crmSyncPresetClients(){
   crmClients=crmMergeClients(crmClients,[]);
   crmRenderClients();
   showToast(`Загружено клиентов: ${ok}${fail?`, ошибок: ${fail}`:''}`, fail?'error':'success');
+}
+async function crmSyncClientsToSupabase(){
+  try{ await api('recalcClientsStats'); }catch{}
+  try{
+    const r=await api('getClients');
+    if(r?.success&&Array.isArray(r.clients)){
+      crmClients=crmDedupClients(r.clients);
+      for(const c of crmClients)sbBackup('upsertClient',c);
+    }
+  }catch{}
 }
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmGetMultiValues(id){
@@ -1092,13 +1125,14 @@ async function crmSaveOrder(){
   if(id){
     const prevItems=(crmOrders.find(x=>x.id===id)?.items||[]).filter(i=>i.name);
     if(prevItems.length>0&&o.items.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
-    o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);showToast('Обновлено','success')}
-  else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o)}showToast('Заказ создан','success')}
+    o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();showToast('Обновлено','success')}
+  else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o);await crmSyncClientsToSupabase()}showToast('Заказ создан','success')}
   crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
 }
 async function crmDeleteOrder(){
   const id=document.getElementById('crmOrderId').value;if(!id||!confirm('Удалить заказ?'))return;
   await api('deleteOrder',{id});sbBackup('deleteOrder',{id});crmOrders=crmOrders.filter(o=>o.id!==id);
+  await crmSyncClientsToSupabase();
   crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();showToast('Удалено','success');
 }
 
