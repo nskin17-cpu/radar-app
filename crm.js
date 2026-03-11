@@ -348,43 +348,73 @@ function crmRenderStats(){
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmRenderStockDash(){
   const tbl=document.getElementById('crmStockDashTable');if(!tbl)return;
+  const modeSel=document.getElementById('crmStockDemandMode');
+  const statsEl=document.getElementById('crmStockDemandStats');
+  const topEl=document.getElementById('crmStockTopList');
+  const lowEl=document.getElementById('crmStockLowList');
   const selYear=document.getElementById('crmStockDashYear');
-  const year=Number(selYear?.value||0);
-  const month=Number(document.getElementById('crmStockDashMonth')?.value||0);
   const itemQ=(document.getElementById('crmStockDashItemFilter')?.value||'').toLowerCase();
-  // populate year options once
-  if(selYear&&selYear.options.length<=1){
-    const years=[...new Set(crmOrders.map(o=>{const d=crmParseDateLocal(o.startDate);return d?d.getFullYear():null}).filter(Boolean))].sort((a,b)=>b-a);
-    years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;selYear.appendChild(o)});
+  const mode=(modeSel?.value||'item');
+  const monthSel=document.getElementById('crmStockDashMonth');
+  const now=new Date(),curYear=now.getFullYear(),curMonth=now.getMonth();
+  const years=[...new Set([curYear,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+  if(selYear){
+    const prev=selYear.value;
+    selYear.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    selYear.value=prev&&years.includes(Number(prev))?prev:String(curYear);
   }
-  // aggregate
+  if(monthSel&&monthSel.options.length!==12){
+    const mLabels=Array.from({length:12},(_,m)=>new Intl.DateTimeFormat('ru-RU',{month:'long'}).format(new Date(curYear,m,1)));
+    monthSel.innerHTML=mLabels.map((l,m)=>`<option value="${m}">${l}</option>`).join('');
+    monthSel.value=String(curMonth);
+  }
+  const selectedYear=Number(selYear?.value||curYear);
+  const selectedMonth=Number(monthSel?.value??curMonth);
+
   const counts={};
-  crmOrders.forEach(o=>{
+  crmOrders.forEach((o,ix)=>{
     const d=crmParseDateLocal(o.startDate);if(!d)return;
-    if(year&&d.getFullYear()!==year)return;
-    if(month&&(d.getMonth()+1)!==month)return;
+    const inYear=d.getFullYear()===selectedYear;
+    const inMonth=inYear&&d.getMonth()===selectedMonth;
+    const orderKey=o.id||`ROW_${ix}`;
+    const perOrder={};
     (o.items||[]).forEach(it=>{
-      if(!it.name)return;
-      if(!counts[it.name])counts[it.name]={name:it.name,category:it.category||'',orders:0,qty:0};
-      counts[it.name].orders++;
-      counts[it.name].qty+=Math.max(0,Number(it.qty||0));
+      const cat=String(it.category||'').trim()||'Без категории';
+      const nm=String(it.name||'').trim();
+      const key=mode==='category'?cat:nm;
+      if(!key)return;
+      if(!perOrder[key])perOrder[key]={key,category:cat,qty:0};
+      perOrder[key].qty+=Math.max(0,Number(it.qty||0));
     });
+    Object.values(perOrder).forEach(p=>{
+      if(!counts[p.key])counts[p.key]={name:p.key,category:p.category,allOrders:new Set(),yearOrders:new Set(),monthOrders:new Set(),allQty:0,yearQty:0,monthQty:0};
+      const r=counts[p.key];
+      r.allOrders.add(orderKey);r.allQty+=p.qty;
+      if(inYear){r.yearOrders.add(orderKey);r.yearQty+=p.qty}
+      if(inMonth){r.monthOrders.add(orderKey);r.monthQty+=p.qty}
+    })
   });
-  let rows=Object.values(counts).filter(r=>!itemQ||r.name.toLowerCase().includes(itemQ)||r.category.toLowerCase().includes(itemQ)).sort((a,b)=>b.orders-a.orders);
+  const rows=Object.values(counts).map(r=>({
+    name:r.name,category:r.category,
+    allCount:r.allOrders.size,yearCount:r.yearOrders.size,monthCount:r.monthOrders.size,
+    allQty:r.allQty,yearQty:r.yearQty,monthQty:r.monthQty
+  })).filter(r=>!itemQ||r.name.toLowerCase().includes(itemQ)||r.category.toLowerCase().includes(itemQ))
+    .sort((a,b)=>b.allCount-a.allCount||b.yearCount-a.yearCount);
+
+  if(statsEl){
+    const allTrips=rows.reduce((s,r)=>s+r.allCount,0);
+    const yearTrips=rows.reduce((s,r)=>s+r.yearCount,0);
+    const monthTrips=rows.reduce((s,r)=>s+r.monthCount,0);
+    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Всего сходили (все время)</div><div class="stat-value dark">${fN(allTrips)}</div></div><div class="stat-card"><div class="stat-label">Сходили за ${selectedYear}</div><div class="stat-value blue">${fN(yearTrips)}</div></div><div class="stat-card"><div class="stat-label">Сходили за месяц</div><div class="stat-value purple">${fN(monthTrips)}</div></div><div class="stat-card"><div class="stat-label">${mode==='category'?'Категорий':'Изделий'} в заказах</div><div class="stat-value green">${rows.length}</div></div>`;
+  }
+  const topRows=[...rows].slice(0,8);
+  const lowRows=[...rows].filter(r=>r.allCount>0).sort((a,b)=>a.allCount-b.allCount||a.monthCount-b.monthCount).slice(0,8);
+  if(topEl)topEl.innerHTML=topRows.length?topRows.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${r.allCount}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
+  if(lowEl)lowEl.innerHTML=lowRows.length?lowRows.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${r.allCount}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
+
   if(!rows.length){tbl.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Нет данных по заказам</div>';return;}
-  const maxOrders=rows[0].orders;
-  tbl.innerHTML=`<div class="table-wrap"><table style="width:100%"><thead><tr>
-    <th>Изделие</th><th>Категория</th>
-    <th style="text-align:center">Заказов</th>
-    <th style="text-align:center">Единиц</th>
-    <th style="width:140px">Популярность</th>
-  </tr></thead><tbody>${rows.map(r=>`<tr>
-    <td style="font-weight:500">${esc(r.name)}</td>
-    <td style="color:var(--text2);font-size:12px">${esc(r.category)}</td>
-    <td class="mono" style="text-align:center">${r.orders}</td>
-    <td class="mono" style="text-align:center">${r.qty}</td>
-    <td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round(r.orders/maxOrders*100)}%;border-radius:4px;transition:width .3s"></div></div></td>
-  </tr>`).join('')}</tbody></table></div>`;
+  const maxCount=Math.max(...rows.map(r=>r.allCount),1);
+  tbl.innerHTML=`<div class="table-wrap"><table style="width:100%"><thead><tr><th>${mode==='category'?'Категория':'Изделие'}</th>${mode==='item'?'<th>Категория</th>':''}<th style="text-align:center">За всё время</th><th style="text-align:center">За ${selectedYear}</th><th style="text-align:center">За месяц</th><th style="text-align:center">Ед. за всё время</th><th style="width:120px">Доля</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="font-weight:500">${esc(r.name)}</td>${mode==='item'?`<td style="color:var(--text2);font-size:12px">${esc(r.category||'—')}</td>`:''}<td class="mono" style="text-align:center">${r.allCount}</td><td class="mono" style="text-align:center">${r.yearCount}</td><td class="mono" style="text-align:center">${r.monthCount}</td><td class="mono" style="text-align:center">${r.allQty}</td><td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round(r.allCount/maxCount*100)}%;border-radius:4px"></div></div></td></tr>`).join('')}</tbody></table></div>`;
 }
 function crmSetStockCat(cat){crmActiveStockCategory=cat;crmRenderStock()}
 function crmRenderStock(){
@@ -1009,6 +1039,10 @@ document.getElementById('crmCompletionFilter')?.addEventListener('change',()=>{c
 document.getElementById('crmStatusFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
+document.getElementById('crmStockDemandMode')?.addEventListener('change',()=>crmRenderStockDash());
+document.getElementById('crmStockDashYear')?.addEventListener('change',()=>crmRenderStockDash());
+document.getElementById('crmStockDashMonth')?.addEventListener('change',()=>crmRenderStockDash());
+document.getElementById('crmStockDashItemFilter')?.addEventListener('input',()=>crmRenderStockDash());
 document.getElementById('crmStockModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmStockModal'))closeModal('crmStockModal')});
 document.getElementById('crmYearFilter')?.addEventListener('change',e=>{crmYearFilter=Number(e.target.value)||0;crmRenderOrders()});
 document.getElementById('crmStartDate')?.addEventListener('change',crmHandleStartDateChange);

@@ -213,6 +213,32 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
         <button class="btn btn-sm" onclick="crmOpenStockModal()">+ Добавить</button>
       </div>
+      <div class="form-card" id="crmStockDemandCard" style="margin-bottom:12px">
+        <div class="page-header" style="margin-bottom:10px">
+          <div><div class="chart-title" style="font-size:12px;margin:0">Дашборд спроса по изделиям</div><div class="page-desc">Сколько раз позиции ходили в заказы: всё время, год, месяц</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select id="crmStockDemandMode" style="width:auto;min-width:180px">
+            <option value="item">По изделиям</option>
+            <option value="category">По категориям</option>
+          </select>
+          <select id="crmStockDashYear" style="width:auto;min-width:110px"></select>
+          <select id="crmStockDashMonth" style="width:auto;min-width:150px"></select>
+          <input id="crmStockDashItemFilter" type="search" placeholder="Поиск по названию" style="min-width:220px;width:auto">
+        </div>
+        <div class="stats-grid" id="crmStockDemandStats" style="margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="table-wrap" style="padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего ходят</div>
+            <div id="crmStockTopList"></div>
+          </div>
+          <div class="table-wrap" style="padding:10px">
+            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Реже всего ходят</div>
+            <div id="crmStockLowList"></div>
+          </div>
+        </div>
+        <div id="crmStockDashTable"></div>
+      </div>
       <div class="stats-grid" id="crmStockStats" style="margin-bottom:12px"></div>
       <div class="filter-bar" id="crmStockCatTabs" style="flex-wrap:wrap;margin-bottom:12px"></div>
       <div style="margin-bottom:14px"><input id="crmStockSearch" type="search" placeholder="Поиск по названию или категории" style="max-width:340px"></div>
