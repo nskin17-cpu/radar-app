@@ -521,9 +521,10 @@ function crmRenderClients(){
   crmFillClientSelect(document.getElementById('crmClient')?.value||'');
   const q=(document.getElementById('crmClientsSearch')?.value||'').toLowerCase().trim();
   const list=crmClients.filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q));
-  if(!list.length){t.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
+  if(!list.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
   t.innerHTML=list.map((c,idx)=>{
     const m=crmClientMetrics(c,crmClientsYear);
+    const avgCheck=m.ordersCount?Math.round(m.turnover/m.ordersCount):0;
     return`<tr>
       <td class="mono">${idx+1}</td>
       <td style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')">${esc(c.name)}</td>
@@ -533,9 +534,53 @@ function crmRenderClients(){
       <td class="mono">${m.ordersCount}</td>
       <td class="mono">${fN(Math.round(m.turnover))}₽</td>
       <td class="mono">${fN(Math.round(m.revenueNoLog))}₽</td>
+      <td class="mono">${avgCheck?fN(avgCheck)+'₽':'—'}</td>
       <td><button class="btn btn-sm btn-secondary" onclick="crmOpenClientModal('${esc(c.id)}')" style="padding:4px 8px;font-size:11px">✎</button></td>
     </tr>`
   }).join('');
+  crmRenderClientsDashboard();
+}
+function crmRenderClientsDashboard(){
+  const yearsEl=document.getElementById('crmClientsDashYears');
+  const topEl=document.getElementById('crmClientsDashTopN');
+  const tableEl=document.getElementById('crmClientsTopTable');
+  if(!yearsEl||!topEl||!tableEl)return;
+
+  const paidOrders=crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)&&crmParseDateLocal(o.startDate));
+  const nowY=new Date().getFullYear();
+  const years=[...new Set([nowY,...paidOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+  const prevSel=new Set(Array.from(yearsEl.selectedOptions).map(o=>Number(o.value)).filter(Boolean));
+  yearsEl.innerHTML=years.map(y=>`<option value="${y}" ${prevSel.has(y)?'selected':''}>${y}</option>`).join('');
+  if(!yearsEl.selectedOptions.length&&yearsEl.options.length){
+    const currentOpt=Array.from(yearsEl.options).find(o=>Number(o.value)===nowY)||yearsEl.options[0];
+    if(currentOpt)currentOpt.selected=true;
+  }
+  const selectedYears=new Set(Array.from(yearsEl.selectedOptions).map(o=>Number(o.value)).filter(Boolean));
+  const topN=Math.max(1,Number(topEl.value)||10);
+
+  const knownByName={};
+  crmClients.forEach(c=>{knownByName[crmClientKey(c.name)]=c.name});
+  const stats={};
+  paidOrders.forEach(o=>{
+    const d=crmParseDateLocal(o.startDate);if(!d)return;
+    const y=d.getFullYear();
+    if(selectedYears.size&&!selectedYears.has(y))return;
+    const nameRaw=String(o.clientName||'').trim();
+    const key=crmClientKey(nameRaw);
+    if(!key)return;
+    if(!stats[key])stats[key]={name:knownByName[key]||nameRaw,orders:0,turnover:0,revenue:0};
+    const amount=Number(o.orderAmount||0);
+    stats[key].orders+=1;
+    stats[key].turnover+=amount;
+    stats[key].revenue+=Math.max(0,amount-Number(o.deliveryCost||0)-Number(o.setupCost||0));
+  });
+
+  const rows=Object.values(stats).sort((a,b)=>b.turnover-a.turnover||b.revenue-a.revenue||b.orders-a.orders).slice(0,topN);
+  if(!rows.length){
+    tableEl.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Нет оплаченных заказов за выбранные годы</td></tr>';
+    return;
+  }
+  tableEl.innerHTML=rows.map((r,idx)=>`<tr><td class="mono">${idx+1}</td><td style="font-weight:600">${esc(r.name)}</td><td class="mono">${r.orders}</td><td class="mono">${fN(Math.round(r.turnover))}₽</td><td class="mono">${fN(Math.round(r.revenue))}₽</td></tr>`).join('');
 }
 function crmOpenClientProfile(id){
   const c=crmClients.find(x=>x.id===id);if(!c)return;
@@ -1435,6 +1480,8 @@ document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRe
 document.getElementById('crmClient')?.addEventListener('change',e=>crmClientApplyToOrder(e.target.value));
 document.getElementById('crmClientsSearch')?.addEventListener('input',()=>crmRenderClients());
 document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYear=Number(e.target.value)||new Date().getFullYear();crmRenderClients()});
+document.getElementById('crmClientsDashYears')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashTopN')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
 document.getElementById('crmStockDemandMode')?.addEventListener('change',()=>crmRenderStockDash());
 document.getElementById('crmStockDemandMetric')?.addEventListener('change',()=>crmRenderStockDash());
