@@ -695,7 +695,7 @@ function crmRenderClients(){
     const avgCheck=m.ordersCount?Math.round(m.turnover/m.ordersCount):0;
     return`<tr>
       <td class="mono">${idx+1}</td>
-      <td class="crm-client-link" style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')" title="Открыть карточку клиента">${esc(c.name)}<span class="crm-client-link-hint">Нажмите для карточки клиента</span></td>
+      <td class="crm-client-link" style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')" title="Открыть карточку клиента">${esc(c.name)}</td>
       <td>${esc(c.company||'—')}</td>
       <td>${esc(c.phone||'—')}</td>
       <td class="mono">${Number(c.proDiscount||0)}%</td>

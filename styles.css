@@ -97,9 +97,8 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
 .form-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}.crm-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
 .crm-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .crm-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.crm-client-link{position:relative;color:var(--text);transition:var(--transition);white-space:normal}
-.crm-client-link:hover{color:var(--blue);background:rgba(52,120,246,0.04)}
-.crm-client-link-hint{display:block;margin-top:4px;font-size:10px;font-weight:500;color:var(--blue);opacity:.85}
+.crm-client-link{position:relative;color:var(--text);transition:var(--transition);white-space:normal;border-radius:8px;background:rgba(52,120,246,0.05)!important;box-shadow:inset 0 0 0 1px rgba(52,120,246,0.08)}
+.crm-client-link:hover{color:var(--blue);background:rgba(52,120,246,0.1)!important;box-shadow:inset 0 0 0 1px rgba(52,120,246,0.22)}
 @media(max-width:768px){.crm-grid-2{grid-template-columns:1fr!important}.crm-grid-3{grid-template-columns:1fr 1fr!important}#crmOrderModal .modal{padding:16px 12px;max-width:98vw}}
 @media(max-width:768px){.crm-month-sep span{font-size:9.5px;padding:5px 8px;letter-spacing:.28px}}
 @media(max-width:768px){
@@ -315,9 +314,6 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
   }
   #page-clients #crmClientAnalyticsToggle{
     width:100%!important;
-  }
-  #page-clients .crm-client-link-hint{
-    font-size:9.5px;
   }
   #page-clients .table-wrap table{
     min-width:980px;
