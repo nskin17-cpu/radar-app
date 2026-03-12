@@ -225,22 +225,75 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="page-header" style="margin-bottom:10px">
           <div>
             <div class="chart-title" style="font-size:12px;margin:0">Топ клиентов</div>
-            <div class="page-desc">Только оплаченные заказы (`paid` и `paid_cash`)</div>
+            <div class="page-desc">Рейтинг клиентов по выбранным годам. Учитываются только `paid` и `paid_cash`.</div>
           </div>
+          <button class="btn btn-sm btn-secondary" id="crmClientAnalyticsToggle" onclick="crmToggleClientAnalytics()">Открыть анализ клиентов</button>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
           <select id="crmClientsDashYears" multiple size="4" style="min-width:220px"></select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+            <input type="checkbox" id="crmClientsDashAllTime" style="width:14px;height:14px">
+            Все время
+          </label>
           <select id="crmClientsDashTopN" style="width:auto;min-width:120px">
-            <option value="5">Топ 5</option>
-            <option value="10" selected>Топ 10</option>
+            <option value="5" selected>Топ 5</option>
+            <option value="10">Топ 10</option>
             <option value="20">Топ 20</option>
           </select>
         </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricTurnover" checked>Оборот</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricRevenue">Выручка</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricOrders">Количество заказов</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricAvg">Средний чек</label>
+        </div>
+        <div class="stats-grid" id="crmClientsDashStats" style="margin-bottom:10px"></div>
+        <div class="chart-card" style="margin-bottom:10px">
+          <div class="chart-title">График топа клиентов</div>
+          <div class="chart-container" style="height:320px"><canvas id="crmClientsTopChart"></canvas></div>
+        </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>№</th><th>Клиент</th><th>Заказов</th><th>Оборот</th><th>Выручка без доставки/сетапа</th></tr></thead>
-            <tbody id="crmClientsTopTable"><tr><td colspan="5" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
+            <thead><tr><th>№</th><th>Клиент</th><th>Компания</th><th>Заказов</th><th>Оборот</th><th>Выручка</th><th>Средний чек</th></tr></thead>
+            <tbody id="crmClientsTopTable"><tr><td colspan="7" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+      <div class="form-card" id="crmClientAnalyticsPanel" style="margin-bottom:12px;display:none">
+        <div class="page-header" style="margin-bottom:10px">
+          <div>
+            <div class="chart-title" style="font-size:12px;margin:0">Анализ клиента</div>
+            <div class="page-desc">Динамика по месяцам за выбранные годы и сравнение клиентов по отдельным графикам.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+          <select id="crmClientTrendTarget" style="min-width:240px"></select>
+          <select id="crmClientTrendYears" multiple size="4" style="min-width:220px"></select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+            <input type="checkbox" id="crmClientTrendAllTime" style="width:14px;height:14px">
+            Все время
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+            <input type="checkbox" id="crmClientTrendCompare" style="width:14px;height:14px">
+            Сравнить клиентов
+          </label>
+          <select id="crmClientTrendCompareTarget" style="min-width:240px;display:none"></select>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricTurnover" checked>Оборот</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricRevenue" checked>Выручка</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricOrders">Количество заказов</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricAvg">Средний чек</label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:10px" id="crmClientTrendGrid">
+          <div class="chart-card">
+            <div class="chart-title" id="crmClientTrendTitle">Динамика клиента</div>
+            <div class="chart-container" style="height:320px"><canvas id="crmClientTrendChart"></canvas></div>
+          </div>
+          <div class="chart-card" id="crmClientTrendCompareCard" style="display:none">
+            <div class="chart-title" id="crmClientTrendCompareTitle">Сравнение клиента</div>
+            <div class="chart-container" style="height:320px"><canvas id="crmClientTrendCompareChart"></canvas></div>
+          </div>
         </div>
       </div>
       <div class="table-wrap">

@@ -1,5 +1,5 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear();
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false;
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const CRM_CLIENTS_PRESET=[
@@ -487,6 +487,166 @@ function crmClientMetrics(c,year){
   });
   return{ordersCount,turnover,revenueNoLog};
 }
+function crmGetClientYears(){
+  const nowY=new Date().getFullYear();
+  return [...new Set([nowY,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+}
+function crmGetSelectedMultiNumbers(id){
+  const el=document.getElementById(id);
+  if(!el)return[];
+  return Array.from(el.selectedOptions).map(o=>Number(o.value)).filter(Boolean);
+}
+function crmClientSelectedYears(selectId,allTimeId){
+  if(document.getElementById(allTimeId)?.checked)return[];
+  return crmGetSelectedMultiNumbers(selectId);
+}
+function crmGetPaidClientOrders(selectedYears,allTime){
+  return crmOrders.filter(o=>{
+    if(!crmPaidStatuses.has(o.paymentStatus))return false;
+    const d=crmParseDateLocal(o.startDate);
+    if(!d)return false;
+    if(allTime)return true;
+    if(!selectedYears.length)return d.getFullYear()===new Date().getFullYear();
+    return selectedYears.includes(d.getFullYear());
+  });
+}
+function crmAggregateClientsForPeriod(selectedYears,allTime){
+  const known={};
+  crmClients.forEach(c=>{known[crmClientKey(c.name)]={name:c.name,company:c.company||''};});
+  const stats={};
+  crmGetPaidClientOrders(selectedYears,allTime).forEach(o=>{
+    const key=crmClientKey(o.clientName);
+    if(!key)return;
+    if(!stats[key]){
+      const meta=known[key]||{name:String(o.clientName||'').trim(),company:String(o.companyName||'').trim()};
+      stats[key]={name:meta.name,company:meta.company,orders:0,turnover:0,revenue:0,avg:0};
+    }
+    const amount=Number(o.orderAmount||0);
+    stats[key].orders+=1;
+    stats[key].turnover+=amount;
+    stats[key].revenue+=Math.max(0,amount-Number(o.deliveryCost||0)-Number(o.setupCost||0));
+  });
+  return Object.values(stats).map(r=>({...r,avg:r.orders?Math.round(r.turnover/r.orders):0}));
+}
+function crmClientMetricValue(row,metric){
+  if(metric==='revenue')return row.revenue;
+  if(metric==='orders')return row.orders;
+  if(metric==='avg')return row.avg;
+  return row.turnover;
+}
+function crmClientMetricLabel(metric){
+  if(metric==='revenue')return 'Выручка';
+  if(metric==='orders')return 'Количество заказов';
+  if(metric==='avg')return 'Средний чек';
+  return 'Оборот';
+}
+function crmClientSelectedSortMetrics(){
+  const metrics=[];
+  if(document.getElementById('crmClientsDashMetricTurnover')?.checked)metrics.push('turnover');
+  if(document.getElementById('crmClientsDashMetricRevenue')?.checked)metrics.push('revenue');
+  if(document.getElementById('crmClientsDashMetricOrders')?.checked)metrics.push('orders');
+  if(document.getElementById('crmClientsDashMetricAvg')?.checked)metrics.push('avg');
+  return metrics;
+}
+function crmClientCombinedScore(row,allRows,metrics){
+  return metrics.reduce((sum,metric)=>{
+    const max=Math.max(...allRows.map(r=>crmClientMetricValue(r,metric)),1);
+    return sum+(crmClientMetricValue(row,metric)/max);
+  },0);
+}
+function crmFormatClientPeriod(years,allTime){
+  if(allTime)return 'Все время';
+  if(!years.length)return String(new Date().getFullYear());
+  if(years.length===1)return String(years[0]);
+  return years.slice().sort((a,b)=>a-b).join(', ');
+}
+function crmFillClientDashboardControls(){
+  const years=crmGetClientYears();
+  const topYears=document.getElementById('crmClientsDashYears');
+  const trendYears=document.getElementById('crmClientTrendYears');
+  const nowY=new Date().getFullYear();
+  if(topYears){
+    const prev=new Set(Array.from(topYears.selectedOptions).map(o=>Number(o.value)));
+    topYears.innerHTML=years.map(y=>`<option value="${y}" ${prev.has(y)||(!prev.size&&y===nowY)?'selected':''}>${y}</option>`).join('');
+  }
+  if(trendYears){
+    const prevTrend=new Set(Array.from(trendYears.selectedOptions).map(o=>Number(o.value)));
+    trendYears.innerHTML=years.map(y=>`<option value="${y}" ${prevTrend.has(y)||(!prevTrend.size&&y===nowY)?'selected':''}>${y}</option>`).join('');
+  }
+  const clientOptions='<option value="">Выберите клиента</option>'+crmClients.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  const trendClient=document.getElementById('crmClientTrendTarget');
+  const compareClient=document.getElementById('crmClientTrendCompareTarget');
+  if(trendClient){
+    const cur=trendClient.value;
+    trendClient.innerHTML=clientOptions;
+    trendClient.value=crmClients.some(c=>c.name===cur)?cur:'';
+  }
+  if(compareClient){
+    const cur2=compareClient.value;
+    compareClient.innerHTML=clientOptions;
+    compareClient.value=crmClients.some(c=>c.name===cur2)?cur2:'';
+  }
+}
+function crmRenderClientTrendChart(canvasId,titleId,clientName,selectedYears,allTime,metricChecks,instanceKey){
+  const canvas=document.getElementById(canvasId);
+  if(window[instanceKey])window[instanceKey].destroy();
+  const titleEl=document.getElementById(titleId);
+  if(titleEl)titleEl.textContent=clientName?`Динамика клиента — ${clientName}`:'Динамика клиента';
+  if(!canvas||!clientName)return;
+  const rows=crmGetPaidClientOrders(selectedYears,allTime).filter(o=>crmClientKey(o.clientName)===crmClientKey(clientName));
+  const monthMap={};
+  rows.forEach(o=>{
+    const d=crmParseDateLocal(o.startDate);if(!d)return;
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!monthMap[key])monthMap[key]={turnover:0,revenue:0,orders:0,avg:0};
+    const amount=Number(o.orderAmount||0);
+    monthMap[key].orders+=1;
+    monthMap[key].turnover+=amount;
+    monthMap[key].revenue+=Math.max(0,amount-Number(o.deliveryCost||0)-Number(o.setupCost||0));
+  });
+  const labels=Object.keys(monthMap).sort();
+  labels.forEach(k=>{const row=monthMap[k];row.avg=row.orders?Math.round(row.turnover/row.orders):0;});
+  if(!labels.length)return;
+  const labelFmt=labels.map(k=>{
+    const parts=k.split('-');
+    return new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric'}).format(new Date(Number(parts[0]),Number(parts[1])-1,1));
+  });
+  const datasets=[];
+  if(metricChecks.turnover)datasets.push({label:'Оборот',data:labels.map(k=>monthMap[k].turnover),borderColor:'#3478f6',backgroundColor:'rgba(52,120,246,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(metricChecks.revenue)datasets.push({label:'Выручка',data:labels.map(k=>monthMap[k].revenue),borderColor:'#2a9d52',backgroundColor:'rgba(42,157,82,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(metricChecks.orders)datasets.push({label:'Заказы',data:labels.map(k=>monthMap[k].orders),borderColor:'#d48806',backgroundColor:'rgba(212,136,6,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
+  if(metricChecks.avg)datasets.push({label:'Средний чек',data:labels.map(k=>monthMap[k].avg),borderColor:'#8944d6',backgroundColor:'rgba(137,68,214,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(!datasets.length)return;
+  window[instanceKey]=new Chart(canvas,{
+    type:'line',
+    data:{labels:labelFmt,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,labels:{boxWidth:10,color:'#6e6e78'}},
+        tooltip:{callbacks:{afterBody:(items)=>{
+          const idx=items[0]?.dataIndex;
+          if(idx==null)return '';
+          const row=monthMap[labels[idx]];
+          return [`Оборот: ${fN(Math.round(row.turnover))}₽`,`Выручка: ${fN(Math.round(row.revenue))}₽`,`Заказов: ${row.orders}`,`Средний чек: ${row.avg?fN(row.avg)+'₽':'—'}`];
+        }}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>fN(v)+'₽'}},
+        y1:{display:metricChecks.orders,position:'right',grid:{drawOnChartArea:false},ticks:{precision:0}}
+      }
+    }
+  });
+}
+function crmToggleClientAnalytics(force){
+  crmClientAnalyticsOpen=typeof force==='boolean'?force:!crmClientAnalyticsOpen;
+  const panel=document.getElementById('crmClientAnalyticsPanel');
+  const btn=document.getElementById('crmClientAnalyticsToggle');
+  if(panel)panel.style.display=crmClientAnalyticsOpen?'block':'none';
+  if(btn)btn.textContent=crmClientAnalyticsOpen?'Скрыть анализ клиентов':'Открыть анализ клиентов';
+  if(crmClientAnalyticsOpen)crmRenderClientAnalytics();
+}
 function crmFillClientsYearOptions(){
   const sel=document.getElementById('crmClientsYear');if(!sel)return;
   const nowY=new Date().getFullYear();
@@ -517,10 +677,13 @@ function crmClientApplyToOrder(name){
 function crmRenderClients(){
   const t=document.getElementById('crmClientsTable');if(!t)return;
   crmClients=crmDedupClients(crmClients);
+  crmFillClientDashboardControls();
   crmFillClientsYearOptions();
   crmFillClientSelect(document.getElementById('crmClient')?.value||'');
   const q=(document.getElementById('crmClientsSearch')?.value||'').toLowerCase().trim();
   const list=crmClients.filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q));
+  crmRenderClientsDashboard();
+  if(crmClientAnalyticsOpen)crmRenderClientAnalytics();
   if(!list.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
   t.innerHTML=list.map((c,idx)=>{
     const m=crmClientMetrics(c,crmClientsYear);
@@ -538,49 +701,93 @@ function crmRenderClients(){
       <td><button class="btn btn-sm btn-secondary" onclick="crmOpenClientModal('${esc(c.id)}')" style="padding:4px 8px;font-size:11px">✎</button></td>
     </tr>`
   }).join('');
-  crmRenderClientsDashboard();
 }
 function crmRenderClientsDashboard(){
   const yearsEl=document.getElementById('crmClientsDashYears');
   const topEl=document.getElementById('crmClientsDashTopN');
+  const allTimeEl=document.getElementById('crmClientsDashAllTime');
+  const statsEl=document.getElementById('crmClientsDashStats');
   const tableEl=document.getElementById('crmClientsTopTable');
-  if(!yearsEl||!topEl||!tableEl)return;
+  const chartEl=document.getElementById('crmClientsTopChart');
+  if(!yearsEl||!topEl||!tableEl||!statsEl||!chartEl)return;
 
-  const paidOrders=crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)&&crmParseDateLocal(o.startDate));
-  const nowY=new Date().getFullYear();
-  const years=[...new Set([nowY,...paidOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
-  const prevSel=new Set(Array.from(yearsEl.selectedOptions).map(o=>Number(o.value)).filter(Boolean));
-  yearsEl.innerHTML=years.map(y=>`<option value="${y}" ${prevSel.has(y)?'selected':''}>${y}</option>`).join('');
-  if(!yearsEl.selectedOptions.length&&yearsEl.options.length){
-    const currentOpt=Array.from(yearsEl.options).find(o=>Number(o.value)===nowY)||yearsEl.options[0];
-    if(currentOpt)currentOpt.selected=true;
-  }
-  const selectedYears=new Set(Array.from(yearsEl.selectedOptions).map(o=>Number(o.value)).filter(Boolean));
+  yearsEl.disabled=!!allTimeEl?.checked;
+  const selectedYears=crmClientSelectedYears('crmClientsDashYears','crmClientsDashAllTime');
+  const allTime=!!allTimeEl?.checked;
   const topN=Math.max(1,Number(topEl.value)||10);
-
-  const knownByName={};
-  crmClients.forEach(c=>{knownByName[crmClientKey(c.name)]=c.name});
-  const stats={};
-  paidOrders.forEach(o=>{
-    const d=crmParseDateLocal(o.startDate);if(!d)return;
-    const y=d.getFullYear();
-    if(selectedYears.size&&!selectedYears.has(y))return;
-    const nameRaw=String(o.clientName||'').trim();
-    const key=crmClientKey(nameRaw);
-    if(!key)return;
-    if(!stats[key])stats[key]={name:knownByName[key]||nameRaw,orders:0,turnover:0,revenue:0};
-    const amount=Number(o.orderAmount||0);
-    stats[key].orders+=1;
-    stats[key].turnover+=amount;
-    stats[key].revenue+=Math.max(0,amount-Number(o.deliveryCost||0)-Number(o.setupCost||0));
-  });
-
-  const rows=Object.values(stats).sort((a,b)=>b.turnover-a.turnover||b.revenue-a.revenue||b.orders-a.orders).slice(0,topN);
+  let metrics=crmClientSelectedSortMetrics();
+  if(!metrics.length){
+    const fallback=document.getElementById('crmClientsDashMetricTurnover');
+    if(fallback)fallback.checked=true;
+    metrics=['turnover'];
+  }
+  const allRows=crmAggregateClientsForPeriod(selectedYears,allTime);
+  const metricLabel=metrics.length===1?crmClientMetricLabel(metrics[0]):'Комбинированный рейтинг';
+  const rows=allRows.slice().sort((a,b)=>{
+    const diff=crmClientCombinedScore(b,allRows,metrics)-crmClientCombinedScore(a,allRows,metrics);
+    return diff||b.turnover-a.turnover||b.revenue-a.revenue||b.orders-a.orders;
+  }).slice(0,topN);
+  const ordersTotal=allRows.reduce((s,r)=>s+r.orders,0);
+  const turnoverTotal=allRows.reduce((s,r)=>s+r.turnover,0);
+  const revenueTotal=allRows.reduce((s,r)=>s+r.revenue,0);
+  const avgTotal=ordersTotal?Math.round(turnoverTotal/ordersTotal):0;
+  const leader=rows[0];
+  statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Период</div><div class="stat-value dark" style="font-size:16px">${esc(crmFormatClientPeriod(selectedYears,allTime))}</div></div><div class="stat-card"><div class="stat-label">Сортировка</div><div class="stat-value dark" style="font-size:14px">${esc(metricLabel)}</div></div><div class="stat-card"><div class="stat-label">Клиентов</div><div class="stat-value dark">${allRows.length}</div></div><div class="stat-card"><div class="stat-label">Заказов</div><div class="stat-value blue">${fN(ordersTotal)}</div></div><div class="stat-card"><div class="stat-label">Оборот</div><div class="stat-value green">${fN(Math.round(turnoverTotal))}₽</div></div><div class="stat-card"><div class="stat-label">Выручка</div><div class="stat-value purple">${fN(Math.round(revenueTotal))}₽</div></div><div class="stat-card"><div class="stat-label">Средний чек</div><div class="stat-value amber">${avgTotal?fN(avgTotal)+'₽':'—'}</div></div><div class="stat-card"><div class="stat-label">Лидер</div><div class="stat-value dark" style="font-size:14px">${leader?esc(leader.name):'—'}</div></div>`;
   if(!rows.length){
-    tableEl.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Нет оплаченных заказов за выбранные годы</td></tr>';
+    if(window.crmClientsTopChartInst)window.crmClientsTopChartInst.destroy();
+    tableEl.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Нет оплаченных заказов за выбранный период</td></tr>';
     return;
   }
-  tableEl.innerHTML=rows.map((r,idx)=>`<tr><td class="mono">${idx+1}</td><td style="font-weight:600">${esc(r.name)}</td><td class="mono">${r.orders}</td><td class="mono">${fN(Math.round(r.turnover))}₽</td><td class="mono">${fN(Math.round(r.revenue))}₽</td></tr>`).join('');
+  tableEl.innerHTML=rows.map((r,idx)=>`<tr><td class="mono">${idx+1}</td><td style="font-weight:600">${esc(r.name)}</td><td>${esc(r.company||'—')}</td><td class="mono">${r.orders}</td><td class="mono">${fN(Math.round(r.turnover))}₽</td><td class="mono">${fN(Math.round(r.revenue))}₽</td><td class="mono">${r.avg?fN(r.avg)+'₽':'—'}</td></tr>`).join('');
+  if(window.crmClientsTopChartInst)window.crmClientsTopChartInst.destroy();
+  const chartValues=rows.map(r=>metrics.length===1?crmClientMetricValue(r,metrics[0]):Math.round(crmClientCombinedScore(r,allRows,metrics)*100));
+  window.crmClientsTopChartInst=new Chart(chartEl,{
+    type:'bar',
+    data:{labels:rows.map(r=>r.name),datasets:[{data:chartValues,backgroundColor:'rgba(52,120,246,0.45)',borderColor:'#3478f6',borderWidth:1,borderRadius:6}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
+        const r=rows[ctx.dataIndex];
+        if(metrics.length===1){
+          return `${crmClientMetricLabel(metrics[0])}: ${metrics[0]==='orders'?r.orders:fN(Math.round(crmClientMetricValue(r,metrics[0])))+(metrics[0]==='orders'?'':'₽')}`;
+        }
+        return `Комбинированный рейтинг: ${Math.round(crmClientCombinedScore(r,allRows,metrics)*100)} баллов`;
+      },afterBody:(items)=>{
+        const r=rows[items[0].dataIndex];
+        return [`Оборот: ${fN(Math.round(r.turnover))}₽`,`Выручка: ${fN(Math.round(r.revenue))}₽`,`Заказов: ${r.orders}`,`Средний чек: ${r.avg?fN(r.avg)+'₽':'—'}`];
+      }}}},
+      scales:{x:{ticks:{callback:v=>metrics.length===1?(metrics[0]==='orders'?v:fN(v)+'₽'):`${v} б.`}},y:{grid:{display:false}}}
+    }
+  });
+}
+function crmRenderClientAnalytics(){
+  const targetEl=document.getElementById('crmClientTrendTarget');
+  const compareToggle=document.getElementById('crmClientTrendCompare');
+  const compareTargetEl=document.getElementById('crmClientTrendCompareTarget');
+  const compareCard=document.getElementById('crmClientTrendCompareCard');
+  if(!targetEl||!compareToggle||!compareTargetEl||!compareCard)return;
+  const years=crmClientSelectedYears('crmClientTrendYears','crmClientTrendAllTime');
+  const allTime=!!document.getElementById('crmClientTrendAllTime')?.checked;
+  document.getElementById('crmClientTrendYears').disabled=allTime;
+  compareTargetEl.style.display=compareToggle.checked?'inline-flex':'none';
+  compareCard.style.display=compareToggle.checked&&compareTargetEl.value?'block':'none';
+  const metricChecks={
+    turnover:!!document.getElementById('crmTrendMetricTurnover')?.checked,
+    revenue:!!document.getElementById('crmTrendMetricRevenue')?.checked,
+    orders:!!document.getElementById('crmTrendMetricOrders')?.checked,
+    avg:!!document.getElementById('crmTrendMetricAvg')?.checked
+  };
+  if(!metricChecks.turnover&&!metricChecks.revenue&&!metricChecks.orders&&!metricChecks.avg){
+    document.getElementById('crmTrendMetricTurnover').checked=true;
+    metricChecks.turnover=true;
+  }
+  document.getElementById('crmClientTrendCompareTitle').textContent=compareTargetEl.value?`Сравнение клиента — ${compareTargetEl.value}`:'Сравнение клиента';
+  crmRenderClientTrendChart('crmClientTrendChart','crmClientTrendTitle',targetEl.value,years,allTime,metricChecks,'crmClientTrendChartInst');
+  if(compareToggle.checked&&compareTargetEl.value){
+    crmRenderClientTrendChart('crmClientTrendCompareChart','crmClientTrendCompareTitle',compareTargetEl.value,years,allTime,metricChecks,'crmClientTrendCompareChartInst');
+  }else if(window.crmClientTrendCompareChartInst){
+    window.crmClientTrendCompareChartInst.destroy();
+  }
 }
 function crmOpenClientProfile(id){
   const c=crmClients.find(x=>x.id===id);if(!c)return;
@@ -1481,7 +1688,21 @@ document.getElementById('crmClient')?.addEventListener('change',e=>crmClientAppl
 document.getElementById('crmClientsSearch')?.addEventListener('input',()=>crmRenderClients());
 document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYear=Number(e.target.value)||new Date().getFullYear();crmRenderClients()});
 document.getElementById('crmClientsDashYears')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashAllTime')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmClientsDashTopN')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashMetricTurnover')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashMetricRevenue')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashMetricOrders')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientsDashMetricAvg')?.addEventListener('change',()=>crmRenderClientsDashboard());
+document.getElementById('crmClientTrendTarget')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendYears')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendAllTime')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendCompare')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendCompareTarget')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmTrendMetricTurnover')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmTrendMetricRevenue')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmTrendMetricOrders')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmTrendMetricAvg')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
 document.getElementById('crmStockDemandMode')?.addEventListener('change',()=>crmRenderStockDash());
 document.getElementById('crmStockDemandMetric')?.addEventListener('change',()=>crmRenderStockDash());
