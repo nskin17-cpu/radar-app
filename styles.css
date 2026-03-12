@@ -97,6 +97,9 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
 .form-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}.crm-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
 .crm-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .crm-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.crm-client-link{position:relative;color:var(--text);transition:var(--transition);white-space:normal}
+.crm-client-link:hover{color:var(--blue);background:rgba(52,120,246,0.04)}
+.crm-client-link-hint{display:block;margin-top:4px;font-size:10px;font-weight:500;color:var(--blue);opacity:.85}
 @media(max-width:768px){.crm-grid-2{grid-template-columns:1fr!important}.crm-grid-3{grid-template-columns:1fr 1fr!important}#crmOrderModal .modal{padding:16px 12px;max-width:98vw}}
 @media(max-width:768px){.crm-month-sep span{font-size:9.5px;padding:5px 8px;letter-spacing:.28px}}
 @media(max-width:768px){
@@ -269,6 +272,55 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
   #crmStockDemandCard select[multiple]{
     min-height:92px;
     font-size:13px;
+  }
+  #page-clients #crmClientsDashFilterRow,
+  #page-clients #crmClientTrendFilterRow{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  #page-clients #crmClientsDashYears,
+  #page-clients #crmClientTrendYears,
+  #page-clients #crmClientsYear,
+  #page-clients #crmClientsDashTopN,
+  #page-clients #crmClientTrendTarget,
+  #page-clients #crmClientTrendCompareTarget,
+  #page-clients #crmClientTrendSearch,
+  #page-clients #crmClientTrendCompareSearch{
+    min-width:0!important;
+    width:100%!important;
+  }
+  #page-clients #crmClientsDashMetricRow,
+  #page-clients #crmClientTrendMetricRow{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px 12px!important;
+    align-items:start;
+  }
+  #page-clients #crmClientsDashMetricRow label,
+  #page-clients #crmClientTrendMetricRow label{
+    display:flex!important;
+    align-items:flex-start!important;
+    gap:8px!important;
+    min-width:0;
+    font-size:12px!important;
+    line-height:1.25;
+  }
+  #page-clients #crmClientsDashMetricRow input[type="checkbox"],
+  #page-clients #crmClientTrendMetricRow input[type="checkbox"]{
+    flex:0 0 16px;
+    width:16px!important;
+    height:16px!important;
+    margin-top:1px;
+  }
+  #page-clients #crmClientAnalyticsToggle{
+    width:100%!important;
+  }
+  #page-clients .crm-client-link-hint{
+    font-size:9.5px;
+  }
+  #page-clients .table-wrap table{
+    min-width:980px;
   }
   #crmStockCatTabs{display:block}
   .stock-cat-mobile-dd{background:var(--surface);border:0.5px solid var(--border2);border-radius:12px;padding:8px 10px}

@@ -229,7 +229,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           </div>
           <button class="btn btn-sm btn-secondary" id="crmClientAnalyticsToggle" onclick="crmToggleClientAnalytics()">Открыть анализ клиентов</button>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+        <div id="crmClientsDashFilterRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
           <div style="display:flex;flex-direction:column;gap:6px">
             <select id="crmClientsDashYears" multiple size="4" style="min-width:220px"></select>
             <div style="font-size:11px;color:var(--text3)">Можно выбрать несколько лет, например 2023 и 2024</div>
@@ -244,7 +244,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
             <option value="20">Топ 20</option>
           </select>
         </div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="crmClientsDashMetricRow" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricTurnover" checked>Оборот</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricRevenue">Выручка</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmClientsDashMetricOrders">Количество заказов</label>
@@ -269,7 +269,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
             <div class="page-desc">Динамика по месяцам за выбранные годы и сравнение клиентов по отдельным графикам.</div>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+        <div id="crmClientTrendFilterRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
           <div style="display:flex;flex-direction:column;gap:6px">
             <input id="crmClientTrendSearch" type="search" placeholder="Поиск клиента" style="min-width:240px">
             <select id="crmClientTrendTarget" style="min-width:240px"></select>
@@ -288,7 +288,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
             <select id="crmClientTrendCompareTarget" style="min-width:240px"></select>
           </div>
         </div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="crmClientTrendMetricRow" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricTurnover" checked>Оборот</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricRevenue" checked>Выручка</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmTrendMetricOrders">Количество заказов</label>
