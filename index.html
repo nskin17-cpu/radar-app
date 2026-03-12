@@ -319,38 +319,62 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
         <button class="btn btn-sm" onclick="crmOpenStockModal()">+ Добавить</button>
       </div>
-      <div class="form-card" id="crmStockDemandCard" style="margin-bottom:12px">
+      <div class="form-card" id="crmStockTopCard" style="margin-bottom:12px">
         <div class="page-header" style="margin-bottom:10px">
-          <div><div class="chart-title" style="font-size:12px;margin:0">Дашборд спроса по складу</div><div class="page-desc">Учитываются только оплаченные заказы и оплаченные наличными</div></div>
+          <div><div class="chart-title" style="font-size:12px;margin:0">Топ по складу</div><div class="page-desc">Учитываются только `paid` и `paid_cash`.</div></div>
+          <button class="btn btn-sm btn-secondary" id="crmStockAnalyticsToggle" onclick="crmToggleStockAnalytics()">Открыть анализ склада</button>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px;margin-bottom:10px" id="crmStockDemandFilters">
-          <select id="crmStockDemandMode">
-            <option value="category">По категориям</option>
-            <option value="item">По изделиям</option>
+        <div id="crmStockTopFilterRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+          <select id="crmStockTopMode" style="width:auto;min-width:180px">
+            <option value="item">Изделия</option>
+            <option value="category">Категории</option>
           </select>
-          <select id="crmStockDemandMetric">
-            <option value="qty">По количеству (шт.)</option>
-            <option value="orders">По количеству заказов</option>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <select id="crmStockTopYears" multiple size="4" style="min-width:220px"></select>
+            <div style="font-size:11px;color:var(--text3)">Можно выбрать несколько лет, например 2023 и 2024</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+            <input type="checkbox" id="crmStockTopAllTime" style="width:14px;height:14px">
+            Все время
+          </label>
+          <select id="crmStockTopMetric" style="width:auto;min-width:180px">
+            <option value="qty">Сортировка: количество единиц</option>
+            <option value="amount">Сортировка: сумма аренды</option>
           </select>
-          <input id="crmStockDashItemFilter" type="search" placeholder="Поиск по названию">
-          <select id="crmStockDashYears" multiple size="4"></select>
-          <select id="crmStockDashMonths" multiple size="4"></select>
-          <select id="crmStockDashCategories" multiple size="4"></select>
-          <select id="crmStockDashItems" multiple size="5" style="grid-column:1/-1"></select>
+          <select id="crmStockTopN" style="width:auto;min-width:140px">
+            <option value="5" selected>Топ 5</option>
+            <option value="10">Топ 10</option>
+            <option value="all">Все</option>
+          </select>
         </div>
-        <div class="stats-grid" id="crmStockDemandStats" style="margin-bottom:10px"></div>
-        <div class="chart-card" style="margin-bottom:10px"><div class="chart-title">Сравнительный график по выбранным позициям</div><div class="chart-container" style="height:280px"><canvas id="crmStockDemandChart"></canvas></div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div class="table-wrap" style="padding:10px">
-            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Топ-10 категорий</div>
-            <div id="crmStockTopCategories"></div>
-          </div>
-          <div class="table-wrap" style="padding:10px">
-            <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Топ-10 изделий</div>
-            <div id="crmStockTopItems"></div>
-          </div>
+        <div class="stats-grid" id="crmStockTopStats" style="margin-bottom:10px"></div>
+        <div class="chart-card" style="margin-bottom:10px"><div class="chart-title">График топа по складу</div><div class="chart-container" style="height:300px"><canvas id="crmStockTopChart"></canvas></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>№</th><th>Позиция</th><th>Количество единиц</th><th>Сумма аренды</th></tr></thead>
+            <tbody id="crmStockTopTable"><tr><td colspan="4" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
+          </table>
         </div>
-        <div id="crmStockDashTable"></div>
+      </div>
+      <div class="form-card" id="crmStockAnalyticsPanel" style="margin-bottom:12px;display:none">
+        <div class="page-header" style="margin-bottom:10px">
+          <div><div class="chart-title" style="font-size:12px;margin:0">Анализ склада</div><div class="page-desc">Динамика по месяцам для категории или изделия</div></div>
+        </div>
+        <div id="crmStockAnalyticsFilterRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+          <select id="crmStockAnalysisCategory" style="min-width:240px"></select>
+          <select id="crmStockAnalysisItem" style="min-width:240px"></select>
+          <select id="crmStockAnalysisYears" multiple size="4" style="min-width:220px"></select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+            <input type="checkbox" id="crmStockAnalysisAllTime" style="width:14px;height:14px">
+            Все время
+          </label>
+        </div>
+        <div id="crmStockAnalyticsMetricRow" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmStockMetricQty" checked>Количество единиц</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmStockMetricAmount" checked>Сумма аренды</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="crmStockMetricOrders">Количество заказов</label>
+        </div>
+        <div class="chart-card"><div class="chart-title" id="crmStockAnalysisTitle">Анализ склада</div><div class="chart-container" style="height:320px"><canvas id="crmStockAnalysisChart"></canvas></div></div>
       </div>
       <div class="stats-grid" id="crmStockStats" style="margin-bottom:12px"></div>
       <div class="filter-bar" id="crmStockCatTabs" style="flex-wrap:wrap;margin-bottom:12px"></div>
