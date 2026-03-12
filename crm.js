@@ -1,5 +1,5 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const CRM_CLIENTS_PRESET=[
@@ -997,148 +997,224 @@ function crmSetMultiOptions(id,options,selectedValues,defaultValue){
     if(target)target.selected=true;
   }
 }
-function crmRenderStockDash(){
-  const tbl=document.getElementById('crmStockDashTable');if(!tbl)return;
-  const modeSel=document.getElementById('crmStockDemandMode');
-  const metricSel=document.getElementById('crmStockDemandMetric');
-  const statsEl=document.getElementById('crmStockDemandStats');
-  const topCatsEl=document.getElementById('crmStockTopCategories');
-  const topItemsEl=document.getElementById('crmStockTopItems');
-  const selYear=document.getElementById('crmStockDashYears');
-  const selMonth=document.getElementById('crmStockDashMonths');
-  const selCats=document.getElementById('crmStockDashCategories');
-  const selItems=document.getElementById('crmStockDashItems');
-  const itemQ=(document.getElementById('crmStockDashItemFilter')?.value||'').toLowerCase();
-  const mode=(modeSel?.value||'item');
-  const metric=(metricSel?.value||'qty');
-  const now=new Date(),curYear=now.getFullYear(),curMonth=now.getMonth();
-  const paidOrders=crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus));
-  const years=[...new Set([curYear,...paidOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
-  const monthNames=Array.from({length:12},(_,m)=>new Intl.DateTimeFormat('ru-RU',{month:'long'}).format(new Date(curYear,m,1)));
-  const allCats=[...new Set(paidOrders.flatMap(o=>(o.items||[]).map(i=>String(i.category||'').trim()).filter(Boolean)))].sort();
-  const allItems=[...new Set(paidOrders.flatMap(o=>(o.items||[]).map(i=>String(i.name||'').trim()).filter(Boolean)))].sort();
-
-  crmSetMultiOptions('crmStockDashYears',years.map(y=>({value:y,label:y})),crmGetMultiValues('crmStockDashYears'),curYear);
-  crmSetMultiOptions('crmStockDashMonths',monthNames.map((l,m)=>({value:m,label:l})),crmGetMultiValues('crmStockDashMonths'),curMonth);
-  crmSetMultiOptions('crmStockDashCategories',allCats.map(c=>({value:c,label:c})),crmGetMultiValues('crmStockDashCategories'));
-
-  const selectedCats=crmGetMultiValues('crmStockDashCategories');
-  const filteredItems=selectedCats.length?allItems.filter(n=>{
-    const cat=String(crmStock.find(s=>s.name===n)?.category||'').trim();
-    return selectedCats.includes(cat);
-  }):allItems;
-  crmSetMultiOptions('crmStockDashItems',filteredItems.map(i=>({value:i,label:i})),crmGetMultiValues('crmStockDashItems'));
-  if(selItems)selItems.disabled=mode!=='item';
-
-  const yearsSet=new Set(crmGetMultiValues('crmStockDashYears').map(Number));
-  const monthsSet=new Set(crmGetMultiValues('crmStockDashMonths').map(Number));
-  const catsSet=new Set(selectedCats);
-  const itemsSet=new Set(crmGetMultiValues('crmStockDashItems'));
-
-  const counts={};
-  const countsByCategory={};
-  const countsByItem={};
-  const periodSet=new Set();
-  const periodData={};
-  paidOrders.forEach((o,ix)=>{
-    const d=crmParseDateLocal(o.startDate);if(!d)return;
-    if(yearsSet.size&&!yearsSet.has(d.getFullYear()))return;
-    if(monthsSet.size&&!monthsSet.has(d.getMonth()))return;
-    const orderKey=o.id||`ROW_${ix}`;
-    const periodKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    periodSet.add(periodKey);
-    const perOrder={};
-    const perCat={};
-    const perItem={};
-    (o.items||[]).forEach(it=>{
-      const cat=String(it.category||'').trim()||'Без категории';
-      const nm=String(it.name||'').trim();
+function crmGetStockYears(){
+  const curYear=new Date().getFullYear();
+  return [...new Set([curYear,...crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)).map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+}
+function crmGetStockFactRows(){
+  const rows=[];
+  crmOrders.forEach((o,ix)=>{
+    if(!crmPaidStatuses.has(o.paymentStatus))return;
+    const d=crmParseDateLocal(o.startDate);
+    if(!d)return;
+    const orderId=o.id||`ROW_${ix}`;
+    const year=d.getFullYear();
+    const month=d.getMonth();
+    const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
+    const monthLabel=new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric'}).format(new Date(year,month,1));
+    (Array.isArray(o.items)?o.items:[]).forEach(it=>{
+      if(!it||typeof it!=='object')return;
+      const category=String(it.category||'').trim()||'Без категории';
+      const name=String(it.name||'').trim();
       const qty=Math.max(0,Number(it.qty||0));
-      if(!perCat[cat])perCat[cat]={orders:new Set(),qty:0};
-      perCat[cat].orders.add(orderKey);perCat[cat].qty+=qty;
-      if(nm){
-        if(!perItem[nm])perItem[nm]={orders:new Set(),qty:0,category:cat};
-        perItem[nm].orders.add(orderKey);perItem[nm].qty+=qty;
-      }
-      if(catsSet.size&&!catsSet.has(cat))return;
-      if(mode==='item'&&itemsSet.size&&!itemsSet.has(nm))return;
-      const key=mode==='category'?cat:nm;
-      if(!key)return;
-      if(!perOrder[key])perOrder[key]={key,category:cat,qty:0};
-      perOrder[key].qty+=qty;
+      const amount=Math.max(0,Number(it.price||0))*qty;
+      if(!qty||(!name&&category==='Без категории'))return;
+      rows.push({orderId,year,month,monthKey,monthLabel,category,name,qty,amount});
     });
-    Object.entries(perCat).forEach(([k,v])=>{
-      if(!countsByCategory[k])countsByCategory[k]={name:k,count:0,qty:0};
-      countsByCategory[k].count+=v.orders.size;
-      countsByCategory[k].qty+=v.qty;
-    });
-    Object.entries(perItem).forEach(([k,v])=>{
-      if(!countsByItem[k])countsByItem[k]={name:k,category:v.category,count:0,qty:0};
-      countsByItem[k].count+=v.orders.size;
-      countsByItem[k].qty+=v.qty;
-    });
-    Object.values(perOrder).forEach(p=>{
-      if(!counts[p.key])counts[p.key]={name:p.key,category:p.category,orders:new Set(),qty:0};
-      const r=counts[p.key];
-      r.orders.add(orderKey);r.qty+=p.qty;
-      if(!periodData[p.key])periodData[p.key]={};
-      if(!periodData[p.key][periodKey])periodData[p.key][periodKey]={orders:new Set(),qty:0};
-      periodData[p.key][periodKey].orders.add(orderKey);
-      periodData[p.key][periodKey].qty+=p.qty;
-    })
   });
+  return rows;
+}
+function crmGetSelectedYearsState(selectId,allTimeId){
+  const allTime=!!document.getElementById(allTimeId)?.checked;
+  const years=crmGetMultiValues(selectId).map(Number).filter(Boolean);
+  const fallbackYear=new Date().getFullYear();
+  return {allTime,years:allTime?[]:(years.length?years:[fallbackYear])};
+}
+function crmFillStockDashboardControls(){
+  const years=crmGetStockYears();
+  crmSetMultiOptions('crmStockTopYears',years.map(y=>({value:y,label:y})),crmGetMultiValues('crmStockTopYears'),new Date().getFullYear());
+  crmSetMultiOptions('crmStockAnalysisYears',years.map(y=>({value:y,label:y})),crmGetMultiValues('crmStockAnalysisYears'),new Date().getFullYear());
 
-  const rows=Object.values(counts).map(r=>({
-    name:r.name,category:r.category,count:r.orders.size,qty:r.qty
-  })).filter(r=>!itemQ||r.name.toLowerCase().includes(itemQ)||r.category.toLowerCase().includes(itemQ))
-    .sort((a,b)=>(metric==='qty'?b.qty-a.qty:b.count-a.count)||b.count-a.count);
-
-  if(statsEl){
-    const trips=rows.reduce((s,r)=>s+r.count,0);
-    const qty=rows.reduce((s,r)=>s+r.qty,0);
-    const top=rows[0];
-    const low=rows.length?[...rows].sort((a,b)=>(metric==='qty'?a.qty-b.qty:a.count-b.count)||a.count-b.count)[0]:null;
-    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Сходили в заказы</div><div class="stat-value dark">${fN(trips)}</div></div><div class="stat-card"><div class="stat-label">Выдано единиц</div><div class="stat-value blue">${fN(qty)}</div></div><div class="stat-card"><div class="stat-label">Топ периода</div><div class="stat-value purple" style="font-size:14px">${top?esc(top.name):'—'}</div></div><div class="stat-card"><div class="stat-label">Худшая позиция</div><div class="stat-value green" style="font-size:14px">${low?esc(low.name):'—'}</div></div>`;
+  const factRows=crmGetStockFactRows();
+  const categories=[...new Set(factRows.map(r=>r.category).filter(Boolean))].sort();
+  const selectedCategory=document.getElementById('crmStockAnalysisCategory')?.value||'';
+  const categoryEl=document.getElementById('crmStockAnalysisCategory');
+  if(categoryEl){
+    categoryEl.innerHTML=`<option value="">Выберите категорию</option>${categories.map(c=>`<option value="${esc(c)}" ${selectedCategory===c?'selected':''}>${esc(c)}</option>`).join('')}`;
   }
-  const topCats=Object.values(countsByCategory).sort((a,b)=>(metric==='qty'?b.qty-a.qty:b.count-a.count)||b.count-a.count).slice(0,10);
-  const topItems=Object.values(countsByItem).sort((a,b)=>(metric==='qty'?b.qty-a.qty:b.count-a.count)||b.count-a.count).slice(0,10);
-  if(topCatsEl)topCatsEl.innerHTML=topCats.length?topCats.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
-  if(topItemsEl)topItemsEl.innerHTML=topItems.length?topItems.map((r,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(r.name)}</span><span class="mono" style="font-size:11px">${metric==='qty'?r.qty:r.count}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>';
+  const itemRows=selectedCategory?factRows.filter(r=>r.category===selectedCategory):factRows;
+  const items=[...new Set(itemRows.map(r=>r.name).filter(Boolean))].sort();
+  const selectedItem=document.getElementById('crmStockAnalysisItem')?.value||'';
+  const itemEl=document.getElementById('crmStockAnalysisItem');
+  if(itemEl){
+    itemEl.innerHTML=`<option value="">Выберите изделие</option>${items.map(i=>`<option value="${esc(i)}" ${selectedItem===i?'selected':''}>${esc(i)}</option>`).join('')}`;
+    if(selectedItem && !items.includes(selectedItem))itemEl.value='';
+  }
+}
+function crmAggregateStockForPeriod(mode,years,allTime){
+  const rows=crmGetStockFactRows().filter(r=>allTime||!years.length||years.includes(r.year));
+  const grouped={};
+  rows.forEach(r=>{
+    const key=mode==='category'?r.category:r.name;
+    if(!key)return;
+    if(!grouped[key])grouped[key]={name:key,category:mode==='item'?r.category:'',qty:0,amount:0,orders:new Set()};
+    grouped[key].qty+=r.qty;
+    grouped[key].amount+=r.amount;
+    grouped[key].orders.add(r.orderId);
+  });
+  return Object.values(grouped).map(r=>({...r,ordersCount:r.orders.size})).sort((a,b)=>b.qty-a.qty||b.amount-a.amount||b.ordersCount-a.ordersCount);
+}
+function crmToggleStockAnalytics(force){
+  crmStockAnalyticsOpen=typeof force==='boolean'?force:!crmStockAnalyticsOpen;
+  const panel=document.getElementById('crmStockAnalyticsPanel');
+  const btn=document.getElementById('crmStockAnalyticsToggle');
+  if(panel)panel.style.display=crmStockAnalyticsOpen?'block':'none';
+  if(btn)btn.textContent=crmStockAnalyticsOpen?'Скрыть анализ склада':'Открыть анализ склада';
+  if(crmStockAnalyticsOpen)crmRenderStockAnalysis();
+}
+function crmRenderStockTopDashboard(){
+  const tableBody=document.getElementById('crmStockTopTable');
+  if(!tableBody)return;
+  try{
+    crmFillStockDashboardControls();
+    const mode=document.getElementById('crmStockTopMode')?.value||'item';
+    const metric=document.getElementById('crmStockTopMetric')?.value||'qty';
+    const limitVal=document.getElementById('crmStockTopN')?.value||'5';
+    const {years,allTime}=crmGetSelectedYearsState('crmStockTopYears','crmStockTopAllTime');
+    const rows=crmAggregateStockForPeriod(mode,years,allTime).sort((a,b)=>(metric==='amount'?b.amount-a.amount:b.qty-a.qty)||b.amount-a.amount||b.ordersCount-a.ordersCount);
+    const topRows=limitVal==='all'?rows:rows.slice(0,Number(limitVal)||5);
+    const periodLabel=allTime?'Все время':years.join(', ');
+    const statsEl=document.getElementById('crmStockTopStats');
+    if(statsEl){
+      const totalQty=rows.reduce((s,r)=>s+r.qty,0);
+      const totalAmount=rows.reduce((s,r)=>s+r.amount,0);
+      const leader=topRows[0];
+      statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Период</div><div class="stat-value dark" style="font-size:16px">${esc(periodLabel)}</div></div><div class="stat-card"><div class="stat-label">Режим</div><div class="stat-value dark" style="font-size:16px">${mode==='category'?'Категории':'Изделия'}</div></div><div class="stat-card"><div class="stat-label">Единиц</div><div class="stat-value blue">${fN(totalQty)}</div></div><div class="stat-card"><div class="stat-label">Сумма аренды</div><div class="stat-value green">${fN(totalAmount)}₽</div></div><div class="stat-card"><div class="stat-label">Позиции в рейтинге</div><div class="stat-value purple">${fN(topRows.length)}</div></div><div class="stat-card"><div class="stat-label">Лидер</div><div class="stat-value dark" style="font-size:14px">${leader?esc(leader.name):'—'}</div></div>`;
+    }
+    if(!topRows.length){
+      if(window.crmStockTopChartInst)window.crmStockTopChartInst.destroy();
+      tableBody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:18px">Нет данных по оплаченных заказам</td></tr>';
+      return;
+    }
+    tableBody.innerHTML=topRows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${esc(r.name)}</strong>${mode==='item'&&r.category?`<div style="font-size:11px;color:var(--text3)">${esc(r.category)}</div>`:''}</td><td class="mono">${fN(r.qty)}</td><td class="mono">${fN(r.amount)}₽</td></tr>`).join('');
 
-  if(!rows.length){tbl.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Нет данных по заказам</div>';return;}
-  const chartCanvas=document.getElementById('crmStockDemandChart');
-  if(window.crmStockDemandChartInst)window.crmStockDemandChartInst.destroy();
-  if(chartCanvas){
-    const labels=[...periodSet].sort();
-    const selectedKeys=mode==='category'
-      ? (catsSet.size?[...catsSet]:rows.slice(0,5).map(r=>r.name))
-      : (itemsSet.size?[...itemsSet]:rows.slice(0,5).map(r=>r.name));
-    const palette=['#3478f6','#8944d6','#2a9d52','#d48806','#e5352b','#5ac8fa','#ff9f40','#9c27b0'];
-    const datasets=selectedKeys.map((k,i)=>({
-      label:k,
-      data:labels.map(lb=>{
-        const p=periodData[k]?.[lb];
-        if(!p)return 0;
-        return metric==='qty'?p.qty:p.orders.size;
-      }),
-      borderColor:palette[i%palette.length],
-      backgroundColor:palette[i%palette.length]+'33',
-      tension:.28,
-      pointRadius:2,
-      fill:false
-    }));
-    window.crmStockDemandChartInst=new Chart(chartCanvas,{
-      type:'line',
-      data:{labels,datasets},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{ticks:{maxRotation:0,minRotation:0}}}}
+    if(window.crmStockTopChartInst)window.crmStockTopChartInst.destroy();
+    const topCanvas=document.getElementById('crmStockTopChart');
+    if(topCanvas){
+      window.crmStockTopChartInst=new Chart(topCanvas,{
+        type:'bar',
+        data:{
+          labels:topRows.map(r=>r.name),
+          datasets:[{
+            label:metric==='amount'?'Сумма аренды':'Количество единиц',
+            data:topRows.map(r=>metric==='amount'?r.amount:r.qty),
+            backgroundColor:topRows.map((_,i)=>`hsla(${(i*31)%360},70%,58%,0.72)`),
+            borderColor:topRows.map((_,i)=>`hsl(${(i*31)%360},70%,46%)`),
+            borderWidth:1,
+            borderRadius:6
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          indexAxis:'y',
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:(ctx)=>metric==='amount'?`${fN(ctx.parsed.x)}₽`:`${fN(ctx.parsed.x)} шт.`}}
+          },
+          scales:{x:{ticks:{callback:v=>metric==='amount'?`${fN(v)}₽`:fN(v)}}}
+        }
+      });
+    }
+  }catch(err){
+    console.error('crmRenderStockTopDashboard failed',err);
+    tableBody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:18px">Не удалось построить дашборд склада</td></tr>';
+  }
+}
+function crmRenderStockAnalysis(){
+  const panel=document.getElementById('crmStockAnalyticsPanel');
+  if(!panel||!crmStockAnalyticsOpen)return;
+  try{
+    crmFillStockDashboardControls();
+    const category=document.getElementById('crmStockAnalysisCategory')?.value||'';
+    const item=document.getElementById('crmStockAnalysisItem')?.value||'';
+    const {years,allTime}=crmGetSelectedYearsState('crmStockAnalysisYears','crmStockAnalysisAllTime');
+    const showQty=!!document.getElementById('crmStockMetricQty')?.checked;
+    const showAmount=!!document.getElementById('crmStockMetricAmount')?.checked;
+    const showOrders=!!document.getElementById('crmStockMetricOrders')?.checked;
+    const title=document.getElementById('crmStockAnalysisTitle');
+    const canvas=document.getElementById('crmStockAnalysisChart');
+    if(window.crmStockAnalysisChartInst)window.crmStockAnalysisChartInst.destroy();
+    if(!canvas)return;
+
+    if(title){
+      const scope=item?item:(category?category:'Выберите категорию или изделие');
+      title.textContent=`Анализ склада: ${scope}`;
+    }
+    if(!category&&!item){
+      const ctx=canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      return;
+    }
+
+    const baseRows=crmGetStockFactRows().filter(r=>(allTime||!years.length||years.includes(r.year))&&(!category||r.category===category)&&(!item||r.name===item));
+    const monthly={};
+    baseRows.forEach(r=>{
+      if(!monthly[r.monthKey])monthly[r.monthKey]={label:r.monthLabel,qty:0,amount:0,orders:new Set()};
+      monthly[r.monthKey].qty+=r.qty;
+      monthly[r.monthKey].amount+=r.amount;
+      monthly[r.monthKey].orders.add(r.orderId);
     });
+    const labels=Object.keys(monthly).sort();
+    const datasets=[];
+    if(showQty)datasets.push({label:'Количество единиц',data:labels.map(k=>monthly[k].qty),borderColor:'#3478f6',backgroundColor:'rgba(52,120,246,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
+    if(showAmount)datasets.push({label:'Сумма аренды',data:labels.map(k=>monthly[k].amount),borderColor:'#2a9d52',backgroundColor:'rgba(42,157,82,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
+    if(showOrders)datasets.push({label:'Количество заказов',data:labels.map(k=>monthly[k].orders.size),borderColor:'#8944d6',backgroundColor:'rgba(137,68,214,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
+
+    if(!datasets.length||!labels.length){
+      const ctx=canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      return;
+    }
+
+    window.crmStockAnalysisChartInst=new Chart(canvas,{
+      type:'line',
+      data:{labels:labels.map(k=>monthly[k].label),datasets},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:true},
+          tooltip:{
+            callbacks:{
+              afterBody:(items)=>{
+                const idx=items[0]?.dataIndex??0;
+                const bucket=monthly[labels[idx]];
+                if(!bucket)return '';
+                return [`Единиц: ${fN(bucket.qty)}`,`Сумма аренды: ${fN(bucket.amount)}₽`,`Заказов: ${fN(bucket.orders.size)}`];
+              },
+              label:(ctx)=>{
+                if(ctx.dataset.label==='Сумма аренды')return `${ctx.dataset.label}: ${fN(ctx.parsed.y)}₽`;
+                return `${ctx.dataset.label}: ${fN(ctx.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales:{
+          y:{beginAtZero:true,ticks:{callback:v=>fN(v)}},
+          y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>`${fN(v)}₽`}}
+        }
+      }
+    });
+  }catch(err){
+    console.error('crmRenderStockAnalysis failed',err);
   }
-  const maxCount=Math.max(...rows.map(r=>metric==='qty'?r.qty:r.count),1);
-  tbl.innerHTML=`<div class="table-wrap"><table style="width:100%"><thead><tr><th>${mode==='category'?'Категория':'Изделие'}</th>${mode==='item'?'<th>Категория</th>':''}<th style="text-align:center">Сходили (заказы)</th><th style="text-align:center">Выдано (шт.)</th><th style="width:120px">Доля</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="font-weight:500">${esc(r.name)}</td>${mode==='item'?`<td style="color:var(--text2);font-size:12px">${esc(r.category||'—')}</td>`:''}<td class="mono" style="text-align:center">${r.count}</td><td class="mono" style="text-align:center">${r.qty}</td><td><div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${Math.round((metric==='qty'?r.qty:r.count)/maxCount*100)}%;border-radius:4px"></div></div></td></tr>`).join('')}</tbody></table></div>`;
 }
 function crmSetStockCat(cat){crmActiveStockCategory=cat;crmRenderStock()}
 function crmRenderStock(){
-  crmRenderStockDash();
+  crmRenderStockTopDashboard();
+  crmToggleStockAnalytics(crmStockAnalyticsOpen);
   // Category tabs
   const tabs=document.getElementById('crmStockCatTabs');
   const isMobile=window.innerWidth<=768;
@@ -1785,13 +1861,18 @@ document.getElementById('crmTrendMetricRevenue')?.addEventListener('change',()=>
 document.getElementById('crmTrendMetricOrders')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmTrendMetricAvg')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmStockSearch')?.addEventListener('input',()=>crmRenderStock());
-document.getElementById('crmStockDemandMode')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDemandMetric')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDashYears')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDashMonths')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDashCategories')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDashItems')?.addEventListener('change',()=>crmRenderStockDash());
-document.getElementById('crmStockDashItemFilter')?.addEventListener('input',()=>crmRenderStockDash());
+document.getElementById('crmStockTopMode')?.addEventListener('change',()=>crmRenderStockTopDashboard());
+document.getElementById('crmStockTopYears')?.addEventListener('change',()=>crmRenderStockTopDashboard());
+document.getElementById('crmStockTopAllTime')?.addEventListener('change',()=>crmRenderStockTopDashboard());
+document.getElementById('crmStockTopMetric')?.addEventListener('change',()=>crmRenderStockTopDashboard());
+document.getElementById('crmStockTopN')?.addEventListener('change',()=>crmRenderStockTopDashboard());
+document.getElementById('crmStockAnalysisCategory')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockAnalysisItem')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockAnalysisYears')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockAnalysisAllTime')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockMetricQty')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockMetricAmount')?.addEventListener('change',()=>crmRenderStockAnalysis());
+document.getElementById('crmStockMetricOrders')?.addEventListener('change',()=>crmRenderStockAnalysis());
 document.getElementById('crmStockModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmStockModal'))closeModal('crmStockModal')});
 document.getElementById('crmClientModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientModal'))closeModal('crmClientModal')});
 document.getElementById('crmClientProfileModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientProfileModal'))closeModal('crmClientProfileModal')});

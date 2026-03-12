@@ -93,7 +93,6 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
 .compare-win{color:var(--green);font-weight:600}.compare-lose{color:var(--red);font-weight:500}.compare-equal{color:var(--text3)}
 .stock-group{margin-bottom:0}.stock-group-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;border-bottom:none}.stock-group-title{font-size:12px;font-weight:700;color:var(--text)}.stock-group-count{font-size:10px;color:var(--text3);font-weight:500}.stock-group .table-wrap{border-radius:0 0 var(--radius) var(--radius)}.badge-red{background:var(--red-dim);color:var(--red)}.btn-icon{background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:2px 6px;border-radius:4px;transition:var(--transition)}.btn-icon:hover{background:var(--surface2);color:var(--text)}
 .crm-multi-note{font-size:11px;color:var(--text2)}
-#crmStockDemandFilters select[multiple]{min-height:108px}
 .form-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}.crm-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
 .crm-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .crm-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -257,18 +256,50 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
   #crmStockSearch{
     max-width:100%!important;
   }
-  #crmStockDemandCard [style*="grid-template-columns:1fr 1fr"]{
+  #page-crmstock #crmStockTopFilterRow,
+  #page-crmstock #crmStockAnalyticsFilterRow{
+    display:grid!important;
     grid-template-columns:1fr!important;
+    gap:8px!important;
   }
-  #crmStockDemandCard input,
-  #crmStockDemandCard select{
+  #page-crmstock #crmStockTopMode,
+  #page-crmstock #crmStockTopYears,
+  #page-crmstock #crmStockTopMetric,
+  #page-crmstock #crmStockTopN,
+  #page-crmstock #crmStockAnalysisCategory,
+  #page-crmstock #crmStockAnalysisItem,
+  #page-crmstock #crmStockAnalysisYears{
     width:100%!important;
     min-width:0!important;
   }
-  #crmStockDemandCard .stat-value{
+  #page-crmstock #crmStockAnalyticsToggle{
+    width:100%!important;
+  }
+  #page-crmstock #crmStockAnalyticsMetricRow{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:10px 12px!important;
+  }
+  #page-crmstock #crmStockAnalyticsMetricRow label{
+    display:flex!important;
+    align-items:flex-start!important;
+    gap:8px!important;
+    min-width:0;
+    font-size:12px!important;
+    line-height:1.25;
+  }
+  #page-crmstock #crmStockAnalyticsMetricRow input[type="checkbox"]{
+    flex:0 0 16px;
+    width:16px!important;
+    height:16px!important;
+    margin-top:1px;
+  }
+  #page-crmstock #crmStockTopCard .stat-value,
+  #page-crmstock #crmStockAnalyticsPanel .stat-value{
     font-size:15px;
   }
-  #crmStockDemandCard select[multiple]{
+  #page-crmstock #crmStockTopCard select[multiple],
+  #page-crmstock #crmStockAnalyticsPanel select[multiple]{
     min-height:92px;
     font-size:13px;
   }
