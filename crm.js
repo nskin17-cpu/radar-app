@@ -1,5 +1,5 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false;
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const CRM_CLIENTS_PRESET=[
@@ -573,18 +573,23 @@ function crmFillClientDashboardControls(){
     const prevTrend=new Set(Array.from(trendYears.selectedOptions).map(o=>Number(o.value)));
     trendYears.innerHTML=years.map(y=>`<option value="${y}" ${prevTrend.has(y)||(!prevTrend.size&&y===nowY)?'selected':''}>${y}</option>`).join('');
   }
-  const clientOptions='<option value="">Выберите клиента</option>'+crmClients.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  const trendQuery=(document.getElementById('crmClientTrendSearch')?.value||'').toLowerCase().trim();
+  const compareQuery=(document.getElementById('crmClientTrendCompareSearch')?.value||'').toLowerCase().trim();
+  const trendList=crmClients.filter(c=>!trendQuery||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(trendQuery));
+  const compareList=crmClients.filter(c=>!compareQuery||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(compareQuery));
+  const clientOptions='<option value="">Выберите клиента</option>'+trendList.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  const compareOptions='<option value="">Выберите клиента</option>'+compareList.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   const trendClient=document.getElementById('crmClientTrendTarget');
   const compareClient=document.getElementById('crmClientTrendCompareTarget');
   if(trendClient){
     const cur=trendClient.value;
     trendClient.innerHTML=clientOptions;
-    trendClient.value=crmClients.some(c=>c.name===cur)?cur:'';
+    trendClient.value=trendList.some(c=>c.name===cur)?cur:'';
   }
   if(compareClient){
     const cur2=compareClient.value;
-    compareClient.innerHTML=clientOptions;
-    compareClient.value=crmClients.some(c=>c.name===cur2)?cur2:'';
+    compareClient.innerHTML=compareOptions;
+    compareClient.value=compareList.some(c=>c.name===cur2)?cur2:'';
   }
 }
 function crmRenderClientTrendChart(canvasId,titleId,clientName,selectedYears,allTime,metricChecks,instanceKey){
@@ -765,11 +770,12 @@ function crmRenderClientAnalytics(){
   const compareToggle=document.getElementById('crmClientTrendCompare');
   const compareTargetEl=document.getElementById('crmClientTrendCompareTarget');
   const compareCard=document.getElementById('crmClientTrendCompareCard');
-  if(!targetEl||!compareToggle||!compareTargetEl||!compareCard)return;
+  const compareWrap=document.getElementById('crmClientTrendCompareWrap');
+  if(!targetEl||!compareToggle||!compareTargetEl||!compareCard||!compareWrap)return;
   const years=crmClientSelectedYears('crmClientTrendYears','crmClientTrendAllTime');
   const allTime=!!document.getElementById('crmClientTrendAllTime')?.checked;
   document.getElementById('crmClientTrendYears').disabled=allTime;
-  compareTargetEl.style.display=compareToggle.checked?'inline-flex':'none';
+  compareWrap.style.display=compareToggle.checked?'flex':'none';
   compareCard.style.display=compareToggle.checked&&compareTargetEl.value?'block':'none';
   const metricChecks={
     turnover:!!document.getElementById('crmTrendMetricTurnover')?.checked,
@@ -789,39 +795,112 @@ function crmRenderClientAnalytics(){
     window.crmClientTrendCompareChartInst.destroy();
   }
 }
-function crmOpenClientProfile(id){
+function crmClientProfileYears(){
+  return crmClientSelectedYears('crmClientProfileYears','crmClientProfileAllTime');
+}
+function crmGetClientProfileOrders(clientName,years,allTime){
+  return crmGetPaidClientOrders(years,allTime).filter(o=>crmClientKey(o.clientName)===crmClientKey(clientName));
+}
+function crmToggleClientProfileCategory(encoded){
+  const key=decodeURIComponent(encoded);
+  crmClientProfileState.openCats[key]=!crmClientProfileState.openCats[key];
+  if(crmClientProfileState.id)crmRenderClientProfile(crmClientProfileState.id);
+}
+function crmRenderClientProfile(id){
   const c=crmClients.find(x=>x.id===id);if(!c)return;
-  const year=crmClientsYear;
-  const normName=String(c.name||'').trim().toLowerCase();
-  const paidOrdersYear=crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)&&crmParseDateLocal(o.startDate)?.getFullYear()===year);
-  const my=paidOrdersYear.filter(o=>String(o.clientName||'').trim().toLowerCase()===normName);
-  const totalYearRevenue=paidOrdersYear.reduce((s,o)=>s+Number(o.orderAmount||0),0);
-  const myRevenue=my.reduce((s,o)=>s+Number(o.orderAmount||0),0);
-  const sharePct=totalYearRevenue?Math.round(myRevenue/totalYearRevenue*1000)/10:0;
-  const cat={},items={};
+  crmClientProfileState.id=id;
+  const currentYear=new Date().getFullYear();
+  const allTime=!!document.getElementById('crmClientProfileAllTime')?.checked;
+  const years=allTime?[]:(crmClientProfileYears().length?crmClientProfileYears():[currentYear]);
+  const my=crmGetClientProfileOrders(c.name,years,allTime);
+  const periodLabel=crmFormatClientPeriod(years,allTime);
+  const totalPeriodOrders=crmGetPaidClientOrders(years,allTime);
+  const totalPeriodRevenue=totalPeriodOrders.reduce((s,o)=>s+Math.max(0,Number(o.orderAmount||0)-Number(o.deliveryCost||0)-Number(o.setupCost||0)),0);
+  const myTurnover=my.reduce((s,o)=>s+Number(o.orderAmount||0),0);
+  const myRevenue=my.reduce((s,o)=>s+Math.max(0,Number(o.orderAmount||0)-Number(o.deliveryCost||0)-Number(o.setupCost||0)),0);
+  const sharePct=totalPeriodRevenue?Math.round(myRevenue/totalPeriodRevenue*1000)/10:0;
+  const avgCheck=my.length?Math.round(myTurnover/my.length):0;
+  const catStats={};
+  const itemStats={};
   my.forEach(o=>{
     (o.items||[]).forEach(i=>{
-      const k=String(i.category||'Без категории').trim()||'Без категории';
-      const n=String(i.name||'').trim();
-      const q=Math.max(0,Number(i.qty||0));
-      if(!cat[k])cat[k]=0;cat[k]+=q;
-      if(n){if(!items[n])items[n]=0;items[n]+=q}
+      const cat=String(i.category||'Без категории').trim()||'Без категории';
+      const name=String(i.name||'').trim()||'Без названия';
+      const qty=Math.max(0,Number(i.qty||0));
+      const amount=Math.max(0,Number(i.price||0)*qty);
+      if(!catStats[cat])catStats[cat]={qty:0,amount:0,items:{}};
+      catStats[cat].qty+=qty;
+      catStats[cat].amount+=amount;
+      if(!catStats[cat].items[name])catStats[cat].items[name]={qty:0,amount:0};
+      catStats[cat].items[name].qty+=qty;
+      catStats[cat].items[name].amount+=amount;
+      if(!itemStats[name])itemStats[name]={qty:0,amount:0,category:cat};
+      itemStats[name].qty+=qty;
+      itemStats[name].amount+=amount;
     });
   });
-  const topCat=Object.entries(cat).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const topItems=Object.entries(items).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const topItems=Object.entries(itemStats).sort((a,b)=>b[1].qty-a[1].qty||b[1].amount-a[1].amount).slice(0,3);
+  const cats=Object.entries(catStats).sort((a,b)=>b[1].qty-a[1].qty||b[1].amount-a[1].amount);
+  const yearsOptions=crmGetClientYears().map(y=>`<option value="${y}" ${years.includes(y)?'selected':''}>${y}</option>`).join('');
   document.getElementById('crmClientProfileTitle').textContent=`Карточка клиента — ${c.name}`;
   document.getElementById('crmClientProfileBody').innerHTML=`
-    <div class="stats-grid" style="margin-bottom:10px">
-      <div class="stat-card"><div class="stat-label">Оплаченных заказов (${year})</div><div class="stat-value dark">${my.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Оборот (${year})</div><div class="stat-value blue">${fN(Math.round(myRevenue))}₽</div></div>
-      <div class="stat-card"><div class="stat-label">Доля клиента в выручке (${year})</div><div class="stat-value purple">${sharePct}%</div></div>
-      <div class="stat-card"><div class="stat-label">Выручка без доставки/сетапа (${year})</div><div class="stat-value green">${fN(Math.round(my.reduce((s,o)=>s+Math.max(0,Number(o.orderAmount||0)-Number(o.deliveryCost||0)-Number(o.setupCost||0)),0)))}₽</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-start">
+      <select id="crmClientProfileYears" multiple size="4" style="min-width:220px">${yearsOptions}</select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2)">
+        <input type="checkbox" id="crmClientProfileAllTime" style="width:14px;height:14px" ${allTime?'checked':''}>
+        Все время
+      </label>
+      <div style="font-size:11px;color:var(--text3);align-self:center">Период: ${esc(periodLabel)}</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="table-wrap" style="padding:10px"><div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего берёт по категориям</div>${topCat.length?topCat.map(([n,v],i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(n)}</span><span class="mono">${v}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}</div>
-      <div class="table-wrap" style="padding:10px"><div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px">Чаще всего берёт по изделиям</div>${topItems.length?topItems.map(([n,v],i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(n)}</span><span class="mono">${v}</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}</div>
+    <div class="stats-grid" style="margin-bottom:12px">
+      <div class="stat-card"><div class="stat-label">Оплаченных заказов</div><div class="stat-value dark">${my.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Оборот</div><div class="stat-value blue">${fN(Math.round(myTurnover))}₽</div></div>
+      <div class="stat-card"><div class="stat-label">Выручка</div><div class="stat-value green">${fN(Math.round(myRevenue))}₽</div></div>
+      <div class="stat-card"><div class="stat-label">Средний чек</div><div class="stat-value purple">${avgCheck?fN(avgCheck)+'₽':'—'}</div></div>
+      <div class="stat-card"><div class="stat-label">Доля в выручке периода</div><div class="stat-value amber">${sharePct}%</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="table-wrap" style="padding:12px">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Топ 3 изделия</div>
+        ${topItems.length?topItems.map(([n,v],i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)"><span style="font-size:12px">${i+1}. ${esc(n)}</span><span class="mono">${v.qty} шт · ${fN(Math.round(v.amount))}₽</span></div>`).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Категории клиента</div>
+        <div class="chart-container" style="height:240px"><canvas id="crmClientProfileCategoryChart"></canvas></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="padding:12px">
+      <div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Категории и изделия</div>
+      ${cats.length?cats.map(([cat,val],idx)=>{
+        const open=!!crmClientProfileState.openCats[cat];
+        const itemsRows=Object.entries(val.items).sort((a,b)=>b[1].qty-a[1].qty||b[1].amount-a[1].amount);
+        return `<div style="border-bottom:0.5px solid var(--border);padding:6px 0">
+          <button onclick="crmToggleClientProfileCategory('${encodeURIComponent(cat)}')" style="width:100%;display:flex;justify-content:space-between;gap:8px;background:none;border:none;padding:0;cursor:pointer;text-align:left">
+            <span style="font-size:12px;font-weight:600">${idx+1}. ${esc(cat)}</span>
+            <span class="mono" style="font-size:11px">${val.qty} шт · ${fN(Math.round(val.amount))}₽ ${open?'↑':'↓'}</span>
+          </button>
+          ${open?`<div style="margin-top:8px;padding-left:10px">${itemsRows.map(([name,item])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;color:var(--text2)"><span style="font-size:12px">${esc(name)}</span><span class="mono" style="font-size:11px">${item.qty} шт · ${fN(Math.round(item.amount))}₽</span></div>`).join('')}</div>`:''}
+        </div>`;
+      }).join(''):'<div style="color:var(--text2);font-size:12px">Нет данных</div>'}
     </div>`;
+  document.getElementById('crmClientProfileYears')?.addEventListener('change',()=>crmRenderClientProfile(id));
+  document.getElementById('crmClientProfileAllTime')?.addEventListener('change',()=>crmRenderClientProfile(id));
+  if(document.getElementById('crmClientProfileYears'))document.getElementById('crmClientProfileYears').disabled=allTime;
+  const chartCanvas=document.getElementById('crmClientProfileCategoryChart');
+  if(window.crmClientProfileCategoryChartInst)window.crmClientProfileCategoryChartInst.destroy();
+  if(chartCanvas&&cats.length){
+    const palette=['#3478f6','#2a9d52','#d48806','#8944d6','#e5352b','#5ac8fa','#ff9f40','#7f8c8d'];
+    window.crmClientProfileCategoryChartInst=new Chart(chartCanvas,{
+      type:'doughnut',
+      data:{labels:cats.map(([cat])=>cat),datasets:[{data:cats.map(([,v])=>v.qty),backgroundColor:cats.map((_,i)=>palette[i%palette.length]),borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,color:'#6e6e78'}},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} шт`}}}}
+    });
+  }
+}
+function crmOpenClientProfile(id){
+  crmClientProfileState.id=id;
+  crmClientProfileState.openCats={};
+  crmRenderClientProfile(id);
   openModal('crmClientProfileModal');
 }
 function crmOpenClientModal(id=''){
@@ -1695,10 +1774,12 @@ document.getElementById('crmClientsDashMetricRevenue')?.addEventListener('change
 document.getElementById('crmClientsDashMetricOrders')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmClientsDashMetricAvg')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmClientTrendTarget')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendSearch')?.addEventListener('input',()=>{crmFillClientDashboardControls();crmRenderClientAnalytics()});
 document.getElementById('crmClientTrendYears')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmClientTrendAllTime')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmClientTrendCompare')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmClientTrendCompareTarget')?.addEventListener('change',()=>crmRenderClientAnalytics());
+document.getElementById('crmClientTrendCompareSearch')?.addEventListener('input',()=>{crmFillClientDashboardControls();crmRenderClientAnalytics()});
 document.getElementById('crmTrendMetricTurnover')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmTrendMetricRevenue')?.addEventListener('change',()=>crmRenderClientAnalytics());
 document.getElementById('crmTrendMetricOrders')?.addEventListener('change',()=>crmRenderClientAnalytics());
