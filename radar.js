@@ -31,6 +31,18 @@ const HISTORY_FIELD_LABELS={
   setupCushionChair:'Сетап стулья с подушкой',
   proDiscount:'Проф. скидка'
 };
+function normalizeCompetitorRecord(raw){
+  const src=raw||{};
+  const out={id:String(src.id||'')};
+  STR.forEach(k=>{
+    out[k]=src[k]==null?'':String(src[k]);
+  });
+  NUM.forEach(k=>{
+    const n=Number(src[k]);
+    out[k]=Number.isFinite(n)?n:0;
+  });
+  return out;
+}
 
 async function api(action,data={}){
   try{const r=await fetch(API_URL,{method:'POST',mode:'cors',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...data,action})});return await r.json()}
@@ -174,7 +186,14 @@ function setFilter(city,btn){cityFilter=city;document.querySelectorAll('.filter-
 function filtered(){if(cityFilter==='all')return competitors;return competitors.filter(c=>c.city===cityFilter)}
 
 // COMPETITORS
-async function loadCompetitors(){const r=await api('getCompetitors');if(r.success){competitors=r.entries||r.competitors||[];renderCompetitors();sbBackup('upsertCompetitors',competitors)}}
+async function loadCompetitors(){
+  const r=await api('getCompetitors');
+  if(r.success){
+    competitors=(r.entries||r.competitors||[]).map(normalizeCompetitorRecord);
+    renderCompetitors();
+    sbBackup('upsertCompetitors',competitors);
+  }
+}
 function renderCompetitors(){
   const t=document.getElementById('compTable');
   if(!competitors.length){t.innerHTML='<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Добавьте первого конкурента</div></div></td></tr>';return}
@@ -259,7 +278,11 @@ async function saveComp(){
 async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});sbBackup('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
 
 // MY COMPANY (Google Sheets)
-async function loadMyCompanyData(){const r=await api('getMyCompany');if(r.success&&r.company)myCompany=r.company;fillMyForm()}
+async function loadMyCompanyData(){
+  const r=await api('getMyCompany');
+  if(r.success&&r.company)myCompany=normalizeCompetitorRecord({...r.company,id:r.company.id||'MY'});
+  fillMyForm();
+}
 function fillMyForm(){if(!myCompany)return;ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)el.value=myCompany[f]||''})}
 async function saveMyCompany(){
   const prev=myCompany?{...myCompany}:null;
