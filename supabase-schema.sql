@@ -94,6 +94,20 @@ CREATE TABLE IF NOT EXISTS history (
   UNIQUE(month, company_id)
 );
 
+-- Новый журнал изменений цен конкурентов/моей компании
+CREATE TABLE IF NOT EXISTS history_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  company_id TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  field_key TEXT NOT NULL,
+  field_label TEXT NOT NULL,
+  old_value NUMERIC,
+  new_value NUMERIC NOT NULL,
+  delta NUMERIC NOT NULL DEFAULT 0,
+  source TEXT DEFAULT 'manual'
+);
+
 -- Заказы CRM
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
@@ -172,6 +186,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE competitors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE my_company ENABLE ROW LEVEL SECURITY;
 ALTER TABLE history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE history_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
@@ -182,6 +197,7 @@ CREATE POLICY "Allow all for anon" ON users FOR ALL USING (true) WITH CHECK (tru
 CREATE POLICY "Allow all for anon" ON competitors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON my_company FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON history_log FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON orders FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON stock FOR ALL USING (true) WITH CHECK (true);

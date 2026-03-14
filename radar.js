@@ -1,10 +1,36 @@
 const API_URL='https://script.google.com/macros/s/AKfycbyfZW_xGihRzBcgOs6YLFkqtvrs4Oag3NgT4RiUqPG0gHXgoQXnU1m_FuXTjxTDqkA2/exec';
-let currentUser=null,competitors=[],myCompany=null,history=[],charts={},cityFilter='all';
+let currentUser=null,competitors=[],myCompany=null,history=[],historyLog=[],charts={},cityFilter='all';
 let isLoggingIn=false;
 let isSupabaseSyncRunning=false;
+let historyLogField='loren',historyLogCompany='all';
 const NUM='nepal,loren,modern,plasticChair,woodChair,metalChair,plateSnack,plateDinner,plateSub,glassWine,glassFlute,glassMartini,glassRocks,cutlerySet,delivery,deliveryKm,setupPlates,setupGlasses,setupCutlery,setupMetalChair,setupPlasticChair,setupCushionChair,proDiscount'.split(',');
 const STR='name,city,website,instagram,phone,notes'.split(',');
 const ALL=[...STR,...NUM];
+const HISTORY_FIELD_LABELS={
+  nepal:'Стул Непал',
+  loren:'Стул Лорен',
+  modern:'Стул Модерн',
+  plasticChair:'Стул пластик',
+  woodChair:'Стул дерево',
+  metalChair:'Стул металл',
+  plateSnack:'Тарелка закусочная',
+  plateDinner:'Тарелка обеденная',
+  plateSub:'Тарелка подстановочная',
+  glassWine:'Бокал вино',
+  glassFlute:'Бокал флюте',
+  glassMartini:'Бокал мартинка',
+  glassRocks:'Бокал рокс',
+  cutlerySet:'Комплект приборов',
+  delivery:'Доставка по городу',
+  deliveryKm:'Доставка за км',
+  setupPlates:'Сетап тарелки',
+  setupGlasses:'Сетап бокалы',
+  setupCutlery:'Сетап приборы',
+  setupMetalChair:'Сетап стулья металл',
+  setupPlasticChair:'Сетап стулья пластик/дерево',
+  setupCushionChair:'Сетап стулья с подушкой',
+  proDiscount:'Проф. скидка'
+};
 
 async function api(action,data={}){
   try{const r=await fetch(API_URL,{method:'POST',mode:'cors',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...data,action})});return await r.json()}
@@ -43,7 +69,7 @@ document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='
 document.getElementById('loginUser').addEventListener('input',()=>{document.getElementById('loginError').textContent=''});
 document.getElementById('loginPass').addEventListener('input',()=>{document.getElementById('loginError').textContent=''});
 
-async function loadAll(){await loadCompetitors();await loadMyCompanyData();await loadHistory();loadDashboard();loadCompareSelects()}
+async function loadAll(){await loadCompetitors();await loadMyCompanyData();await loadHistory();await loadHistoryLog();loadDashboard();loadCompareSelects()}
 
 async function syncAllToSupabase(){
   const st=document.getElementById('settingsStatus');
@@ -163,16 +189,98 @@ function renderCompetitors(){
 function openAddComp(){document.getElementById('modalCompTitle').textContent='Добавить конкурента';ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el){if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''}});document.getElementById('cId').value='';openModal('modalComp')}
 function editComp(id){const c=competitors.find(x=>x.id===id);if(!c)return;document.getElementById('modalCompTitle').textContent='Редактировать';document.getElementById('cId').value=c.id;ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)el.value=c[f]||''});openModal('modalComp')}
 function getCompForm(){const o={};ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});return o}
-async function saveComp(){const id=document.getElementById('cId').value;const comp=getCompForm();if(!comp.name){showToast('Укажите название','error');return}if(id){comp.id=id;await api('updateCompetitor',{competitor:comp});showToast('Обновлено','success')}else{await api('addCompetitor',{competitor:comp});showToast('Добавлено','success')}closeModal('modalComp');await loadAll()}
+function collectPriceChanges(prev,next,companyId,companyName){
+  if(!prev||!next)return [];
+  const now=new Date().toISOString();
+  return NUM.reduce((acc,key)=>{
+    const oldValue=Number(prev[key]||0);
+    const newValue=Number(next[key]||0);
+    if(oldValue===newValue)return acc;
+    acc.push({
+      createdAt:now,
+      companyId:companyId,
+      companyName:companyName,
+      fieldKey:key,
+      fieldLabel:HISTORY_FIELD_LABELS[key]||key,
+      oldValue:oldValue,
+      newValue:newValue,
+      delta:newValue-oldValue,
+      source:'manual'
+    });
+    return acc;
+  },[]);
+}
+async function persistHistoryLogEntries(entries){
+  if(!Array.isArray(entries)||!entries.length)return;
+  historyLog=[...entries,...historyLog].sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0));
+  entries.forEach(entry=>{
+    sbBackup('insertHistoryLog',entry);
+    api('addHistoryLog',{entry}).catch(()=>{});
+  });
+}
+async function saveComp(){
+  const id=document.getElementById('cId').value;
+  const prev=id?competitors.find(x=>x.id===id):null;
+  const comp=getCompForm();
+  if(!comp.name){showToast('Укажите название','error');return}
+  let r;
+  if(id){
+    comp.id=id;
+    r=await api('updateCompetitor',{competitor:comp});
+  }else{
+    r=await api('addCompetitor',{competitor:comp});
+    if(r?.id)comp.id=r.id;
+  }
+  if(!r?.success){showToast('Ошибка сохранения','error');return}
+  if(prev){
+    await persistHistoryLogEntries(collectPriceChanges(prev,comp,comp.id,comp.name));
+  }
+  showToast(id?'Обновлено':'Добавлено','success');
+  closeModal('modalComp');
+  await loadAll();
+}
 async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});sbBackup('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
 
 // MY COMPANY (Google Sheets)
 async function loadMyCompanyData(){const r=await api('getMyCompany');if(r.success&&r.company)myCompany=r.company;fillMyForm()}
 function fillMyForm(){if(!myCompany)return;ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)el.value=myCompany[f]||''})}
-async function saveMyCompany(){const o={};ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});const r=await api('saveMyCompany',{company:o});if(r.success){myCompany={...o,id:'MY'};sbBackup('upsertMyCompany',myCompany);showToast('Сохранено','success');loadDashboard();loadCompareSelects()}else showToast('Ошибка сохранения','error')}
+async function saveMyCompany(){
+  const prev=myCompany?{...myCompany}:null;
+  const o={};ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});
+  const r=await api('saveMyCompany',{company:o});
+  if(r.success){
+    myCompany={...o,id:'MY'};
+    sbBackup('upsertMyCompany',myCompany);
+    if(prev)await persistHistoryLogEntries(collectPriceChanges(prev,myCompany,'MY',myCompany.name||'Моя компания'));
+    showToast('Сохранено','success');
+    loadDashboard();loadCompareSelects()
+  }else showToast('Ошибка сохранения','error')
+}
 
 // HISTORY
 async function loadHistory(){const r=await api('getHistory');if(r.success)history=r.history||[]}
+async function loadHistoryLog(){
+  const sb=typeof window.getSupabase==='function'?window.getSupabase():null;
+  if(!sb){historyLog=[];return}
+  try{
+    const res=await sb.from('history_log').select('*').order('created_at',{ascending:false}).limit(500);
+    if(res.error)throw res.error;
+    historyLog=(res.data||[]).map(row=>({
+      id:row.id,
+      createdAt:row.created_at,
+      companyId:row.company_id,
+      companyName:row.company_name,
+      fieldKey:row.field_key,
+      fieldLabel:row.field_label,
+      oldValue:row.old_value,
+      newValue:row.new_value,
+      delta:row.delta,
+      source:row.source
+    }));
+  }catch(e){
+    historyLog=[];
+  }
+}
 
 // DASHBOARD
 function avg(arr){if(!arr.length)return 0;return arr.reduce((a,b)=>a+b,0)/arr.length}
@@ -208,15 +316,109 @@ function renderCharts(comps){
     {label:'Стулья',data:comps.map(c=>Number(c.setupMetalChair)||0),backgroundColor:'rgba(212,136,6,0.5)',borderColor:'#d48806',borderWidth:1,borderRadius:4,borderSkipped:false}
   ]},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8,padding:8}}}}});
 
-  // History chart
-  const months=[...new Set(history.map(h=>h.month))].sort();
-  if(months.length>1){
-    const clrs=['#3478f6','#8944d6','#d48806','#e5352b','#2a9d52','#5ac8fa'];
-    const cids=[...new Set(history.map(h=>h.companyId))];
-    const ds=cids.map((cid,i)=>{const rows=history.filter(h=>h.companyId===cid);return{label:rows[0]?.companyName||cid,data:months.map(m=>{const r=rows.find(h=>h.month===m);return r?Number(r.nepal)||0:null}),borderColor:clrs[i%clrs.length],tension:.3,pointRadius:3,fill:false,spanGaps:true}});
-    charts.history=new Chart(document.getElementById('chartHistory'),{type:'line',data:{labels:months,datasets:ds},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8}}}}});
+  renderHistoryLogControls(comps);
+  renderHistoryChart(comps,defs);
+}
+function renderHistoryLogControls(comps){
+  const fieldSel=document.getElementById('historyFieldFilter');
+  const companySel=document.getElementById('historyCompanyFilter');
+  if(fieldSel){
+    fieldSel.innerHTML=Object.keys(HISTORY_FIELD_LABELS).map(key=>`<option value="${key}" ${historyLogField===key?'selected':''}>${HISTORY_FIELD_LABELS[key]}</option>`).join('');
+  }
+  if(companySel){
+    const opts=['<option value="all">Все компании</option>'].concat(
+      comps.map(c=>`<option value="${c.id}" ${historyLogCompany===c.id?'selected':''}>${esc(c.name)}${c.id==='MY'?' ⭐':''}</option>`)
+    );
+    companySel.innerHTML=opts.join('');
+    if(historyLogCompany!=='all'&&!comps.some(c=>c.id===historyLogCompany))historyLogCompany='all';
+    companySel.value=historyLogCompany;
+  }
+}
+function formatHistoryDate(value){
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return String(value||'—');
+  return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}).format(d);
+}
+function renderHistoryChart(comps,defs){
+  const canvas=document.getElementById('chartHistory');
+  const recentEl=document.getElementById('historyRecentChanges');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  if(charts.history){charts.history.destroy();delete charts.history}
+  ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+
+  const rows=historyLog
+    .filter(h=>h.fieldKey===historyLogField)
+    .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
+    .slice()
+    .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+
+  const labels=[...new Set(rows.map(r=>formatHistoryDate(r.createdAt)))];
+  const ids=historyLogCompany==='all'?[...new Set(rows.map(r=>r.companyId))]:[historyLogCompany];
+  const clrs=['#3478f6','#8944d6','#d48806','#e5352b','#2a9d52','#5ac8fa'];
+  const datasets=ids.filter(Boolean).map((cid,i)=>{
+    const companyRows=rows.filter(r=>r.companyId===cid);
+    return{
+      label:companyRows[0]?.companyName||cid,
+      data:labels.map(lbl=>{
+        const sameDay=companyRows.filter(r=>formatHistoryDate(r.createdAt)===lbl);
+        const last=sameDay[sameDay.length-1];
+        return last?Number(last.newValue)||0:null;
+      }),
+      borderColor:clrs[i%clrs.length],
+      tension:.25,
+      pointRadius:3,
+      fill:false,
+      spanGaps:true
+    };
+  });
+
+  if(labels.length&&datasets.length){
+    charts.history=new Chart(canvas,{
+      type:'line',
+      data:{labels:labels,datasets:datasets},
+      options:{
+        ...defs,
+        plugins:{
+          ...defs.plugins,
+          legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8}},
+          tooltip:{
+            ...defs.plugins.tooltip,
+            callbacks:{
+              label:function(ctx){
+                return `${ctx.dataset.label}: ${fN(ctx.raw)}₽`;
+              }
+            }
+          }
+        }
+      }
+    });
   }else{
-    const ctx=document.getElementById('chartHistory').getContext('2d');ctx.font='13px Inter';ctx.fillStyle='#9d9da8';ctx.textAlign='center';ctx.fillText('История появится после первого обновления данных',ctx.canvas.width/2,120);
+    ctx.font='13px Inter';
+    ctx.fillStyle='#9d9da8';
+    ctx.textAlign='center';
+    ctx.fillText('История изменений появится после первого сохранения новой цены',ctx.canvas.width/2,120);
+  }
+
+  if(recentEl){
+    const latest=historyLog
+      .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
+      .slice(0,10);
+    if(!latest.length){
+      recentEl.innerHTML='<div style="font-size:12px;color:var(--text3)">Изменений пока нет</div>';
+      return;
+    }
+    recentEl.innerHTML=`<div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Последние изменения</div>
+      <div class="table-wrap"><table style="width:100%"><thead><tr><th>Дата</th><th>Компания</th><th>Позиция</th><th>Было</th><th>Стало</th><th>Δ</th></tr></thead><tbody>
+      ${latest.map(row=>`<tr>
+        <td>${esc(formatHistoryDate(row.createdAt))}</td>
+        <td>${esc(row.companyName)}</td>
+        <td>${esc(row.fieldLabel)}</td>
+        <td class="mono">${row.oldValue!=null?fN(row.oldValue)+'₽':'—'}</td>
+        <td class="mono">${fN(row.newValue)}₽</td>
+        <td class="mono" style="color:${Number(row.delta)>=0?'var(--green)':'var(--red)'}">${Number(row.delta)>=0?'+':''}${fN(row.delta)}₽</td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
   }
 }
 

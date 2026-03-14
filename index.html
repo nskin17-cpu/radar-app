@@ -103,7 +103,17 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="chart-card"><div class="chart-title">Стул Лорен</div><div class="chart-container"><canvas id="chartLoren"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Доставка по городу</div><div class="chart-container"><canvas id="chartDelivery"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Сетап: бокалы, тарелки, стулья</div><div class="chart-container"><canvas id="chartSetup"></canvas></div></div>
-        <div class="chart-card" style="grid-column:1/-1"><div class="chart-title">Динамика цен по месяцам</div><div class="chart-container" style="height:280px"><canvas id="chartHistory"></canvas></div></div>
+        <div class="chart-card" style="grid-column:1/-1">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+            <div class="chart-title" style="margin:0">История изменений цен</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="historyFieldFilter" onchange="historyLogField=this.value;loadDashboard()" style="width:auto;min-width:170px"></select>
+              <select id="historyCompanyFilter" onchange="historyLogCompany=this.value;loadDashboard()" style="width:auto;min-width:200px"></select>
+            </div>
+          </div>
+          <div class="chart-container" style="height:280px"><canvas id="chartHistory"></canvas></div>
+          <div id="historyRecentChanges" style="margin-top:12px"></div>
+        </div>
       </div>
     </div>
 

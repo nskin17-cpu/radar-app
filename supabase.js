@@ -42,6 +42,20 @@
       modern: h.modern != null ? Number(h.modern) : null
     };
   }
+  function mapHistoryLogRow(h) {
+    return {
+      id: h.id || undefined,
+      created_at: h.createdAt || h.created_at || new Date().toISOString(),
+      company_id: h.companyId || h.company_id || '',
+      company_name: h.companyName || h.company_name || '',
+      field_key: h.fieldKey || h.field_key || '',
+      field_label: h.fieldLabel || h.field_label || '',
+      old_value: h.oldValue != null && h.oldValue !== '' ? Number(h.oldValue) : null,
+      new_value: Number(h.newValue != null ? h.newValue : h.new_value || 0),
+      delta: Number(h.delta != null ? h.delta : h.delta || 0),
+      source: h.source || 'manual'
+    };
+  }
 
   function mapOrderRow(o) {
     var items = o.items;
@@ -386,7 +400,7 @@
    * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
    * Тихо игнорирует ошибки — если Supabase недоступен, основное хранилище (GS) не затрагивается.
    *
-   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient' | 'upsertCategory' | 'deleteCategory' | 'upsertPricingConfig'
+   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient' | 'upsertCategory' | 'deleteCategory' | 'upsertPricingConfig' | 'insertHistoryLog'
    * payload: данные в camelCase формате (как в основном приложении)
    */
   async function supabaseWrite(action, payload) {
@@ -463,6 +477,12 @@
         if (payload && payload.key) {
           var res = await sb.from('pricing_config').upsert({ key: payload.key, value: Number(payload.value) || 0 }, { onConflict: 'key' });
           if (res.error) console.warn('[backup] upsertPricingConfig:', res.error.message);
+        }
+      } else if (action === 'insertHistoryLog') {
+        var hRow = mapHistoryLogRow(payload);
+        if (hRow && hRow.company_id && hRow.field_key) {
+          var res = await sb.from('history_log').insert(hRow);
+          if (res.error) console.warn('[backup] insertHistoryLog:', res.error.message);
         }
       }
     } catch (e) {
