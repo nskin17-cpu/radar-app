@@ -1360,6 +1360,7 @@ async function crmSaveCatRate(){
   const r=await api('updateCategory',{category:{id,name:cat.name,setupRate:rate}});
   if(r.success){
     cat.setupRate=rate;
+    sbBackup('upsertCategory',cat);
     showToast('Сохранено','success');
     closeModal('crmCatRateModal');
     crmRenderPricingSection();

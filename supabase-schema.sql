@@ -151,6 +151,15 @@ CREATE TABLE IF NOT EXISTS stock (
   UNIQUE(name, category)
 );
 
+-- Категории
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  setup_rate NUMERIC DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Настройки цен CRM (key-value)
 CREATE TABLE IF NOT EXISTS pricing_config (
   key TEXT PRIMARY KEY,
@@ -166,6 +175,7 @@ ALTER TABLE history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pricing_config ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all for anon" ON users FOR ALL USING (true) WITH CHECK (true);
@@ -175,4 +185,5 @@ CREATE POLICY "Allow all for anon" ON history FOR ALL USING (true) WITH CHECK (t
 CREATE POLICY "Allow all for anon" ON orders FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON clients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON stock FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for anon" ON categories FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON pricing_config FOR ALL USING (true) WITH CHECK (true);

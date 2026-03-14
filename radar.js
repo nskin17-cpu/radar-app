@@ -51,20 +51,33 @@ async function syncAllToSupabase(){
     const res=await window.migrateGoogleToSupabase((action,data)=>api(action,data));
     if(res?.success){
       let pruned=0;
+      let prunedClients=0;
+      let prunedStock=0;
       if(typeof window.pruneDeletedOrdersFromSupabase==='function'){
         const pruneRes=await window.pruneDeletedOrdersFromSupabase((action,data)=>api(action,data));
         if(pruneRes?.success)pruned=pruneRes.deleted||0;
+      }
+      if(typeof window.pruneDeletedClientsFromSupabase==='function'){
+        const pruneClientsRes=await window.pruneDeletedClientsFromSupabase((action,data)=>api(action,data));
+        if(pruneClientsRes?.success)prunedClients=pruneClientsRes.deleted||0;
+      }
+      if(typeof window.pruneDeletedStockFromSupabase==='function'){
+        const pruneStockRes=await window.pruneDeletedStockFromSupabase((action,data)=>api(action,data));
+        if(pruneStockRes?.success)prunedStock=pruneStockRes.deleted||0;
       }
       const r=res.results||{};
       const parts=[
         `заказы: ${r.orders||0}`,
         `клиенты: ${r.clients||0}`,
         `склад: ${r.stock||0}`,
+        `категории: ${r.categories||0}`,
         `конкуренты: ${r.competitors||0}`,
         `история: ${r.history||0}`,
         `pricing: ${r.pricing||0}`,
         `моя компания: ${r.myCompany?'1':'0'}`,
-        `удалено заказов: ${pruned}`
+        `удалено заказов: ${pruned}`,
+        `удалено клиентов: ${prunedClients}`,
+        `удалено склад: ${prunedStock}`
       ];
       showToast(`Синхронизировано — ${parts.join(', ')}`,'success');
       return;

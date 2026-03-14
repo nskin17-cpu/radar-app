@@ -86,6 +86,13 @@
       unit: s.unit || 'шт'
     };
   }
+  function mapCategoryRow(c) {
+    return {
+      id: c.id || '',
+      name: c.name || '',
+      setup_rate: Number(c.setupRate || c.setup_rate || 0)
+    };
+  }
   function mapClientRow(c) {
     return {
       id: c.id || '',
@@ -110,7 +117,7 @@
     if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
     if (typeof apiFn !== 'function') return { success: false, error: 'Нужна функция api(action, data)' };
 
-    var results = { competitors: 0, myCompany: false, history: 0, orders: 0, stock: 0, clients: 0, pricing: 0 };
+    var results = { competitors: 0, myCompany: false, history: 0, orders: 0, stock: 0, clients: 0, categories: 0, pricing: 0 };
 
     try {
       // Конкуренты
@@ -183,6 +190,19 @@
             var clr = await supabase.from('clients').upsert(clRow, { onConflict: 'id' });
             if (clr.error) console.warn('[migration] clients upsert error:', clr.error.message);
             else results.clients++;
+          }
+        }
+      }
+
+      // Категории
+      var categoriesRes = await apiFn('getCategories');
+      if (categoriesRes && categoriesRes.success && Array.isArray(categoriesRes.categories)) {
+        for (var g = 0; g < categoriesRes.categories.length; g++) {
+          var catRow = mapCategoryRow(categoriesRes.categories[g]);
+          if (catRow.id) {
+            var cgr = await supabase.from('categories').upsert(catRow, { onConflict: 'id' });
+            if (cgr.error) console.warn('[migration] categories upsert error:', cgr.error.message);
+            else results.categories++;
           }
         }
       }
@@ -263,12 +283,110 @@
     }
   }
 
+  async function pruneDeletedClientsFromSupabase(apiFn, supabaseOpts) {
+    var supabase = getSupabase(supabaseOpts);
+    if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
+    if (typeof apiFn !== 'function') return { success: false, error: 'Нужна функция api(action, data)' };
+
+    try {
+      var clientsRes = await apiFn('getClients');
+      if (!clientsRes || !clientsRes.success || !Array.isArray(clientsRes.clients)) {
+        return { success: false, error: 'Не удалось получить клиентов из Google' };
+      }
+
+      var googleIds = new Set(
+        clientsRes.clients
+          .map(function (c) { return c && c.id ? String(c.id) : ''; })
+          .filter(Boolean)
+      );
+
+      var from = 0;
+      var pageSize = 1000;
+      var deleted = 0;
+      while (true) {
+        var res = await supabase
+          .from('clients')
+          .select('id')
+          .range(from, from + pageSize - 1);
+        if (res.error) return { success: false, error: res.error.message };
+        var rows = Array.isArray(res.data) ? res.data : [];
+        if (!rows.length) break;
+
+        for (var i = 0; i < rows.length; i++) {
+          var id = rows[i] && rows[i].id ? String(rows[i].id) : '';
+          if (id && !googleIds.has(id)) {
+            var delRes = await supabase.from('clients').delete().eq('id', id);
+            if (delRes.error) console.warn('[prune] delete client:', delRes.error.message);
+            else deleted++;
+          }
+        }
+
+        if (rows.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return { success: true, deleted: deleted };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  async function pruneDeletedStockFromSupabase(apiFn, supabaseOpts) {
+    var supabase = getSupabase(supabaseOpts);
+    if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
+    if (typeof apiFn !== 'function') return { success: false, error: 'Нужна функция api(action, data)' };
+
+    try {
+      var stockRes = await apiFn('getStock');
+      if (!stockRes || !stockRes.success || !Array.isArray(stockRes.stock)) {
+        return { success: false, error: 'Не удалось получить склад из Google' };
+      }
+
+      var googlePairs = {};
+      stockRes.stock.forEach(function (s) {
+        var key = String(s.category || '') + '||' + String(s.name || '');
+        if (s && s.name) googlePairs[key] = true;
+      });
+
+      var from = 0;
+      var pageSize = 1000;
+      var deleted = 0;
+      while (true) {
+        var res = await supabase
+          .from('stock')
+          .select('name,category')
+          .range(from, from + pageSize - 1);
+        if (res.error) return { success: false, error: res.error.message };
+        var rows = Array.isArray(res.data) ? res.data : [];
+        if (!rows.length) break;
+
+        for (var i = 0; i < rows.length; i++) {
+          var name = rows[i] && rows[i].name ? String(rows[i].name) : '';
+          var category = rows[i] && rows[i].category ? String(rows[i].category) : '';
+          var key = category + '||' + name;
+          if (name && !googlePairs[key]) {
+            var delRes = await supabase.from('stock').delete().eq('name', name).eq('category', category);
+            if (delRes.error) console.warn('[prune] delete stock:', delRes.error.message);
+            else deleted++;
+          }
+        }
+
+        if (rows.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return { success: true, deleted: deleted };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   /**
    * Дублирование отдельных записей в Supabase (вызывается из основного приложения).
    * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
    * Тихо игнорирует ошибки — если Supabase недоступен, основное хранилище (GS) не затрагивается.
    *
-   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient'
+   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient' | 'upsertCategory' | 'deleteCategory' | 'upsertPricingConfig'
    * payload: данные в camelCase формате (как в основном приложении)
    */
   async function supabaseWrite(action, payload) {
@@ -330,6 +448,22 @@
           var res = await sb.from('clients').delete().eq('id', payload.id);
           if (res.error) console.warn('[backup] deleteClient:', res.error.message);
         }
+      } else if (action === 'upsertCategory') {
+        var catRow = mapCategoryRow(payload);
+        if (catRow && catRow.id) {
+          var res = await sb.from('categories').upsert(catRow, { onConflict: 'id' });
+          if (res.error) console.warn('[backup] upsertCategory:', res.error.message);
+        }
+      } else if (action === 'deleteCategory') {
+        if (payload && payload.id) {
+          var res = await sb.from('categories').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteCategory:', res.error.message);
+        }
+      } else if (action === 'upsertPricingConfig') {
+        if (payload && payload.key) {
+          var res = await sb.from('pricing_config').upsert({ key: payload.key, value: Number(payload.value) || 0 }, { onConflict: 'key' });
+          if (res.error) console.warn('[backup] upsertPricingConfig:', res.error.message);
+        }
       }
     } catch (e) {
       console.warn('[Supabase backup]', action, e.message);
@@ -340,6 +474,8 @@
     window.getSupabase = getSupabase;
     window.migrateGoogleToSupabase = migrateGoogleToSupabase;
     window.pruneDeletedOrdersFromSupabase = pruneDeletedOrdersFromSupabase;
+    window.pruneDeletedClientsFromSupabase = pruneDeletedClientsFromSupabase;
+    window.pruneDeletedStockFromSupabase = pruneDeletedStockFromSupabase;
     window.supabaseWrite = supabaseWrite;
   }
   if (typeof module !== 'undefined' && module.exports) {
@@ -347,6 +483,8 @@
       getSupabase: getSupabase,
       migrateGoogleToSupabase: migrateGoogleToSupabase,
       pruneDeletedOrdersFromSupabase: pruneDeletedOrdersFromSupabase,
+      pruneDeletedClientsFromSupabase: pruneDeletedClientsFromSupabase,
+      pruneDeletedStockFromSupabase: pruneDeletedStockFromSupabase,
       supabaseWrite: supabaseWrite
     };
   }
