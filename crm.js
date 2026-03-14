@@ -223,7 +223,15 @@ function crmApplyZeroClearBehavior(scope){
     if(inp.dataset.zeroClear==='off')return;
     if(inp.dataset.zeroClearBound==='1')return;
     inp.dataset.zeroClearBound='1';
-    inp.addEventListener('focus',()=>{if(inp.value==='0')inp.value=''});
+    inp.addEventListener('focus',()=>{
+      if(inp.value==='0'){
+        inp.value='';
+        setTimeout(()=>{try{inp.select();}catch{}},0);
+      }
+    });
+    inp.addEventListener('input',()=>{
+      if(/^0\d+$/.test(inp.value))inp.value=String(Number(inp.value));
+    });
   });
 }
 function crmBindDialogInputs(){
@@ -1632,7 +1640,7 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
     let offset=0;
     while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
     if(cb)cb(pdf);
-    else if(openInTab){const url=URL.createObjectURL(pdf.output('blob'));window.open(url,'_blank');}
+    if(openInTab){const url=URL.createObjectURL(pdf.output('blob'));window.open(url,'_blank');}
     else{pdf.save(filename);showToast('PDF скачан','success');}
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
@@ -1727,7 +1735,13 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${payGrid}
   </div>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:10.5px;color:#4f4f4f;line-height:1.5"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
-  <div style="margin-top:8px;font-family:sans-serif;font-size:10px;color:#6a6a6a">Условия работы: <span style="color:#3478f6">nandrent.ru/uslovia</span></div>
+  <div style="margin-top:10px;padding:10px 12px;border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
+    <div>
+      <div style="font-size:8px;letter-spacing:1.8px;text-transform:uppercase;color:#9aa3b2;margin-bottom:3px">Условия работы</div>
+      <div style="font-size:10.5px;color:#5b6472;line-height:1.4">Подробные условия аренды, оплаты и отмены заказа доступны на сайте.</div>
+    </div>
+    <div style="white-space:nowrap;font-size:10.5px;color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
+  </div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div></div>`;
 }
