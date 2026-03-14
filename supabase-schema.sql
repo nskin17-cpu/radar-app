@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery_cost NUMERIC DEFAULT 0,
   setup_cost NUMERIC DEFAULT 0,
   discount NUMERIC DEFAULT 0,
+  paid_amount NUMERIC DEFAULT 0,
   remaining_amount NUMERIC DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'preparing' CHECK (status IN ('preparing', 'assembly', 'in_progress', 'completed')),
   payment_status TEXT NOT NULL DEFAULT 'pending_confirmation',

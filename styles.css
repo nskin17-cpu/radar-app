@@ -303,6 +303,7 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
     min-height:92px;
     font-size:13px;
   }
+  #page-clients #crmClientsListFilterRow,
   #page-clients #crmClientsDashFilterRow,
   #page-clients #crmClientTrendFilterRow{
     display:grid!important;
@@ -319,6 +320,10 @@ td{padding:8px 10px;font-size:12px;border-bottom:0.5px solid var(--border);verti
   #page-clients #crmClientTrendCompareSearch{
     min-width:0!important;
     width:100%!important;
+  }
+  #page-clients #crmClientsYearAll{
+    width:16px!important;
+    height:16px!important;
   }
   #page-clients #crmClientsDashMetricRow,
   #page-clients #crmClientTrendMetricRow{

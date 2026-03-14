@@ -1,5 +1,5 @@
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYear=new Date().getFullYear(),crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYears=[new Date().getFullYear()],crmClientsAllYears=false,crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 const CRM_CLIENTS_PRESET=[
@@ -220,6 +220,7 @@ function crmCalcSetupCost(){
 }
 function crmApplyZeroClearBehavior(scope){
   scope.querySelectorAll('input[type="number"]').forEach(inp=>{
+    if(inp.dataset.zeroClear==='off')return;
     if(inp.dataset.zeroClearBound==='1')return;
     inp.dataset.zeroClearBound='1';
     inp.addEventListener('focus',()=>{if(inp.value==='0')inp.value=''});
@@ -242,6 +243,8 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryKm')?.addEventListener('input',()=>{const dc=document.getElementById('crmDeliveryCost');if(dc)dc.dataset.manual='';crmCalcTotal();});
   document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
+  document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
+  document.getElementById('crmPayment')?.addEventListener('change',crmSyncPaidAndRemaining);
 }
 function crmHandleStartDateChange(){
   crmSyncDateRange(true);
@@ -293,7 +296,10 @@ async function crmInit(){
 function crmNormalize(o){
   let items=Array.isArray(o.items)?o.items:[];
   if(typeof o.items==='string')try{items=JSON.parse(o.items)}catch{items=[]}
-  return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount:Number(o.orderAmount||0),budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),remainingAmount:Number(o.remainingAmount||0),status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
+  const orderAmount=Number(o.orderAmount||0);
+  const remainingAmount=Math.max(0,Number(o.remainingAmount||0));
+  const paidAmount=Math.max(0,Number(o.paidAmount!=null?o.paidAmount:o.paid_amount!=null?o.paid_amount:Math.max(0,orderAmount-remainingAmount)));
+  return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount,budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),paidAmount,remainingAmount,status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
 }
 function crmNormalizeClient(c){
   return{
@@ -459,7 +465,7 @@ function crmRenderOrders(){
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
   }).join('');
   t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmStatus;const o=crmOrders.find(x=>x.id===id);if(o){o.status=e.target.value;await api('updateOrder',{order:{id,status:e.target.value}});crmRenderAll();showToast('Статус обновлён','success')}}));
-  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmPayment;const o=crmOrders.find(x=>x.id===id);if(o){const p=e.target.value;o.paymentStatus=p;const update={id,paymentStatus:p};if(crmPaidStatuses.has(p)){o.remainingAmount=0;update.remainingAmount=0}await api('updateOrder',{order:update});crmRenderAll();showToast('Оплата обновлена','success')}}));
+  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmPayment;const o=crmOrders.find(x=>x.id===id);if(o){const p=e.target.value;o.paymentStatus=p;const update={id,paymentStatus:p};if(crmPaidStatuses.has(p)){o.paidAmount=Number(o.orderAmount||0);o.remainingAmount=0;update.paidAmount=o.paidAmount;update.remainingAmount=0}await api('updateOrder',{order:update});crmRenderAll();showToast('Оплата обновлена','success')}}));
   t.querySelectorAll('[data-crm-deposit]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmDeposit;const o=crmOrders.find(x=>x.id===id);if(o){o.depositStatus=e.target.value;sel.style.background=depositBg[e.target.value]||'';await api('updateOrder',{order:{id,depositStatus:e.target.value}});if(e.target.value==='returned_comp')crmOpenDialog(id);else showToast('Статус залога обновлён','success');}}))}
 function crmRenderStats(){
   const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();
@@ -472,13 +478,14 @@ function crmRenderStats(){
   const tm=new Date();tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);
   document.getElementById('crmTomorrowOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===tm.getTime()&&o.status!=='completed'}).length;
 }
-function crmClientMetrics(c,year){
+function crmClientMetrics(c,years,allYears){
   const name=String(c.name||'').trim().toLowerCase();
   let ordersCount=0,turnover=0,revenueNoLog=0;
+  const yearSet=new Set((years||[]).map(Number).filter(Boolean));
   crmOrders.forEach(o=>{
     if(!crmPaidStatuses.has(o.paymentStatus))return;
     const d=crmParseDateLocal(o.startDate);if(!d)return;
-    if(year&&d.getFullYear()!==year)return;
+    if(!allYears&&yearSet.size&&!yearSet.has(d.getFullYear()))return;
     if(String(o.clientName||'').trim().toLowerCase()!==name)return;
     const amount=Number(o.orderAmount||0);
     ordersCount++;
@@ -654,20 +661,27 @@ function crmToggleClientAnalytics(force){
 }
 function crmFillClientsYearOptions(){
   const sel=document.getElementById('crmClientsYear');if(!sel)return;
+  const allEl=document.getElementById('crmClientsYearAll');
   const nowY=new Date().getFullYear();
   const years=[...new Set([nowY,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
-  sel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');
-  if(!years.includes(crmClientsYear))crmClientsYear=years[0]||nowY;
-  sel.value=String(crmClientsYear);
+  crmClientsYears=(crmClientsYears||[]).map(Number).filter(y=>years.includes(y));
+  if(!crmClientsYears.length&&!crmClientsAllYears)crmClientsYears=[years[0]||nowY];
+  sel.innerHTML=years.map(y=>`<option value="${y}" ${crmClientsYears.includes(y)?'selected':''}>${y}</option>`).join('');
+  sel.disabled=crmClientsAllYears;
+  if(allEl)allEl.checked=crmClientsAllYears;
 }
 function crmFillClientSelect(selectedName=''){
-  const sel=document.getElementById('crmClient');if(!sel)return;
+  const input=document.getElementById('crmClient');if(!input)return;
+  const list=document.getElementById('crmClientList');
   const sName=String(selectedName||'').trim();
-  const opts=crmClients.map(c=>`<option value="${esc(c.name)}"${c.name===sName?' selected':''}>${esc(c.name)}</option>`).join('');
-  sel.innerHTML='<option value="">Выберите клиента</option>'+opts;
-  if(sName&&!crmClients.some(c=>c.name===sName)){
-    sel.innerHTML+='<option value="'+esc(sName)+'" selected>'+esc(sName)+' (не в базе)</option>';
+  if(list){
+    const opts=crmClients
+      .slice()
+      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru'))
+      .map(c=>`<option value="${esc(c.name)}">${esc(c.name)}${c.company?` — ${esc(c.company)}`:''}</option>`).join('');
+    list.innerHTML=opts;
   }
+  input.value=sName;
 }
 function crmClientApplyToOrder(name){
   const c=crmClients.find(x=>x.name===name);if(!c)return;
@@ -691,7 +705,7 @@ function crmRenderClients(){
   if(crmClientAnalyticsOpen)crmRenderClientAnalytics();
   if(!list.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
   t.innerHTML=list.map((c,idx)=>{
-    const m=crmClientMetrics(c,crmClientsYear);
+    const m=crmClientMetrics(c,crmClientsYears,crmClientsAllYears);
     const avgCheck=m.ordersCount?Math.round(m.turnover/m.ordersCount):0;
     return`<tr>
       <td class="mono">${idx+1}</td>
@@ -1421,6 +1435,7 @@ function crmOpenDialog(id){
     document.getElementById('crmDeliveryCost').value=o.deliveryCost||0;
     document.getElementById('crmSetupCost').value=o.setupCost||0;
     document.getElementById('crmDiscount').value=o.discount||0;
+    document.getElementById('crmPaidAmount').value=o.paidAmount||0;
     document.getElementById('crmRemaining').value=o.remainingAmount||0;
     document.getElementById('crmComment').value=o.comment;
     (o.items||[]).forEach(i=>crmAddItemRow(i));
@@ -1441,7 +1456,7 @@ function crmOpenDialog(id){
     ['crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('crmClient').value='';
     document.getElementById('crmAmount').value='';document.getElementById('crmBudget').value='';document.getElementById('crmDeposit').value='';
-    document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value='';if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
+    document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmPaidAmount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value='';if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
     document.getElementById('crmDeliveryType').value='delivery';
     document.getElementById('crmDeliveryZone').value='city';
     document.getElementById('crmDeliveryKm').value='0';
@@ -1461,6 +1476,7 @@ function crmOpenDialog(id){
     crmAddItemRow();
   }
   crmSyncDeliveryControls();
+  crmSyncPaidAndRemaining();
   crmOrderDialogInit=false;
   openModal('crmOrderModal');
 }
@@ -1508,6 +1524,21 @@ function crmCalcTotal(){
   if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value=itemsTotal-discountAmt;
   if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
   document.getElementById('crmAmount').value=total>0?total:0;
+  crmSyncPaidAndRemaining();
+}
+function crmSyncPaidAndRemaining(){
+  const amountEl=document.getElementById('crmAmount');
+  const paidEl=document.getElementById('crmPaidAmount');
+  const remainingEl=document.getElementById('crmRemaining');
+  const paymentEl=document.getElementById('crmPayment');
+  if(!amountEl||!paidEl||!remainingEl)return;
+  const total=Math.max(0,Number(amountEl.value||0));
+  const status=paymentEl?.value||'pending_confirmation';
+  let paid=Math.max(0,Number(paidEl.value||0));
+  if(crmPaidStatuses.has(status))paid=total;
+  if(paid>total)paid=total;
+  paidEl.value=paid;
+  remainingEl.value=Math.max(0,total-paid);
 }
 function crmGetItems(){
   const items=[];
@@ -1525,8 +1556,10 @@ async function crmSaveOrder(){
   const id=document.getElementById('crmOrderId').value;
   const paymentStatus=document.getElementById('crmPayment').value;
   const isPaid=crmPaidStatuses.has(paymentStatus);
-  if(isPaid)document.getElementById('crmRemaining').value='0';
-  const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount:Number(document.getElementById('crmAmount').value)||0,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,remainingAmount:isPaid?0:(Number(document.getElementById('crmRemaining').value)||0),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||''};
+  crmSyncPaidAndRemaining();
+  const orderAmount=Number(document.getElementById('crmAmount').value)||0;
+  const paidAmount=isPaid?orderAmount:(Number(document.getElementById('crmPaidAmount').value)||0);
+  const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,paidAmount,remainingAmount:Math.max(0,orderAmount-paidAmount),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||''};
   if(!o.clientName){showToast('Укажите клиента','error');return}
   if(!crmClients.some(c=>c.name===o.clientName)){showToast('Клиента нет в базе. Сначала добавьте клиента в разделе Клиенты.','error');return}
   if(id){
@@ -1841,7 +1874,8 @@ document.getElementById('crmStatusFilter')?.addEventListener('change',()=>crmRen
 document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmClient')?.addEventListener('change',e=>crmClientApplyToOrder(e.target.value));
 document.getElementById('crmClientsSearch')?.addEventListener('input',()=>crmRenderClients());
-document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYear=Number(e.target.value)||new Date().getFullYear();crmRenderClients()});
+document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYears=Array.from(e.target.selectedOptions).map(o=>Number(o.value)).filter(Boolean);crmRenderClients()});
+document.getElementById('crmClientsYearAll')?.addEventListener('change',e=>{crmClientsAllYears=!!e.target.checked;crmRenderClients()});
 document.getElementById('crmClientsDashYears')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmClientsDashAllTime')?.addEventListener('change',()=>crmRenderClientsDashboard());
 document.getElementById('crmClientsDashTopN')?.addEventListener('change',()=>crmRenderClientsDashboard());

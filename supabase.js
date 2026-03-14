@@ -60,6 +60,7 @@
       delivery_cost: Number(o.deliveryCost || o.delivery_cost || 0),
       setup_cost: Number(o.setupCost || o.setup_cost || 0),
       discount: Number(o.discount || 0),
+      paid_amount: Number(o.paidAmount || o.paid_amount || 0),
       remaining_amount: Number(o.remainingAmount || o.remaining_amount || 0),
       status: o.status || 'preparing',
       payment_status: o.paymentStatus || o.payment_status || 'pending_confirmation',
