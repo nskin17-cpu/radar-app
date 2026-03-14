@@ -1636,6 +1636,15 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
     else{pdf.save(filename);showToast('PDF скачан','success');}
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
+function crmApplyEstimatePdfLink(pdf){
+  if(!pdf||typeof pdf.textWithLink!=='function')return;
+  pdf.setPage(1);
+  pdf.setFont('helvetica','normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(52,120,246);
+  pdf.textWithLink('Условия работы: nandrent.ru/uslovia', 16, 281, { url:'https://nandrent.ru/uslovia' });
+  pdf.setTextColor(0,0,0);
+}
 function crmBuildEstimateHTML(d,withDiscount){
   const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const itemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
@@ -1676,7 +1685,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   if(deliveryCost>0)totalsBlock+=totRow('Доставка',crmFmtN(deliveryCost)+' ₽');
   if(setupCost>0)totalsBlock+=totRow('Сетап',crmFmtN(setupCost)+' ₽');
   totalsBlock+=`<hr style="border:none;border-top:1px solid #ccc;margin:8px 0">`;
-  totalsBlock+=totRow('Итого к оплате',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
+  totalsBlock+=totRow('Итого к оплате <span style="font-size:10px;color:#888;font-weight:500;margin-left:6px">без учета залога</span>',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
   totalsBlock+=`</div></div>`;
 
   const discountBadge=withDiscount&&discountPct>0
@@ -1718,6 +1727,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${payGrid}
   </div>
   <div style="margin-top:14px;padding:12px 14px;border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:10.5px;color:#4f4f4f;line-height:1.5"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
+  <div style="margin-top:8px;font-family:sans-serif;font-size:10px;color:#6a6a6a">Условия работы: <span style="color:#3478f6">nandrent.ru/uslovia</span></div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div></div>`;
 }
@@ -1772,7 +1782,7 @@ function crmGenerateEstimatePDF(withDiscount){
   const d=crmGetPdfOrderData();
   showToast('Генерируем PDF…','info');
   const fname=withDiscount?`Смета_профессионал_${d.orderId}.pdf`:`Смета_${d.orderId}.pdf`;
-  crmRenderAndSavePDF(crmBuildEstimateHTML(d,withDiscount),fname);
+  crmRenderAndSavePDF(crmBuildEstimateHTML(d,withDiscount),fname,crmApplyEstimatePdfLink);
 }
 function crmGenerateActPDF(){
   const d=crmGetPdfOrderData();
@@ -1782,8 +1792,8 @@ function crmGenerateActPDF(){
 function crmDownloadAllPDF(){
   const d=crmGetPdfOrderData();
   showToast('Открываем 3 документа…','info');
-  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,null,true);
-  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,null,true),1200);
+  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,crmApplyEstimatePdfLink,true);
+  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,crmApplyEstimatePdfLink,true),1200);
   setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
 }
 // CRM Dashboard
