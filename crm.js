@@ -472,9 +472,9 @@ function crmRenderOrders(){
     <td><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></td>
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
   }).join('');
-  t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmStatus;const o=crmOrders.find(x=>x.id===id);if(o){o.status=e.target.value;await api('updateOrder',{order:{id,status:e.target.value}});crmRenderAll();showToast('Статус обновлён','success')}}));
-  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmPayment;const o=crmOrders.find(x=>x.id===id);if(o){const p=e.target.value;o.paymentStatus=p;const update={id,paymentStatus:p};if(crmPaidStatuses.has(p)){o.paidAmount=Number(o.orderAmount||0);o.remainingAmount=0;update.paidAmount=o.paidAmount;update.remainingAmount=0}await api('updateOrder',{order:update});crmRenderAll();showToast('Оплата обновлена','success')}}));
-  t.querySelectorAll('[data-crm-deposit]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmDeposit;const o=crmOrders.find(x=>x.id===id);if(o){o.depositStatus=e.target.value;sel.style.background=depositBg[e.target.value]||'';await api('updateOrder',{order:{id,depositStatus:e.target.value}});if(e.target.value==='returned_comp')crmOpenDialog(id);else showToast('Статус залога обновлён','success');}}))}
+  t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmStatus;const o=crmOrders.find(x=>x.id===id);if(o){o.status=e.target.value;await api('updateOrder',{order:{id,status:e.target.value}});sbBackup('upsertOrder',o);crmRenderAll();showToast('Статус обновлён','success')}}));
+  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmPayment;const o=crmOrders.find(x=>x.id===id);if(o){const p=e.target.value;o.paymentStatus=p;const update={id,paymentStatus:p};if(crmPaidStatuses.has(p)){o.paidAmount=Number(o.orderAmount||0);o.remainingAmount=0;update.paidAmount=o.paidAmount;update.remainingAmount=0}await api('updateOrder',{order:update});sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();crmRenderAll();showToast('Оплата обновлена','success')}}));
+  t.querySelectorAll('[data-crm-deposit]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmDeposit;const o=crmOrders.find(x=>x.id===id);if(o){o.depositStatus=e.target.value;sel.style.background=depositBg[e.target.value]||'';await api('updateOrder',{order:{id,depositStatus:e.target.value}});sbBackup('upsertOrder',o);if(e.target.value==='returned_comp')crmOpenDialog(id);else showToast('Статус залога обновлён','success');}}))}
 function crmRenderStats(){
   const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();
   const mo=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&d.getMonth()===cm&&d.getFullYear()===cy});
@@ -1423,10 +1423,11 @@ async function crmSaveStockItem(){
 }
 async function crmDeleteStockItem(){
   const id=document.getElementById('crmStockId').value;
+  const item=crmStock.find(s=>s.id===id);
   if(!id||!confirm('Удалить позицию?'))return;
   const r=await api('deleteStockItem',{id});
   if(r.success){
-    sbBackup('deleteStockItem',{id});
+    if(item)sbBackup('deleteStockItem',{id,name:item.name,category:item.category});
     showToast('Удалено','success');
     closeModal('crmStockModal');
     crmStock=crmStock.filter(s=>s.id!==id);

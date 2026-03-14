@@ -47,19 +47,53 @@ async function loadAll(){await loadCompetitors();await loadMyCompanyData();await
 async function syncAllToSupabase(){
   if(!window.supabaseWrite){showToast('Supabase не настроен','error');return}
   showToast('Синхронизация...','info');
+  if(typeof window.migrateGoogleToSupabase==='function'){
+    const res=await window.migrateGoogleToSupabase((action,data)=>api(action,data));
+    if(res?.success){
+      let pruned=0;
+      if(typeof window.pruneDeletedOrdersFromSupabase==='function'){
+        const pruneRes=await window.pruneDeletedOrdersFromSupabase((action,data)=>api(action,data));
+        if(pruneRes?.success)pruned=pruneRes.deleted||0;
+      }
+      const r=res.results||{};
+      const parts=[
+        `заказы: ${r.orders||0}`,
+        `клиенты: ${r.clients||0}`,
+        `склад: ${r.stock||0}`,
+        `конкуренты: ${r.competitors||0}`,
+        `история: ${r.history||0}`,
+        `pricing: ${r.pricing||0}`,
+        `моя компания: ${r.myCompany?'1':'0'}`,
+        `удалено заказов: ${pruned}`
+      ];
+      showToast(`Синхронизировано — ${parts.join(', ')}`,'success');
+      return;
+    }
+    showToast(`Ошибка синхронизации: ${res?.error||'неизвестно'}`,'error');
+    return;
+  }
   let ok=0,fail=0;
-  // Заказы
   const ro=await api('getOrders');
   if(ro.success&&Array.isArray(ro.orders)){
     for(const o of ro.orders){
       try{await window.supabaseWrite('upsertOrder',o);ok++}catch(e){fail++}
     }
   }
-  // Конкуренты
+  const rc=await api('getClients');
+  if(rc.success&&Array.isArray(rc.clients)){
+    for(const c of rc.clients){
+      try{await window.supabaseWrite('upsertClient',c);ok++}catch(e){fail++}
+    }
+  }
+  const rs=await api('getStock');
+  if(rs.success&&Array.isArray(rs.stock)){
+    for(const s of rs.stock){
+      try{await window.supabaseWrite('upsertStockItem',s);ok++}catch(e){fail++}
+    }
+  }
   if(competitors.length){
     try{await window.supabaseWrite('upsertCompetitors',competitors);ok++}catch(e){fail++}
   }
-  // Моя компания
   if(myCompany){
     try{await window.supabaseWrite('upsertMyCompany',myCompany);ok++}catch(e){fail++}
   }

@@ -215,6 +215,54 @@
     }
   }
 
+  async function pruneDeletedOrdersFromSupabase(apiFn, supabaseOpts) {
+    var supabase = getSupabase(supabaseOpts);
+    if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
+    if (typeof apiFn !== 'function') return { success: false, error: 'Нужна функция api(action, data)' };
+
+    try {
+      var ordRes = await apiFn('getOrders');
+      if (!ordRes || !ordRes.success || !Array.isArray(ordRes.orders)) {
+        return { success: false, error: 'Не удалось получить заказы из Google' };
+      }
+
+      var googleIds = new Set(
+        ordRes.orders
+          .map(function (o) { return o && o.id ? String(o.id) : ''; })
+          .filter(Boolean)
+      );
+
+      var from = 0;
+      var pageSize = 1000;
+      var deleted = 0;
+      while (true) {
+        var res = await supabase
+          .from('orders')
+          .select('id')
+          .range(from, from + pageSize - 1);
+        if (res.error) return { success: false, error: res.error.message };
+        var rows = Array.isArray(res.data) ? res.data : [];
+        if (!rows.length) break;
+
+        for (var i = 0; i < rows.length; i++) {
+          var id = rows[i] && rows[i].id ? String(rows[i].id) : '';
+          if (id && !googleIds.has(id)) {
+            var delRes = await supabase.from('orders').delete().eq('id', id);
+            if (delRes.error) console.warn('[prune] delete order:', delRes.error.message);
+            else deleted++;
+          }
+        }
+
+        if (rows.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return { success: true, deleted: deleted };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   /**
    * Дублирование отдельных записей в Supabase (вызывается из основного приложения).
    * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
@@ -291,9 +339,15 @@
   if (typeof window !== 'undefined') {
     window.getSupabase = getSupabase;
     window.migrateGoogleToSupabase = migrateGoogleToSupabase;
+    window.pruneDeletedOrdersFromSupabase = pruneDeletedOrdersFromSupabase;
     window.supabaseWrite = supabaseWrite;
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { getSupabase: getSupabase, migrateGoogleToSupabase: migrateGoogleToSupabase, supabaseWrite: supabaseWrite };
+    module.exports = {
+      getSupabase: getSupabase,
+      migrateGoogleToSupabase: migrateGoogleToSupabase,
+      pruneDeletedOrdersFromSupabase: pruneDeletedOrdersFromSupabase,
+      supabaseWrite: supabaseWrite
+    };
   }
 })();
