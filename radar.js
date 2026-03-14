@@ -1,6 +1,7 @@
 const API_URL='https://script.google.com/macros/s/AKfycbyfZW_xGihRzBcgOs6YLFkqtvrs4Oag3NgT4RiUqPG0gHXgoQXnU1m_FuXTjxTDqkA2/exec';
 let currentUser=null,competitors=[],myCompany=null,history=[],charts={},cityFilter='all';
 let isLoggingIn=false;
+let isSupabaseSyncRunning=false;
 const NUM='nepal,loren,modern,plasticChair,woodChair,metalChair,plateSnack,plateDinner,plateSub,glassWine,glassFlute,glassMartini,glassRocks,cutlerySet,delivery,deliveryKm,setupPlates,setupGlasses,setupCutlery,setupMetalChair,setupPlasticChair,setupCushionChair,proDiscount'.split(',');
 const STR='name,city,website,instagram,phone,notes'.split(',');
 const ALL=[...STR,...NUM];
@@ -45,7 +46,17 @@ document.getElementById('loginPass').addEventListener('input',()=>{document.getE
 async function loadAll(){await loadCompetitors();await loadMyCompanyData();await loadHistory();loadDashboard();loadCompareSelects()}
 
 async function syncAllToSupabase(){
-  if(!window.supabaseWrite){showToast('Supabase не настроен','error');return}
+  const st=document.getElementById('settingsStatus');
+  const btn=document.getElementById('settingsSyncBtn');
+  if(isSupabaseSyncRunning)return;
+  if(!window.supabaseWrite){
+    if(st){st.style.color='var(--red)';st.textContent='Supabase не настроен. Сохраните URL и ключ.'}
+    showToast('Supabase не настроен','error');
+    return;
+  }
+  isSupabaseSyncRunning=true;
+  if(btn){btn.disabled=true;btn.textContent='⏳ Синхронизация...';}
+  if(st){st.style.color='var(--text2)';st.textContent='Идет полная синхронизация Google Sheets -> Supabase. Не нажимайте кнопку повторно.'}
   showToast('Синхронизация...','info');
   if(typeof window.migrateGoogleToSupabase==='function'){
     const res=await window.migrateGoogleToSupabase((action,data)=>api(action,data));
@@ -79,9 +90,15 @@ async function syncAllToSupabase(){
         `удалено клиентов: ${prunedClients}`,
         `удалено склад: ${prunedStock}`
       ];
+      if(st){st.style.color='var(--green)';st.textContent=`Синхронизация завершена: ${parts.join(', ')}`;}
+      if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
+      isSupabaseSyncRunning=false;
       showToast(`Синхронизировано — ${parts.join(', ')}`,'success');
       return;
     }
+    if(st){st.style.color='var(--red)';st.textContent=`Ошибка синхронизации: ${res?.error||'неизвестно'}`;}
+    if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
+    isSupabaseSyncRunning=false;
     showToast(`Ошибка синхронизации: ${res?.error||'неизвестно'}`,'error');
     return;
   }
@@ -110,6 +127,9 @@ async function syncAllToSupabase(){
   if(myCompany){
     try{await window.supabaseWrite('upsertMyCompany',myCompany);ok++}catch(e){fail++}
   }
+  if(st){st.style.color=fail?'var(--red)':'var(--green)';st.textContent=`Синхронизация завершена: синхронизировано ${ok} объектов${fail?', ошибок: '+fail:''}`;}
+  if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
+  isSupabaseSyncRunning=false;
   showToast(`Синхронизировано: ${ok} объектов${fail?', ошибок: '+fail:''}`, fail?'error':'success');
 }
 
