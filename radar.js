@@ -2,7 +2,7 @@ const API_URL='https://script.google.com/macros/s/AKfycbyfZW_xGihRzBcgOs6YLFkqtv
 let currentUser=null,competitors=[],myCompany=null,history=[],historyLog=[],charts={},cityFilter='all';
 let isLoggingIn=false;
 let isSupabaseSyncRunning=false;
-let historyLogField='loren',historyLogCompany='all';
+let historyLogField='loren',historyLogCompany='all',historyLogPeriod='90d';
 const NUM='nepal,loren,modern,plasticChair,woodChair,metalChair,plateSnack,plateDinner,plateSub,glassWine,glassFlute,glassMartini,glassRocks,cutlerySet,delivery,deliveryKm,setupPlates,setupGlasses,setupCutlery,setupMetalChair,setupPlasticChair,setupCushionChair,proDiscount'.split(',');
 const STR='name,city,website,instagram,phone,notes'.split(',');
 const ALL=[...STR,...NUM];
@@ -189,6 +189,9 @@ function renderCompetitors(){
 function openAddComp(){document.getElementById('modalCompTitle').textContent='Добавить конкурента';ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el){if(el.tagName==='SELECT')el.selectedIndex=0;else el.value=''}});document.getElementById('cId').value='';openModal('modalComp')}
 function editComp(id){const c=competitors.find(x=>x.id===id);if(!c)return;document.getElementById('modalCompTitle').textContent='Редактировать';document.getElementById('cId').value=c.id;ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)el.value=c[f]||''});openModal('modalComp')}
 function getCompForm(){const o={};ALL.forEach(f=>{const el=document.getElementById('c'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});return o}
+function makeHistoryLogId(){
+  return `HL${Date.now()}${Math.floor(Math.random()*100000)}`;
+}
 function collectPriceChanges(prev,next,companyId,companyName){
   if(!prev||!next)return [];
   const now=new Date().toISOString();
@@ -197,6 +200,7 @@ function collectPriceChanges(prev,next,companyId,companyName){
     const newValue=Number(next[key]||0);
     if(oldValue===newValue)return acc;
     acc.push({
+      id:makeHistoryLogId(),
       createdAt:now,
       companyId:companyId,
       companyName:companyName,
@@ -217,6 +221,19 @@ async function persistHistoryLogEntries(entries){
     sbBackup('insertHistoryLog',entry);
     api('addHistoryLog',{entry}).catch(()=>{});
   });
+}
+async function deleteHistoryLogEntry(id){
+  if(!id)return;
+  if(!confirm('Удалить это изменение цены?'))return;
+  historyLog=historyLog.filter(entry=>entry.id!==id);
+  loadDashboard();
+  sbBackup('deleteHistoryLog',{id});
+  try{
+    await api('deleteHistoryLog',{id});
+    showToast('Изменение удалено','success');
+  }catch(e){
+    showToast('Изменение удалено локально, но не подтверждено в Google','error');
+  }
 }
 async function saveComp(){
   const id=document.getElementById('cId').value;
@@ -339,17 +356,36 @@ function formatHistoryDate(value){
   if(Number.isNaN(d.getTime()))return String(value||'—');
   return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit'}).format(d);
 }
+function getHistoryPeriodCutoff(period){
+  if(period==='all')return null;
+  const days=period==='30d'?30:period==='365d'?365:90;
+  const dt=new Date();
+  dt.setDate(dt.getDate()-days);
+  return dt;
+}
+function getFilteredHistoryRows(){
+  const cutoff=getHistoryPeriodCutoff(historyLogPeriod);
+  return historyLog
+    .filter(h=>h.fieldKey===historyLogField)
+    .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
+    .filter(h=>{
+      if(!cutoff)return true;
+      const dt=new Date(h.createdAt);
+      return !Number.isNaN(dt.getTime())&&dt>=cutoff;
+    });
+}
 function renderHistoryChart(comps,defs){
   const canvas=document.getElementById('chartHistory');
   const recentEl=document.getElementById('historyRecentChanges');
+  const periodSel=document.getElementById('historyPeriodFilter');
   if(!canvas)return;
   const ctx=canvas.getContext('2d');
   if(charts.history){charts.history.destroy();delete charts.history}
   ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
 
-  const rows=historyLog
-    .filter(h=>h.fieldKey===historyLogField)
-    .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
+  if(periodSel)periodSel.value=historyLogPeriod;
+
+  const rows=getFilteredHistoryRows()
     .slice()
     .sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
 
@@ -358,6 +394,11 @@ function renderHistoryChart(comps,defs){
   const clrs=['#3478f6','#8944d6','#d48806','#e5352b','#2a9d52','#5ac8fa'];
   const datasets=ids.filter(Boolean).map((cid,i)=>{
     const companyRows=rows.filter(r=>r.companyId===cid);
+    const pointColors=labels.map(lbl=>{
+      const sameDay=companyRows.filter(r=>formatHistoryDate(r.createdAt)===lbl);
+      const last=sameDay[sameDay.length-1];
+      return last&&Number(last.delta)<0?'#e5352b':'#2a9d52';
+    });
     return{
       label:companyRows[0]?.companyName||cid,
       data:labels.map(lbl=>{
@@ -366,8 +407,11 @@ function renderHistoryChart(comps,defs){
         return last?Number(last.newValue)||0:null;
       }),
       borderColor:clrs[i%clrs.length],
+      pointBackgroundColor:pointColors,
+      pointBorderColor:pointColors,
       tension:.25,
-      pointRadius:3,
+      pointRadius:4,
+      pointHoverRadius:5,
       fill:false,
       spanGaps:true
     };
@@ -385,8 +429,21 @@ function renderHistoryChart(comps,defs){
           tooltip:{
             ...defs.plugins.tooltip,
             callbacks:{
+              title:function(items){
+                return items[0]?.label||'';
+              },
               label:function(ctx){
                 return `${ctx.dataset.label}: ${fN(ctx.raw)}₽`;
+              },
+              afterLabel:function(ctx){
+                const label=ctx.label;
+                const row=rows
+                  .filter(r=>r.companyId===ids[ctx.datasetIndex])
+                  .filter(r=>formatHistoryDate(r.createdAt)===label)
+                  .slice(-1)[0];
+                if(!row)return '';
+                const sign=Number(row.delta)>=0?'+':'';
+                return `Изменение: ${sign}${fN(row.delta)}₽`;
               }
             }
           }
@@ -401,22 +458,30 @@ function renderHistoryChart(comps,defs){
   }
 
   if(recentEl){
-    const latest=historyLog
-      .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
+    const latest=getFilteredHistoryRows()
       .slice(0,10);
     if(!latest.length){
       recentEl.innerHTML='<div style="font-size:12px;color:var(--text3)">Изменений пока нет</div>';
       return;
     }
+    const upCount=latest.filter(row=>Number(row.delta)>0).length;
+    const downCount=latest.filter(row=>Number(row.delta)<0).length;
+    const sameCount=latest.filter(row=>Number(row.delta)===0).length;
     recentEl.innerHTML=`<div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Последние изменения</div>
-      <div class="table-wrap"><table style="width:100%"><thead><tr><th>Дата</th><th>Компания</th><th>Позиция</th><th>Было</th><th>Стало</th><th>Δ</th></tr></thead><tbody>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(42,157,82,.12);color:var(--green);font-weight:700">Рост: ${upCount}</span>
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(229,53,43,.12);color:var(--red);font-weight:700">Снижение: ${downCount}</span>
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(157,157,168,.12);color:var(--text2);font-weight:700">Без изменений: ${sameCount}</span>
+      </div>
+      <div class="table-wrap"><table style="width:100%"><thead><tr><th>Дата</th><th>Компания</th><th>Позиция</th><th>Было</th><th>Стало</th><th>Δ</th><th></th></tr></thead><tbody>
       ${latest.map(row=>`<tr>
         <td>${esc(formatHistoryDate(row.createdAt))}</td>
         <td>${esc(row.companyName)}</td>
         <td>${esc(row.fieldLabel)}</td>
         <td class="mono">${row.oldValue!=null?fN(row.oldValue)+'₽':'—'}</td>
-        <td class="mono">${fN(row.newValue)}₽</td>
-        <td class="mono" style="color:${Number(row.delta)>=0?'var(--green)':'var(--red)'}">${Number(row.delta)>=0?'+':''}${fN(row.delta)}₽</td>
+        <td class="mono" style="color:${Number(row.delta)>=0?'var(--green)':'var(--red)'};font-weight:700">${fN(row.newValue)}₽</td>
+        <td class="mono" style="color:${Number(row.delta)>=0?'var(--green)':'var(--red)'};font-weight:700">${Number(row.delta)>=0?'▲':'▼'} ${Number(row.delta)>=0?'+':''}${fN(row.delta)}₽</td>
+        <td style="text-align:right"><button class="btn btn-sm btn-secondary" onclick="deleteHistoryLogEntry('${esc(row.id)}')" style="padding:4px 8px;font-size:11px">Удалить</button></td>
       </tr>`).join('')}
       </tbody></table></div>`;
   }

@@ -109,6 +109,12 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <select id="historyFieldFilter" onchange="historyLogField=this.value;loadDashboard()" style="width:auto;min-width:170px"></select>
               <select id="historyCompanyFilter" onchange="historyLogCompany=this.value;loadDashboard()" style="width:auto;min-width:200px"></select>
+              <select id="historyPeriodFilter" onchange="historyLogPeriod=this.value;loadDashboard()" style="width:auto;min-width:160px">
+                <option value="30d">Последние 30 дней</option>
+                <option value="90d" selected>Последние 3 месяца</option>
+                <option value="365d">Последний год</option>
+                <option value="all">Все время</option>
+              </select>
             </div>
           </div>
           <div class="chart-container" style="height:280px"><canvas id="chartHistory"></canvas></div>
@@ -597,7 +603,17 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
     <input type="hidden" id="crmOrderId">
     <div class="crm-grid-2">
-      <div class="input-group"><label class="input-label">Клиент *</label><input type="search" id="crmClient" list="crmClientList" placeholder="Начните вводить имя клиента"><datalist id="crmClientList"></datalist></div>
+      <div class="input-group">
+        <label class="input-label">Клиент *</label>
+        <div class="crm-client-picker">
+          <div class="crm-client-picker-input">
+            <input type="search" id="crmClient" list="crmClientList" placeholder="Начните вводить имя клиента" autocomplete="off">
+            <button type="button" class="crm-client-picker-toggle" id="crmClientToggle" onclick="crmToggleClientDropdown()" title="Показать список клиентов">▼</button>
+          </div>
+          <div id="crmClientDropdown" class="crm-client-picker-dropdown" style="display:none"></div>
+          <datalist id="crmClientList"></datalist>
+        </div>
+      </div>
       <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmPhone"></div>
     </div>
     <div class="crm-grid-2">
@@ -651,12 +667,13 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       </div>
     </div>
     <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
-    <div class="modal-actions">
+    <div class="crm-doc-actions" id="crmDocActions">
       <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой">Смета (со скидкой)</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateBtn" onclick="crmGenerateEstimatePDF(false)" style="display:none" title="Смета без скидки">Смета (без скидки)</button>
       <button class="btn btn-sm btn-secondary" id="crmActBtn" onclick="crmGenerateActPDF()" style="display:none" title="Акт передачи">Акт</button>
-      <div style="flex:1"></div>
+    </div>
+    <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
       <button class="btn btn-sm" onclick="crmSaveOrder()">Сохранить</button>
     </div>

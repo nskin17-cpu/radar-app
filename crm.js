@@ -2,6 +2,7 @@
 let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYears=[new Date().getFullYear()],crmClientsAllYears=false,crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
+let crmClientDropdownOpen=false;
 const CRM_CLIENTS_PRESET=[
   {name:'Светлана Новикова',company:'Семицветик',phone:'8-928-175-59-97'},
   {name:'Ирина Лазарь',company:'Lazar decor',phone:'8-928-145-35-67'},
@@ -234,6 +235,58 @@ function crmApplyZeroClearBehavior(scope){
     });
   });
 }
+function crmPositionClientDropdown(){
+  const dropdown=document.getElementById('crmClientDropdown');
+  const input=document.getElementById('crmClient');
+  if(!dropdown||!input)return;
+  const rect=input.getBoundingClientRect();
+  if(window.innerWidth<=768){
+    dropdown.style.top=`${Math.round(rect.bottom+6)}px`;
+  }else{
+    dropdown.style.top='calc(100% + 6px)';
+  }
+}
+function crmRenderClientDropdown(query=''){
+  const dropdown=document.getElementById('crmClientDropdown');
+  if(!dropdown)return;
+  const q=String(query||'').toLowerCase().trim();
+  const matches=crmClients
+    .filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q))
+    .slice(0,30);
+  if(!matches.length){
+    dropdown.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--text3)">Ничего не найдено</div>';
+    return;
+  }
+  dropdown.innerHTML=matches.map(c=>`<button type="button" class="crm-client-option" data-name="${esc(c.name)}" onclick="crmPickClient('${esc(c.name)}')"><strong>${esc(c.name)}</strong><span>${esc(c.company||'—')} ${c.phone?`· ${esc(c.phone)}`:''}</span></button>`).join('');
+}
+function crmOpenClientDropdown(forceAll){
+  const input=document.getElementById('crmClient');
+  const dropdown=document.getElementById('crmClientDropdown');
+  const toggle=document.getElementById('crmClientToggle');
+  if(!input||!dropdown)return;
+  crmPositionClientDropdown();
+  crmRenderClientDropdown(forceAll?'':input.value);
+  dropdown.style.display='block';
+  crmClientDropdownOpen=true;
+  if(toggle)toggle.textContent='▲';
+}
+function crmCloseClientDropdown(){
+  const dropdown=document.getElementById('crmClientDropdown');
+  const toggle=document.getElementById('crmClientToggle');
+  if(dropdown)dropdown.style.display='none';
+  crmClientDropdownOpen=false;
+  if(toggle)toggle.textContent='▼';
+}
+function crmToggleClientDropdown(){
+  if(crmClientDropdownOpen)crmCloseClientDropdown();
+  else crmOpenClientDropdown(true);
+}
+function crmPickClient(name){
+  const input=document.getElementById('crmClient');
+  if(input)input.value=name;
+  crmClientApplyToOrder(name);
+  crmCloseClientDropdown();
+}
 function crmBindDialogInputs(){
   if(crmOrderInputsBound)return;
   const m=document.getElementById('crmOrderModal');
@@ -253,6 +306,16 @@ function crmBindDialogInputs(){
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
   document.getElementById('crmPayment')?.addEventListener('change',crmSyncPaidAndRemaining);
+  const clientInput=document.getElementById('crmClient');
+  clientInput?.addEventListener('focus',()=>crmOpenClientDropdown(false));
+  clientInput?.addEventListener('input',e=>crmOpenClientDropdown(false));
+  clientInput?.addEventListener('change',e=>crmClientApplyToOrder(e.target.value));
+  clientInput?.addEventListener('blur',()=>setTimeout(()=>{
+    const exact=crmClients.find(c=>c.name===clientInput.value);
+    if(exact)crmClientApplyToOrder(exact.name);
+    crmCloseClientDropdown();
+  },120));
+  window.addEventListener('resize',crmPositionClientDropdown);
 }
 function crmHandleStartDateChange(){
   crmSyncDateRange(true);
@@ -690,6 +753,7 @@ function crmFillClientSelect(selectedName=''){
     list.innerHTML=opts;
   }
   input.value=sName;
+  crmRenderClientDropdown(sName);
 }
 function crmClientApplyToOrder(name){
   const c=crmClients.find(x=>x.name===name);if(!c)return;
@@ -1511,6 +1575,8 @@ function crmOpenDialog(id){
   }
   crmSyncDeliveryControls();
   crmSyncPaidAndRemaining();
+  crmCloseClientDropdown();
+  crmPositionClientDropdown();
   crmOrderDialogInit=false;
   openModal('crmOrderModal');
 }
@@ -1920,6 +1986,11 @@ document.getElementById('crmCompletionFilter')?.addEventListener('change',()=>{c
 document.getElementById('crmStatusFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmPaymentFilter')?.addEventListener('change',()=>crmRenderOrders());
 document.getElementById('crmClient')?.addEventListener('change',e=>crmClientApplyToOrder(e.target.value));
+document.addEventListener('click',e=>{
+  const picker=document.querySelector('.crm-client-picker');
+  if(!picker||picker.contains(e.target))return;
+  crmCloseClientDropdown();
+});
 document.getElementById('crmClientsSearch')?.addEventListener('input',()=>crmRenderClients());
 document.getElementById('crmClientsYear')?.addEventListener('change',e=>{crmClientsYears=Array.from(e.target.selectedOptions).map(o=>Number(o.value)).filter(Boolean);crmRenderClients()});
 document.getElementById('crmClientsYearAll')?.addEventListener('change',e=>{crmClientsAllYears=!!e.target.checked;crmRenderClients()});

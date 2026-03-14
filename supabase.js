@@ -400,7 +400,7 @@
    * Используется для двойного хранения данных: Google Sheets (основное) + Supabase (резервное).
    * Тихо игнорирует ошибки — если Supabase недоступен, основное хранилище (GS) не затрагивается.
    *
-   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient' | 'upsertCategory' | 'deleteCategory' | 'upsertPricingConfig' | 'insertHistoryLog'
+   * action: 'upsertCompetitors' | 'deleteCompetitor' | 'upsertMyCompany' | 'upsertOrder' | 'deleteOrder' | 'upsertClient' | 'deleteClient' | 'upsertCategory' | 'deleteCategory' | 'upsertPricingConfig' | 'insertHistoryLog' | 'deleteHistoryLog'
    * payload: данные в camelCase формате (как в основном приложении)
    */
   async function supabaseWrite(action, payload) {
@@ -483,6 +483,11 @@
         if (hRow && hRow.company_id && hRow.field_key) {
           var res = await sb.from('history_log').insert(hRow);
           if (res.error) console.warn('[backup] insertHistoryLog:', res.error.message);
+        }
+      } else if (action === 'deleteHistoryLog') {
+        if (payload && payload.id) {
+          var res = await sb.from('history_log').delete().eq('id', payload.id);
+          if (res.error) console.warn('[backup] deleteHistoryLog:', res.error.message);
         }
       }
     } catch (e) {
