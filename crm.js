@@ -927,13 +927,37 @@ function crmOpenClientProfile(id){
 }
 function crmOpenClientModal(id=''){
   const c=id?crmClients.find(x=>x.id===id):null;
+  const modal=document.getElementById('crmClientModal');
+  const discountInput=document.getElementById('crmClientDiscountInput');
   document.getElementById('crmClientModalTitle').textContent=c?'Редактировать клиента':'Новый клиент';
   document.getElementById('crmClientId').value=c?.id||'';
   document.getElementById('crmClientNameInput').value=c?.name||'';
   document.getElementById('crmClientCompanyInput').value=c?.company||'';
   document.getElementById('crmClientPhoneInput').value=c?.phone||'';
-  document.getElementById('crmClientDiscountInput').value=c?.proDiscount||0;
+  if(discountInput){
+    discountInput.value=c?.proDiscount||0;
+    if(!discountInput.dataset.clientZeroBound){
+      discountInput.dataset.clientZeroBound='1';
+      discountInput.addEventListener('focus',()=>{
+        if(discountInput.value==='0'){
+          discountInput.value='';
+          requestAnimationFrame(()=>{try{discountInput.select();}catch{}});
+        }
+      });
+      discountInput.addEventListener('click',()=>{
+        if(discountInput.value==='0'){
+          discountInput.value='';
+          requestAnimationFrame(()=>{try{discountInput.select();}catch{}});
+        }
+      });
+      discountInput.addEventListener('input',()=>{
+        discountInput.value=discountInput.value.replace(/[^\d]/g,'');
+        if(/^0\d+$/.test(discountInput.value))discountInput.value=String(Number(discountInput.value));
+      });
+    }
+  }
   document.getElementById('crmClientDeleteBtn').style.display=c?'inline-block':'none';
+  if(modal)crmApplyZeroClearBehavior(modal);
   openModal('crmClientModal');
 }
 async function crmSaveClient(){
@@ -1645,13 +1669,10 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
 function crmApplyEstimatePdfLink(pdf){
-  if(!pdf||typeof pdf.textWithLink!=='function')return;
+  if(!pdf||typeof pdf.link!=='function')return;
   pdf.setPage(1);
-  pdf.setFont('helvetica','normal');
-  pdf.setFontSize(8);
-  pdf.setTextColor(52,120,246);
-  pdf.textWithLink('Условия работы: nandrent.ru/uslovia', 16, 281, { url:'https://nandrent.ru/uslovia' });
-  pdf.setTextColor(0,0,0);
+  // Invisible clickable area over the "Условия работы" block in the estimate.
+  pdf.link(16, 237, 178, 18, { url:'https://nandrent.ru/uslovia' });
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
