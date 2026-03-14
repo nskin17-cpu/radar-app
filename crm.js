@@ -1671,8 +1671,8 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
 function crmApplyEstimatePdfLink(pdf){
   if(!pdf||typeof pdf.link!=='function')return;
   pdf.setPage(1);
-  // Invisible clickable area over the "Условия работы" block in the estimate.
-  pdf.link(16, 237, 178, 18, { url:'https://nandrent.ru/uslovia' });
+  // Wide invisible clickable area over the "Условия работы" block in the estimate.
+  pdf.link(14, 232, 182, 24, { url:'https://nandrent.ru/uslovia' });
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
