@@ -58,7 +58,7 @@ th{text-align:left;padding:11px 12px;font-size:11px;color:var(--text2);text-tran
 td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);vertical-align:middle;white-space:nowrap}tr:last-child td{border-bottom:none}tr:hover td{background:rgba(0,0,0,0.02)}
 .crm-month-sep td{padding:0;border-bottom:none;background:transparent!important}
 .stock-cat-sep td{border-top:2px solid var(--blue)!important}
-.crm-month-sep span{display:block;padding:6px 10px;border-top:2px solid var(--blue);color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:rgba(52,120,246,0.04)}
+.crm-month-sep span{display:block;padding:6px 10px;border-top:2px solid var(--blue);color:var(--blue);font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:rgba(0,122,255,0.04)}
 .crm-items-row td{white-space:normal;background:var(--surface2)}
 .crm-items-row ul{margin:0;padding-left:18px}
 .crm-delivery-mobile{display:none}
@@ -188,8 +188,8 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
 .crm-client-option strong{font-size:13px;color:var(--text)}
 .crm-client-option span{font-size:11px;color:var(--text2)}
 .crm-doc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.crm-client-link{position:relative;color:var(--text);transition:var(--transition);white-space:normal;border-radius:8px;background:rgba(52,120,246,0.05)!important;box-shadow:inset 0 0 0 1px rgba(52,120,246,0.08)}
-.crm-client-link:hover{color:var(--blue);background:rgba(52,120,246,0.1)!important;box-shadow:inset 0 0 0 1px rgba(52,120,246,0.22)}
+.crm-client-link{position:relative;color:var(--text);transition:var(--transition);white-space:normal;border-radius:8px;background:rgba(0,122,255,0.05)!important;box-shadow:inset 0 0 0 1px rgba(0,122,255,0.08)}
+.crm-client-link:hover{color:var(--blue);background:rgba(0,122,255,0.1)!important;box-shadow:inset 0 0 0 1px rgba(0,122,255,0.22)}
 @media(max-width:768px){.crm-grid-2{grid-template-columns:1fr!important}.crm-grid-3{grid-template-columns:1fr 1fr!important}#crmOrderModal .modal{padding:16px 12px;max-width:98vw}}
 @media(max-width:768px){.crm-month-sep span{font-size:9.5px;padding:5px 8px;letter-spacing:.28px}}
 @media(max-width:768px){
@@ -338,7 +338,7 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
   #crmOrderModal .crm-client-option{
     padding:12px 10px;
   }
-  #page-crmstock .table-wrap table{min-width:0;width:100%;table-layout:fixed}
+  #page-crmstock .table-wrap table{min-width:0!important;width:100%!important;table-layout:fixed}
   #page-crmstock th,#page-crmstock td{
     font-size:11px;
     padding:6px 7px;
@@ -469,8 +469,55 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
   .stock-cat-mobile-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .stock-cat-mobile-list .filter-btn{font-size:10px;padding:5px 9px}
   .stock-mobile-group{border:0.5px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:10px;overflow:hidden}
-  .stock-mobile-group summary{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);background:rgba(52,120,246,0.05);border-left:3px solid var(--blue);cursor:pointer}
+  .stock-mobile-group summary{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);background:rgba(0,122,255,0.05);border-left:3px solid var(--blue);cursor:pointer}
   .stock-mobile-group summary span:last-child{font-size:10px;color:var(--text2);font-weight:600}
   .stock-mobile-group .table-wrap{border:none;border-radius:0;box-shadow:none}
   .stock-mobile-group thead th{font-size:9px}
+  #crmPricingSection>div{
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+  }
+  #crmPricingSection .form-card{
+    padding:14px 12px;
+  }
+  #page-crmstock #crmPricingSection .table-wrap{
+    overflow-x:hidden!important;
+    overflow:hidden!important;
+  }
+  #page-crmstock #crmPricingSection .table-wrap table{
+    min-width:0!important;
+    width:100%!important;
+    table-layout:fixed!important;
+  }
+  #crmPricingSection th,
+  #crmPricingSection td{
+    font-size:12px;
+    padding:8px 8px;
+    white-space:normal;
+    word-break:break-word;
+  }
+  #crmPricingSection th:last-child,
+  #crmPricingSection td:last-child{
+    width:36px;
+  }
+  #page-crmstock .chart-card{
+    padding:12px;
+    overflow:hidden;
+  }
+  #page-crmstock .chart-container{
+    height:220px!important;
+  }
+  #page-crmstock .form-card{
+    padding:12px 10px;
+  }
+  #page-crmstock .page-header{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
+  }
+  #page-crmstock .page-header .btn{
+    font-size:12px;
+    padding:8px 14px;
+    width:auto;
+  }
 }
