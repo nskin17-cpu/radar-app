@@ -300,23 +300,36 @@ async function saveMyCompany(){
 // HISTORY
 async function loadHistory(){const r=await api('getHistory');if(r.success)history=r.history||[]}
 async function loadHistoryLog(){
+  // Пробуем Supabase
   const sb=typeof window.getSupabase==='function'?window.getSupabase():null;
-  if(!sb){historyLog=[];return}
+  if(sb){
+    try{
+      const res=await sb.from('history_log').select('*').order('created_at',{ascending:false}).limit(500);
+      if(!res.error&&res.data&&res.data.length){
+        historyLog=res.data.map(row=>({
+          id:row.id,
+          createdAt:row.created_at,
+          companyId:row.company_id,
+          companyName:row.company_name,
+          fieldKey:row.field_key,
+          fieldLabel:row.field_label,
+          oldValue:row.old_value,
+          newValue:row.new_value,
+          delta:row.delta,
+          source:row.source
+        }));
+        return;
+      }
+    }catch(e){}
+  }
+  // Fallback — Google Sheets
   try{
-    const res=await sb.from('history_log').select('*').order('created_at',{ascending:false}).limit(500);
-    if(res.error)throw res.error;
-    historyLog=(res.data||[]).map(row=>({
-      id:row.id,
-      createdAt:row.created_at,
-      companyId:row.company_id,
-      companyName:row.company_name,
-      fieldKey:row.field_key,
-      fieldLabel:row.field_label,
-      oldValue:row.old_value,
-      newValue:row.new_value,
-      delta:row.delta,
-      source:row.source
-    }));
+    const r=await api('getHistoryLog');
+    if(r.success&&Array.isArray(r.historyLog)){
+      historyLog=r.historyLog;
+    }else{
+      historyLog=[];
+    }
   }catch(e){
     historyLog=[];
   }
