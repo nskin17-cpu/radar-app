@@ -126,28 +126,28 @@ function loadDashboard(){
 async function refreshDashboard(){await loadAll();showToast('Обновлено','success')}
 
 function renderCharts(comps){
-  const defs={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#f2f2f5',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#1a1a1f',bodyColor:'#6e6e78',padding:10,cornerRadius:6}},scales:{x:{grid:{display:false},ticks:{color:'#9d9da8',font:{family:'Inter',size:9}}},y:{grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},ticks:{color:'#9d9da8',font:{family:'JetBrains Mono',size:9},callback:v=>v+'₽'}}}};
+  const defs={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#1d1d1f',bodyColor:'#86868b',padding:10,cornerRadius:8}},scales:{x:{grid:{display:false},ticks:{color:'#aeaeb2',font:{family:'-apple-system,BlinkMacSystemFont,sans-serif',size:10}}},y:{grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},ticks:{color:'#aeaeb2',font:{family:'JetBrains Mono',size:9},callback:v=>v+'₽'}}}};
   Object.values(charts).forEach(c=>c.destroy());charts={};
   const names=comps.map(c=>(c.id==='MY'?'⭐ ':'')+c.name);
-  const bg=comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(52,120,246,0.5)');
-  const bd=comps.map(c=>c.id==='MY'?'#2a9d52':'#3478f6');
+  const bg=comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(0,122,255,0.5)');
+  const bd=comps.map(c=>c.id==='MY'?'#34c759':'#007aff');
 
   charts.nepal=new Chart(document.getElementById('chartNepal'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.nepal)||0),backgroundColor:bg,borderColor:bd,borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
-  charts.loren=new Chart(document.getElementById('chartLoren'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.loren)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(137,68,214,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#2a9d52':'#8944d6'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
-  charts.delivery=new Chart(document.getElementById('chartDelivery'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.delivery)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(212,136,6,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#2a9d52':'#d48806'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
+  charts.loren=new Chart(document.getElementById('chartLoren'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.loren)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(175,82,222,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#34c759':'#af52de'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
+  charts.delivery=new Chart(document.getElementById('chartDelivery'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.delivery)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(255,149,0,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#34c759':'#ff9500'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
   charts.setup=new Chart(document.getElementById('chartSetup'),{type:'bar',data:{labels:names,datasets:[
-    {label:'Бокалы',data:comps.map(c=>Number(c.setupGlasses)||0),backgroundColor:'rgba(52,120,246,0.5)',borderColor:'#3478f6',borderWidth:1,borderRadius:4,borderSkipped:false},
-    {label:'Тарелки',data:comps.map(c=>Number(c.setupPlates)||0),backgroundColor:'rgba(42,157,82,0.5)',borderColor:'#2a9d52',borderWidth:1,borderRadius:4,borderSkipped:false},
-    {label:'Стулья',data:comps.map(c=>Number(c.setupMetalChair)||0),backgroundColor:'rgba(212,136,6,0.5)',borderColor:'#d48806',borderWidth:1,borderRadius:4,borderSkipped:false}
-  ]},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8,padding:8}}}}});
+    {label:'Бокалы',data:comps.map(c=>Number(c.setupGlasses)||0),backgroundColor:'rgba(0,122,255,0.5)',borderColor:'#007aff',borderWidth:1,borderRadius:4,borderSkipped:false},
+    {label:'Тарелки',data:comps.map(c=>Number(c.setupPlates)||0),backgroundColor:'rgba(52,199,89,0.5)',borderColor:'#34c759',borderWidth:1,borderRadius:4,borderSkipped:false},
+    {label:'Стулья',data:comps.map(c=>Number(c.setupMetalChair)||0),backgroundColor:'rgba(255,149,0,0.5)',borderColor:'#ff9500',borderWidth:1,borderRadius:4,borderSkipped:false}
+  ]},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#86868b',font:{family:'-apple-system,sans-serif',size:10},boxWidth:8,padding:8}}}}});
 
   // History chart
   const months=[...new Set(history.map(h=>h.month))].sort();
   if(months.length>1){
-    const clrs=['#3478f6','#8944d6','#d48806','#e5352b','#2a9d52','#5ac8fa'];
+    const clrs=['#007aff','#af52de','#ff9500','#ff3b30','#34c759','#5ac8fa'];
     const cids=[...new Set(history.map(h=>h.companyId))];
     const ds=cids.map((cid,i)=>{const rows=history.filter(h=>h.companyId===cid);return{label:rows[0]?.companyName||cid,data:months.map(m=>{const r=rows.find(h=>h.month===m);return r?Number(r.nepal)||0:null}),borderColor:clrs[i%clrs.length],tension:.3,pointRadius:3,fill:false,spanGaps:true}});
-    charts.history=new Chart(document.getElementById('chartHistory'),{type:'line',data:{labels:months,datasets:ds},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8}}}}});
+    charts.history=new Chart(document.getElementById('chartHistory'),{type:'line',data:{labels:months,datasets:ds},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#86868b',font:{family:'-apple-system,sans-serif',size:10},boxWidth:8}}}}});
   }else{
     const ctx=document.getElementById('chartHistory').getContext('2d');ctx.font='13px Inter';ctx.fillStyle='#9d9da8';ctx.textAlign='center';ctx.fillText('История появится после первого обновления данных',ctx.canvas.width/2,120);
   }

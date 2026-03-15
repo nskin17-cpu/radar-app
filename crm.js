@@ -271,7 +271,7 @@ function crmRenderOrders(){
   const t=document.getElementById('crmOrdersTable');if(!t)return;
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
-  const depositBg={pending:'',deposited:'#e6f1ff',returned:'#e4f6e8',returned_comp:'#ffe0f0'};
+  const depositBg={pending:'',deposited:'#e0edff',returned:'#dff6e8',returned_comp:'#ffe5ef'};
   const depositLbl={pending:'Залог',deposited:'Внесён',returned:'Вернули',returned_comp:'Компенс.'};
   let prevMonthKey='';
   let rowIndex=0;
@@ -291,8 +291,8 @@ function crmRenderOrders(){
     <td style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
     <td class="mono">${fN(o.orderAmount)}₽</td>
-    <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
-    <td><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'};max-width:130px">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#dff6e8':o.status==='in_progress'?'#e0edff':o.status==='assembly'?'#fff4d6':'#ffead4'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#dff6e8':o.paymentStatus==='paid_cash'?'#ffe5ef':o.paymentStatus==='prepaid'?'#f0e6ff':'#ffead4'};max-width:130px">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
     <td><select data-crm-deposit="${o.id}" style="padding:3px 28px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''};max-width:100px">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
     <td><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></td>
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
