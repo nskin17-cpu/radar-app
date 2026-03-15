@@ -408,7 +408,9 @@ function getHistoryPeriodCutoff(period){
 }
 function getFilteredHistoryRows(){
   const cutoff=getHistoryPeriodCutoff(historyLogPeriod);
-  return historyLog
+  console.log('DEBUG historyLog length:',historyLog.length,'field:',historyLogField,'company:',historyLogCompany);
+  if(historyLog.length)console.log('DEBUG first entry:',JSON.stringify(historyLog[0]));
+  const result=historyLog
     .filter(h=>h.fieldKey===historyLogField)
     .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
     .filter(h=>{
@@ -416,6 +418,8 @@ function getFilteredHistoryRows(){
       const dt=new Date(h.createdAt);
       return !Number.isNaN(dt.getTime())&&dt>=cutoff;
     });
+  console.log('DEBUG filtered rows:',result.length);
+  return result;
 }
 function renderHistoryChart(comps,defs){
   const canvas=document.getElementById('chartHistory');
