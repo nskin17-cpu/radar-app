@@ -307,7 +307,15 @@ async function saveMyCompany(){
 // HISTORY
 async function loadHistory(){const r=await api('getHistory');if(r.success)history=r.history||[]}
 async function loadHistoryLog(){
-  // Пробуем Supabase
+  // Загружаем из Google Sheets (основной источник)
+  try{
+    const r=await api('getHistoryLog');
+    if(r.success&&Array.isArray(r.historyLog)&&r.historyLog.length){
+      historyLog=r.historyLog;
+      return;
+    }
+  }catch(e){}
+  // Fallback — Supabase
   const sb=typeof window.getSupabase==='function'?window.getSupabase():null;
   if(sb){
     try{
@@ -329,17 +337,7 @@ async function loadHistoryLog(){
       }
     }catch(e){}
   }
-  // Fallback — Google Sheets
-  try{
-    const r=await api('getHistoryLog');
-    if(r.success&&Array.isArray(r.historyLog)){
-      historyLog=r.historyLog;
-    }else{
-      historyLog=[];
-    }
-  }catch(e){
-    historyLog=[];
-  }
+  historyLog=[];
 }
 
 // DASHBOARD
