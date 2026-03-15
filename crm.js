@@ -491,7 +491,7 @@ function crmRenderOrders(){
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
   const isMobile=window.innerWidth<=768;
-  const depositBg={pending:'',deposited:'#e6f1ff',returned:'#e4f6e8',returned_comp:'#ffe0f0'};
+  const depositBg={pending:'',deposited:'#e0edff',returned:'#dff6e8',returned_comp:'#ffe5ef'};
   const depositLbl={pending:'Залог',deposited:'Внесён',returned:'Вернули',returned_comp:'Компенс.'};
   let prevMonthKey='';
   let rowIndex=0;
@@ -517,8 +517,8 @@ function crmRenderOrders(){
       <div class="crm-om-line"><span>Сумма</span><strong>${fN(o.orderAmount)}₽</strong></div>
       <div class="crm-om-line"><span>Доставка</span><strong>${deliveryCell}</strong></div>
       <div class="crm-om-grid">
-        <div><span>Статус работы</span><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'};width:100%">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></div>
-        <div><span>Статус оплаты</span><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'};width:100%">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div><span>Статус работы</span><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#dff6e8':o.status==='in_progress'?'#e0edff':o.status==='assembly'?'#fff4d6':'#ffead4'};width:100%">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></div>
+        <div><span>Статус оплаты</span><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#dff6e8':o.paymentStatus==='paid_cash'?'#ffe5ef':o.paymentStatus==='prepaid'?'#f0e6ff':'#ffead4'};width:100%">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></div>
       </div>
       <div class="crm-om-line"><span>Залог</span><select data-crm-deposit="${o.id}" style="padding:3px 28px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''};min-width:120px">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></div>
     </td></tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:6px 10px 8px 12px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
@@ -529,8 +529,8 @@ function crmRenderOrders(){
     <td style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
     <td class="mono">${fN(o.orderAmount)}₽</td>
-    <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#e4f6e8':o.status==='in_progress'?'#e6f1ff':o.status==='assembly'?'#fff3cd':'#ffeddc'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
-    <td><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#e4f6e8':o.paymentStatus==='paid_cash'?'#ffe0f0':o.paymentStatus==='prepaid'?'#efe6ff':'#ffeddc'};max-width:130px">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#dff6e8':o.status==='in_progress'?'#e0edff':o.status==='assembly'?'#fff4d6':'#ffead4'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
+    <td><select data-crm-payment="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.paymentStatus==='paid'?'#dff6e8':o.paymentStatus==='paid_cash'?'#ffe5ef':o.paymentStatus==='prepaid'?'#f0e6ff':'#ffead4'};max-width:130px">${Object.entries(crmPL).map(([v,l])=>`<option value="${v}" ${o.paymentStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
     <td><select data-crm-deposit="${o.id}" style="padding:3px 28px 3px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${depositBg[o.depositStatus]||''};max-width:100px">${Object.entries(depositLbl).map(([v,l])=>`<option value="${v}" ${o.depositStatus===v?'selected':''}>${l}</option>`).join('')}</select></td>
     <td><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></td>
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
@@ -695,10 +695,10 @@ function crmRenderClientTrendChart(canvasId,titleId,clientName,selectedYears,all
     return new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric'}).format(new Date(Number(parts[0]),Number(parts[1])-1,1));
   });
   const datasets=[];
-  if(metricChecks.turnover)datasets.push({label:'Оборот',data:labels.map(k=>monthMap[k].turnover),borderColor:'#3478f6',backgroundColor:'rgba(52,120,246,0.12)',tension:.28,pointRadius:3,fill:false});
-  if(metricChecks.revenue)datasets.push({label:'Выручка',data:labels.map(k=>monthMap[k].revenue),borderColor:'#2a9d52',backgroundColor:'rgba(42,157,82,0.12)',tension:.28,pointRadius:3,fill:false});
-  if(metricChecks.orders)datasets.push({label:'Заказы',data:labels.map(k=>monthMap[k].orders),borderColor:'#d48806',backgroundColor:'rgba(212,136,6,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
-  if(metricChecks.avg)datasets.push({label:'Средний чек',data:labels.map(k=>monthMap[k].avg),borderColor:'#8944d6',backgroundColor:'rgba(137,68,214,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(metricChecks.turnover)datasets.push({label:'Оборот',data:labels.map(k=>monthMap[k].turnover),borderColor:'#007aff',backgroundColor:'rgba(0,122,255,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(metricChecks.revenue)datasets.push({label:'Выручка',data:labels.map(k=>monthMap[k].revenue),borderColor:'#34c759',backgroundColor:'rgba(52,199,89,0.12)',tension:.28,pointRadius:3,fill:false});
+  if(metricChecks.orders)datasets.push({label:'Заказы',data:labels.map(k=>monthMap[k].orders),borderColor:'#ff9500',backgroundColor:'rgba(255,149,0,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
+  if(metricChecks.avg)datasets.push({label:'Средний чек',data:labels.map(k=>monthMap[k].avg),borderColor:'#af52de',backgroundColor:'rgba(175,82,222,0.12)',tension:.28,pointRadius:3,fill:false});
   if(!datasets.length)return;
   window[instanceKey]=new Chart(canvas,{
     type:'line',
@@ -707,7 +707,7 @@ function crmRenderClientTrendChart(canvasId,titleId,clientName,selectedYears,all
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:true,labels:{boxWidth:10,color:'#6e6e78'}},
+        legend:{display:true,labels:{boxWidth:10,color:'#86868b'}},
         tooltip:{callbacks:{afterBody:(items)=>{
           const idx=items[0]?.dataIndex;
           if(idx==null)return '';
@@ -834,7 +834,7 @@ function crmRenderClientsDashboard(){
   const chartValues=rows.map(r=>metrics.length===1?crmClientMetricValue(r,metrics[0]):Math.round(crmClientCombinedScore(r,allRows,metrics)*100));
   window.crmClientsTopChartInst=new Chart(chartEl,{
     type:'bar',
-    data:{labels:rows.map(r=>r.name),datasets:[{data:chartValues,backgroundColor:'rgba(52,120,246,0.45)',borderColor:'#3478f6',borderWidth:1,borderRadius:6}]},
+    data:{labels:rows.map(r=>r.name),datasets:[{data:chartValues,backgroundColor:'rgba(0,122,255,0.45)',borderColor:'#007aff',borderWidth:1,borderRadius:6}]},
     options:{
       responsive:true,maintainAspectRatio:false,indexAxis:'y',
       plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
@@ -975,11 +975,11 @@ function crmRenderClientProfile(id){
   const chartCanvas=document.getElementById('crmClientProfileCategoryChart');
   if(window.crmClientProfileCategoryChartInst)window.crmClientProfileCategoryChartInst.destroy();
   if(chartCanvas&&cats.length){
-    const palette=['#3478f6','#2a9d52','#d48806','#8944d6','#e5352b','#5ac8fa','#ff9f40','#7f8c8d'];
+    const palette=['#007aff','#34c759','#ff9500','#af52de','#ff3b30','#5ac8fa','#ff9f40','#7f8c8d'];
     window.crmClientProfileCategoryChartInst=new Chart(chartCanvas,{
       type:'doughnut',
       data:{labels:cats.map(([cat])=>cat),datasets:[{data:cats.map(([,v])=>v.qty),backgroundColor:cats.map((_,i)=>palette[i%palette.length]),borderWidth:0}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,color:'#6e6e78'}},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} шт`}}}}
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,color:'#86868b'}},tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} шт`}}}}
     });
   }
 }
@@ -1277,9 +1277,9 @@ function crmRenderStockAnalysis(){
     });
     const labels=Object.keys(monthly).sort();
     const datasets=[];
-    if(showQty)datasets.push({label:'Количество единиц',data:labels.map(k=>monthly[k].qty),borderColor:'#3478f6',backgroundColor:'rgba(52,120,246,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
-    if(showAmount)datasets.push({label:'Сумма аренды',data:labels.map(k=>monthly[k].amount),borderColor:'#2a9d52',backgroundColor:'rgba(42,157,82,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
-    if(showOrders)datasets.push({label:'Количество заказов',data:labels.map(k=>monthly[k].orders.size),borderColor:'#8944d6',backgroundColor:'rgba(137,68,214,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
+    if(showQty)datasets.push({label:'Количество единиц',data:labels.map(k=>monthly[k].qty),borderColor:'#007aff',backgroundColor:'rgba(0,122,255,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
+    if(showAmount)datasets.push({label:'Сумма аренды',data:labels.map(k=>monthly[k].amount),borderColor:'#34c759',backgroundColor:'rgba(52,199,89,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y1'});
+    if(showOrders)datasets.push({label:'Количество заказов',data:labels.map(k=>monthly[k].orders.size),borderColor:'#af52de',backgroundColor:'rgba(175,82,222,0.12)',tension:.28,pointRadius:3,fill:false,yAxisID:'y'});
 
     if(!datasets.length||!labels.length){
       const ctx=canvas.getContext('2d');
@@ -1935,15 +1935,15 @@ function crmRenderDash(){
   const revChart=document.getElementById('crmChartRevenue');
   const ordChart=document.getElementById('crmChartOrders');
   if(window.crmChart1)window.crmChart1.destroy();if(window.crmChart2)window.crmChart2.destroy();if(window.crmChart3)window.crmChart3.destroy();if(window.crmChart4)window.crmChart4.destroy();if(window.crmCmpChart1)window.crmCmpChart1.destroy();if(window.crmCmpChart2)window.crmCmpChart2.destroy();if(window.crmCmpChart3)window.crmCmpChart3.destroy();
-  if(revChart){window.crmChart1=new Chart(revChart,{type:'line',data:{labels:mNames,datasets:[{data:monthly.map(m=>m.rev),borderColor:'#3478f6',tension:.3,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
-  if(ordChart){window.crmChart2=new Chart(ordChart,{type:'bar',data:{labels:mNames,datasets:[{data:monthly.map(m=>m.cnt),backgroundColor:'rgba(42,157,82,0.5)',borderColor:'#2a9d52',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+  if(revChart){window.crmChart1=new Chart(revChart,{type:'line',data:{labels:mNames,datasets:[{data:monthly.map(m=>m.rev),borderColor:'#007aff',tension:.3,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
+  if(ordChart){window.crmChart2=new Chart(ordChart,{type:'bar',data:{labels:mNames,datasets:[{data:monthly.map(m=>m.cnt),backgroundColor:'rgba(52,199,89,0.5)',borderColor:'#34c759',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
   const avgChart=document.getElementById('crmChartAvg');
   const avgData=monthly.map(m=>m.paidCnt?Math.round(m.rev/m.paidCnt):0);
-  if(avgChart){window.crmChart3=new Chart(avgChart,{type:'line',data:{labels:mNames,datasets:[{data:avgData,borderColor:'#8944d6',tension:.3,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
+  if(avgChart){window.crmChart3=new Chart(avgChart,{type:'line',data:{labels:mNames,datasets:[{data:avgData,borderColor:'#af52de',tension:.3,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
   const idxChart=document.getElementById('crmChartIndex');
   const maxRev=Math.max(...monthly.map(m=>m.rev),1);const maxCnt=Math.max(...monthly.map(m=>m.cnt),1);const maxAvg=Math.max(...avgData,1);
   const indexData=monthly.map((m,i)=>{const r=m.rev/maxRev*100;const c=m.cnt/maxCnt*100;const a=avgData[i]/maxAvg*100;return Math.round((r+c+a)/3)});
-  if(idxChart){window.crmChart4=new Chart(idxChart,{type:'bar',data:{labels:mNames,datasets:[{data:indexData,backgroundColor:indexData.map((v,i)=>{const mx=Math.max(...indexData);return v===mx?'rgba(42,157,82,0.7)':'rgba(52,120,246,0.4)'}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:100,ticks:{callback:v=>v+'%'}}}}})}
+  if(idxChart){window.crmChart4=new Chart(idxChart,{type:'bar',data:{labels:mNames,datasets:[{data:indexData,backgroundColor:indexData.map((v,i)=>{const mx=Math.max(...indexData);return v===mx?'rgba(52,199,89,0.7)':'rgba(0,122,255,0.4)'}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:100,ticks:{callback:v=>v+'%'}}}}})}
   const summary=document.getElementById('crmIndexSummary');
   if(summary){const maxIdx=Math.max(...indexData);const minIdx=Math.min(...indexData.filter(v=>v>0));const bestM=indexData.indexOf(maxIdx);const worstM=indexData.indexOf(minIdx>0?minIdx:0);summary.textContent=maxIdx>0?`Лучший месяц: ${mNames[bestM]} (${maxIdx}%). ${minIdx>0?'Слабый: '+mNames[worstM]+' ('+minIdx+'%)':''}`:'Нет данных'}
 
@@ -1961,9 +1961,9 @@ function crmRenderDash(){
   const rc=document.getElementById('crmCompareRevenue');
   const oc=document.getElementById('crmCompareOrders');
   const ac=document.getElementById('crmCompareAvg');
-  if(rc){window.crmCmpChart1=new Chart(rc,{type:'bar',data:{labels:yl,datasets:[{data:byYear.map(x=>x.rev),backgroundColor:'rgba(52,120,246,0.45)',borderColor:'#3478f6',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
-  if(oc){window.crmCmpChart2=new Chart(oc,{type:'bar',data:{labels:yl,datasets:[{data:byYear.map(x=>x.count),backgroundColor:'rgba(42,157,82,0.45)',borderColor:'#2a9d52',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
-  if(ac){window.crmCmpChart3=new Chart(ac,{type:'line',data:{labels:yl,datasets:[{data:byYear.map(x=>x.avg),borderColor:'#8944d6',tension:.25,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
+  if(rc){window.crmCmpChart1=new Chart(rc,{type:'bar',data:{labels:yl,datasets:[{data:byYear.map(x=>x.rev),backgroundColor:'rgba(0,122,255,0.45)',borderColor:'#007aff',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
+  if(oc){window.crmCmpChart2=new Chart(oc,{type:'bar',data:{labels:yl,datasets:[{data:byYear.map(x=>x.count),backgroundColor:'rgba(52,199,89,0.45)',borderColor:'#34c759',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+  if(ac){window.crmCmpChart3=new Chart(ac,{type:'line',data:{labels:yl,datasets:[{data:byYear.map(x=>x.avg),borderColor:'#af52de',tension:.25,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
   const tt=document.getElementById('crmCompareTable');
   if(tt){
     if(!byYear.length){tt.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Нет данных</td></tr>'}

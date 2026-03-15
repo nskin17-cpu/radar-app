@@ -341,20 +341,20 @@ function loadDashboard(){
 async function refreshDashboard(){await loadAll();showToast('Обновлено','success')}
 
 function renderCharts(comps){
-  const defs={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#f2f2f5',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#1a1a1f',bodyColor:'#6e6e78',padding:10,cornerRadius:6}},scales:{x:{grid:{display:false},ticks:{color:'#9d9da8',font:{family:'Inter',size:9}}},y:{grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},ticks:{color:'#9d9da8',font:{family:'JetBrains Mono',size:9},callback:v=>v+'₽'}}}};
+  const defs={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.08)',borderWidth:1,titleColor:'#1d1d1f',bodyColor:'#86868b',padding:10,cornerRadius:8}},scales:{x:{grid:{display:false},ticks:{color:'#aeaeb2',font:{family:'-apple-system,BlinkMacSystemFont,sans-serif',size:9}}},y:{grid:{color:'rgba(0,0,0,0.04)',drawBorder:false},ticks:{color:'#aeaeb2',font:{family:'JetBrains Mono',size:9},callback:v=>v+'₽'}}}};
   Object.values(charts).forEach(c=>c.destroy());charts={};
   const names=comps.map(c=>(c.id==='MY'?'⭐ ':'')+c.name);
-  const bg=comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(52,120,246,0.5)');
-  const bd=comps.map(c=>c.id==='MY'?'#2a9d52':'#3478f6');
+  const bg=comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(0,122,255,0.5)');
+  const bd=comps.map(c=>c.id==='MY'?'#34c759':'#007aff');
 
   charts.nepal=new Chart(document.getElementById('chartNepal'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.nepal)||0),backgroundColor:bg,borderColor:bd,borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
-  charts.loren=new Chart(document.getElementById('chartLoren'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.loren)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(137,68,214,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#2a9d52':'#8944d6'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
-  charts.delivery=new Chart(document.getElementById('chartDelivery'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.delivery)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(42,157,82,0.7)':'rgba(212,136,6,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#2a9d52':'#d48806'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
+  charts.loren=new Chart(document.getElementById('chartLoren'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.loren)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(175,82,222,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#34c759':'#af52de'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
+  charts.delivery=new Chart(document.getElementById('chartDelivery'),{type:'bar',data:{labels:names,datasets:[{data:comps.map(c=>Number(c.delivery)||0),backgroundColor:comps.map(c=>c.id==='MY'?'rgba(52,199,89,0.7)':'rgba(255,149,0,0.5)'),borderColor:comps.map(c=>c.id==='MY'?'#34c759':'#ff9500'),borderWidth:1,borderRadius:4,borderSkipped:false}]},options:defs});
   charts.setup=new Chart(document.getElementById('chartSetup'),{type:'bar',data:{labels:names,datasets:[
-    {label:'Бокалы',data:comps.map(c=>Number(c.setupGlasses)||0),backgroundColor:'rgba(52,120,246,0.5)',borderColor:'#3478f6',borderWidth:1,borderRadius:4,borderSkipped:false},
-    {label:'Тарелки',data:comps.map(c=>Number(c.setupPlates)||0),backgroundColor:'rgba(42,157,82,0.5)',borderColor:'#2a9d52',borderWidth:1,borderRadius:4,borderSkipped:false},
-    {label:'Стулья',data:comps.map(c=>Number(c.setupMetalChair)||0),backgroundColor:'rgba(212,136,6,0.5)',borderColor:'#d48806',borderWidth:1,borderRadius:4,borderSkipped:false}
-  ]},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8,padding:8}}}}});
+    {label:'Бокалы',data:comps.map(c=>Number(c.setupGlasses)||0),backgroundColor:'rgba(0,122,255,0.5)',borderColor:'#007aff',borderWidth:1,borderRadius:4,borderSkipped:false},
+    {label:'Тарелки',data:comps.map(c=>Number(c.setupPlates)||0),backgroundColor:'rgba(52,199,89,0.5)',borderColor:'#34c759',borderWidth:1,borderRadius:4,borderSkipped:false},
+    {label:'Стулья',data:comps.map(c=>Number(c.setupMetalChair)||0),backgroundColor:'rgba(255,149,0,0.5)',borderColor:'#ff9500',borderWidth:1,borderRadius:4,borderSkipped:false}
+  ]},options:{...defs,plugins:{...defs.plugins,legend:{display:true,labels:{color:'#86868b',font:{family:'-apple-system,sans-serif',size:9},boxWidth:8,padding:8}}}}});
 
   renderHistoryLogControls(comps);
   renderHistoryChart(comps,defs);
@@ -414,13 +414,13 @@ function renderHistoryChart(comps,defs){
 
   const labels=[...new Set(rows.map(r=>formatHistoryDate(r.createdAt)))];
   const ids=historyLogCompany==='all'?[...new Set(rows.map(r=>r.companyId))]:[historyLogCompany];
-  const clrs=['#3478f6','#8944d6','#d48806','#e5352b','#2a9d52','#5ac8fa'];
+  const clrs=['#007aff','#af52de','#ff9500','#ff3b30','#34c759','#5ac8fa'];
   const datasets=ids.filter(Boolean).map((cid,i)=>{
     const companyRows=rows.filter(r=>r.companyId===cid);
     const pointColors=labels.map(lbl=>{
       const sameDay=companyRows.filter(r=>formatHistoryDate(r.createdAt)===lbl);
       const last=sameDay[sameDay.length-1];
-      return last&&Number(last.delta)<0?'#e5352b':'#2a9d52';
+      return last&&Number(last.delta)<0?'#ff3b30':'#34c759';
     });
     return{
       label:companyRows[0]?.companyName||cid,
@@ -448,7 +448,7 @@ function renderHistoryChart(comps,defs){
         ...defs,
         plugins:{
           ...defs.plugins,
-          legend:{display:true,labels:{color:'#6e6e78',font:{family:'Inter',size:9},boxWidth:8}},
+          legend:{display:true,labels:{color:'#86868b',font:{family:'-apple-system,sans-serif',size:9},boxWidth:8}},
           tooltip:{
             ...defs.plugins.tooltip,
             callbacks:{
@@ -475,7 +475,7 @@ function renderHistoryChart(comps,defs){
     });
   }else{
     ctx.font='13px Inter';
-    ctx.fillStyle='#9d9da8';
+    ctx.fillStyle='#aeaeb2';
     ctx.textAlign='center';
     ctx.fillText('История изменений появится после первого сохранения новой цены',ctx.canvas.width/2,120);
   }
@@ -492,9 +492,9 @@ function renderHistoryChart(comps,defs){
     const sameCount=latest.filter(row=>Number(row.delta)===0).length;
     recentEl.innerHTML=`<div style="font-size:10px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px">Последние изменения</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(42,157,82,.12);color:var(--green);font-weight:700">Рост: ${upCount}</span>
-        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(229,53,43,.12);color:var(--red);font-weight:700">Снижение: ${downCount}</span>
-        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(157,157,168,.12);color:var(--text2);font-weight:700">Без изменений: ${sameCount}</span>
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(52,199,89,.12);color:var(--green);font-weight:700">Рост: ${upCount}</span>
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(255,59,48,.12);color:var(--red);font-weight:700">Снижение: ${downCount}</span>
+        <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:rgba(174,174,178,.12);color:var(--text2);font-weight:700">Без изменений: ${sameCount}</span>
       </div>
       <div class="table-wrap"><table style="width:100%"><thead><tr><th>Дата</th><th>Компания</th><th>Позиция</th><th>Было</th><th>Стало</th><th>Δ</th><th></th></tr></thead><tbody>
       ${latest.map(row=>`<tr>
