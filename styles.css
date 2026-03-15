@@ -473,6 +473,52 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
   .stock-mobile-group summary span:last-child{font-size:10px;color:var(--text2);font-weight:600}
   .stock-mobile-group .table-wrap{border:none;border-radius:0;box-shadow:none}
   .stock-mobile-group thead th{font-size:9px}
+  #crmStockTopCard .table-wrap table{
+    min-width:0!important;
+    width:100%!important;
+    table-layout:fixed;
+  }
+  #crmStockTopCard .table-wrap th:nth-child(1),
+  #crmStockTopCard .table-wrap td:nth-child(1){
+    width:28px;
+    text-align:center;
+    padding:8px 4px;
+  }
+  #crmStockTopCard .table-wrap th:nth-child(2),
+  #crmStockTopCard .table-wrap td:nth-child(2){
+    width:auto;
+    padding:8px 6px;
+  }
+  #crmStockTopCard .table-wrap th:nth-child(3),
+  #crmStockTopCard .table-wrap td:nth-child(3){
+    width:50px;
+    text-align:right;
+    padding:8px 4px;
+  }
+  #crmStockTopCard .table-wrap th:nth-child(4),
+  #crmStockTopCard .table-wrap td:nth-child(4){
+    width:72px;
+    text-align:right;
+    padding:8px 6px;
+  }
+  #crmStockTopCard .table-wrap th{
+    font-size:9px!important;
+    white-space:nowrap;
+  }
+  #crmStockTopCard .table-wrap td{
+    font-size:12px;
+  }
+  #crmStockTopCard .table-wrap td strong{
+    font-size:12px;
+    line-height:1.2;
+  }
+  #crmStockTopCard .stats-grid{
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+  }
+  #crmStockTopCard .stat-value{
+    font-size:14px!important;
+  }
   #crmPricingSection>div{
     grid-template-columns:1fr!important;
     gap:12px!important;
