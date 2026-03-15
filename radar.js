@@ -269,7 +269,14 @@ async function saveComp(){
   }
   if(!r?.success){showToast('Ошибка сохранения','error');return}
   if(prev){
-    await persistHistoryLogEntries(collectPriceChanges(prev,comp,comp.id,comp.name));
+    const changes=collectPriceChanges(prev,comp,comp.id,comp.name);
+    showToast('DEBUG: найдено изменений: '+changes.length,'success');
+    if(changes.length){
+      await persistHistoryLogEntries(changes);
+      showToast('DEBUG: записано '+changes.length+' изменений','success');
+    }
+  }else{
+    showToast('DEBUG: prev=null (новый конкурент)','success');
   }
   showToast(id?'Обновлено':'Добавлено','success');
   closeModal('modalComp');
