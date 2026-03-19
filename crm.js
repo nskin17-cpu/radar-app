@@ -1,3 +1,18 @@
+// ── SAVE BUTTON GUARD (prevents double-click, shows spinner) ──
+function withSaveGuard(btn,asyncFn){
+  if(!btn||btn.disabled)return;
+  const orig=btn.innerHTML;
+  btn.disabled=true;
+  btn.style.opacity='0.6';
+  btn.style.pointerEvents='none';
+  btn.innerHTML='<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span>Сохранение...';
+  asyncFn().catch(e=>{console.error(e);showToast('Ошибка: '+e.message,'error')}).finally(()=>{
+    btn.innerHTML=orig;
+    btn.disabled=false;
+    btn.style.opacity='';
+    btn.style.pointerEvents='';
+  });
+}
 // ========== CRM MODULE ==========
 let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYears=[new Date().getFullYear()],crmClientsAllYears=false,crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};

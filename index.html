@@ -126,7 +126,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- MY COMPANY -->
     <div id="page-mycompany" class="page">
       <div class="page-header"><div><div class="page-title">Моя компания</div><div class="page-desc">Данные моей компании</div></div>
-        <button class="btn btn-sm" onclick="saveMyCompany()">💾 Сохранить</button></div>
+        <button class="btn btn-sm" onclick="withSaveGuard(this,saveMyCompany)">💾 Сохранить</button></div>
       <div class="form-card">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="input-group"><label class="input-label">Название</label><input type="text" id="myName" placeholder="Моя компания"></div>
@@ -424,7 +424,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="modal-actions">
           <button class="btn btn-sm btn-danger" id="crmStockDeleteBtn" onclick="crmDeleteStockItem()" style="display:none;margin-right:auto">Удалить</button>
           <button class="btn btn-sm btn-secondary" onclick="closeModal('crmStockModal')">Отмена</button>
-          <button class="btn btn-sm" onclick="crmSaveStockItem()">Сохранить</button>
+          <button class="btn btn-sm" onclick="withSaveGuard(this,crmSaveStockItem)">Сохранить</button>
         </div>
       </div>
     </div>
@@ -465,7 +465,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="input-group"><label class="input-label">Ставка ₽/ед.</label><input type="number" id="crmCatRateVal" min="0" value="0"></div>
         <div class="modal-actions">
           <button class="btn btn-sm btn-secondary" onclick="closeModal('crmCatRateModal')">Отмена</button>
-          <button class="btn btn-sm" onclick="crmSaveCatRate()">Сохранить</button>
+          <button class="btn btn-sm" onclick="withSaveGuard(this,crmSaveCatRate)">Сохранить</button>
         </div>
       </div>
     </div>
@@ -592,7 +592,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="closeModal('modalComp')">Отмена</button>
-      <button class="btn btn-sm" onclick="saveComp()">Сохранить</button>
+      <button class="btn btn-sm" onclick="withSaveGuard(this,saveComp)">Сохранить</button>
     </div>
   </div>
 </div>
@@ -675,7 +675,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
-      <button class="btn btn-sm" onclick="crmSaveOrder()">Сохранить</button>
+      <button class="btn btn-sm" onclick="withSaveGuard(this,crmSaveOrder)">Сохранить</button>
     </div>
   </div>
 </div>
