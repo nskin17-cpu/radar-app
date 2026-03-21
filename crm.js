@@ -1697,7 +1697,9 @@ function crmGetItems(){
     const cat=row.querySelector('[data-cat]').value;
     const name=crmGetSelectedItemName(nameSel,cat);
     const opt=nameSel?.selectedOptions?.[0];
-    if(name)items.push({name,category:cat,qty:q.value||'1',price:Number(opt?.dataset.price||0),setup:row.querySelector('[data-setup]')?.checked!==false});
+    let price=Number(opt?.dataset.price||0);
+    if(!price&&name){const stockItem=crmStock.find(s=>s.name===name);if(stockItem)price=Number(stockItem.price)||0;}
+    if(name)items.push({name,category:cat,qty:q.value||'1',price,setup:row.querySelector('[data-setup]')?.checked!==false});
   });
   return items;
 }
