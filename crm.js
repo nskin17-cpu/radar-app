@@ -113,9 +113,7 @@ function crmMonthTitle(v){
   return new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).format(d);
 }
 function crmIsLegacyYearOrder(){
-  const start=document.getElementById('crmStartDate')?.value||'';
-  const y=Number(String(start).slice(0,4));
-  return y===2023||y===2024||y===2025||y===2026;
+  return !!document.getElementById('crmOrderId').value;
 }
 function crmSyncLegacyMode(){
   const legacy=crmIsLegacyYearOrder();
@@ -1476,7 +1474,10 @@ function crmOpenStockModal(id){
   openModal('crmStockModal');
   crmApplyZeroClearBehavior(m);
 }
+var _crmSavingStock=false;
 async function crmSaveStockItem(){
+  if(_crmSavingStock)return;
+  const saveBtn=document.querySelector('#crmStockModal .btn-primary');
   const id=document.getElementById('crmStockId').value;
   const item={
     id,
@@ -1488,18 +1489,23 @@ async function crmSaveStockItem(){
     unit:document.getElementById('crmStockUnit').value.trim()||'шт'
   };
   if(!item.category||!item.name){showToast('Заполните категорию и название','error');return}
-  let r;
-  if(id){item.id=id;r=await api('updateStockItem',{item})}
-  else{r=await api('addStockItem',{item})}
-  if(r.success){
-    if(!id&&r.id)item.id=r.id;
-    sbBackup('upsertStockItem',item);
-    showToast(id?'Обновлено':'Добавлено','success');
-    closeModal('crmStockModal');
-    const r2=await api('getStock');
-    if(r2.success)crmStock=r2.stock||[];
-    crmRenderStock();
-  }else{showToast('Ошибка сохранения','error')}
+  _crmSavingStock=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    let r;
+    if(id){item.id=id;r=await api('updateStockItem',{item})}
+    else{r=await api('addStockItem',{item})}
+    if(r.success){
+      if(!id&&r.id)item.id=r.id;
+      sbBackup('upsertStockItem',item);
+      showToast(id?'Обновлено':'Добавлено','success');
+      closeModal('crmStockModal');
+      const r2=await api('getStock');
+      if(r2.success)crmStock=r2.stock||[];
+      crmRenderStock();
+    }else{showToast('Ошибка сохранения','error')}
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_crmSavingStock=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function crmDeleteStockItem(){
   const id=document.getElementById('crmStockId').value;
@@ -1667,7 +1673,10 @@ function crmGetItems(){
   });
   return items;
 }
+var _crmSaving=false;
 async function crmSaveOrder(){
+  if(_crmSaving)return;
+  const saveBtn=document.querySelector('#crmOrderModal .btn-primary');
   const id=document.getElementById('crmOrderId').value;
   const paymentStatus=document.getElementById('crmPayment').value;
   const isPaid=crmPaidStatuses.has(paymentStatus);
@@ -1680,9 +1689,16 @@ async function crmSaveOrder(){
   if(id){
     const prevItems=(crmOrders.find(x=>x.id===id)?.items||[]).filter(i=>i.name);
     if(prevItems.length>0&&o.items.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
-    o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();showToast('Обновлено','success')}
-  else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o);await crmSyncClientsToSupabase()}showToast('Заказ создан','success')}
-  crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
+  }
+  _crmSaving=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    if(id){
+      o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();showToast('Обновлено','success')}
+    else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o);await crmSyncClientsToSupabase()}showToast('Заказ создан','success')}
+    crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_crmSaving=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function crmDeleteOrder(){
   const id=document.getElementById('crmOrderId').value;if(!id||!confirm('Удалить заказ?'))return;
