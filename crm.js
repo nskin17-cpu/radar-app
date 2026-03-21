@@ -115,7 +115,7 @@ function crmMonthTitle(v){
 function crmIsLegacyYearOrder(){
   const start=document.getElementById('crmStartDate')?.value||'';
   const y=Number(String(start).slice(0,4));
-  return y===2023||y===2024;
+  return y===2023||y===2024||y===2025||y===2026;
 }
 function crmSyncLegacyMode(){
   const legacy=crmIsLegacyYearOrder();
