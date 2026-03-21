@@ -392,7 +392,8 @@ function crmNormalizeClient(c){
     company:String(c?.company||c?.companyName||'').trim(),
     phone:String(c?.phone||c?.clientPhone||'').trim(),
     proDiscount:Number(c?.proDiscount||c?.pro_discount||0)||0,
-    city:String(c?.city||'Ростов-на-Дону').trim()
+    city:String(c?.city||'Ростов-на-Дону').trim(),
+    comment:String(c?.comment||'').trim()
   };
 }
 function crmClientKey(name){
@@ -796,7 +797,7 @@ function crmRenderClients(){
     const cityBadge=c.city==='Краснодар'?'badge-green':'badge-blue';
     return`<tr>
       <td class="mono">${idx+1}</td>
-      <td class="crm-client-link" style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')" title="Открыть карточку клиента">${esc(c.name)}</td>
+      <td class="crm-client-link" style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')" title="${c.comment?esc(c.comment):'Открыть карточку клиента'}">${esc(c.name)}${c.comment?'<div style="font-size:11px;font-weight:400;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">'+esc(c.comment)+'</div>':''}</td>
       <td><span class="badge ${cityBadge}">${esc(c.city||'Ростов-на-Дону')}</span></td>
       <td>${esc(c.company||'—')}</td>
       <td>${esc(c.phone||'—')}</td>
@@ -1016,6 +1017,8 @@ function crmOpenClientModal(id=''){
   document.getElementById('crmClientPhoneInput').value=c?.phone||'';
   const cityInput=document.getElementById('crmClientCityInput');
   if(cityInput)cityInput.value=c?.city||'Ростов-на-Дону';
+  const commentInput=document.getElementById('crmClientCommentInput');
+  if(commentInput)commentInput.value=c?.comment||'';
   if(discountInput){
     discountInput.value=c?.proDiscount||0;
     if(!discountInput.dataset.clientZeroBound){
@@ -1053,7 +1056,8 @@ async function crmSaveClient(){
     company:document.getElementById('crmClientCompanyInput').value,
     phone:document.getElementById('crmClientPhoneInput').value,
     proDiscount:document.getElementById('crmClientDiscountInput').value,
-    city:document.getElementById('crmClientCityInput')?.value||'Ростов-на-Дону'
+    city:document.getElementById('crmClientCityInput')?.value||'Ростов-на-Дону',
+    comment:document.getElementById('crmClientCommentInput')?.value||''
   });
   if(!client.name){showToast('Укажите имя клиента','error');return}
   _crmSavingClient=true;
