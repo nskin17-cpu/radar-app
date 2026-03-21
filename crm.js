@@ -1553,6 +1553,8 @@ function crmOpenDialog(id){
   document.getElementById('crmEstimateProBtn').style.display=id?'inline-block':'none';
   document.getElementById('crmEstimateBtn').style.display=id?'inline-block':'none';
   document.getElementById('crmActBtn').style.display=id?'inline-block':'none';
+  const canShare=id&&navigator.share;
+  ['crmShareProBtn','crmShareEstBtn','crmShareActBtn'].forEach(sid=>{const b=document.getElementById(sid);if(b)b.style.display=canShare?'inline-block':'none'});
   document.getElementById('crmItemsList').innerHTML='';
   if(id){
     const o=crmOrders.find(x=>x.id===id);if(!o)return;
@@ -1757,6 +1759,7 @@ function crmGetPdfOrderData(){
     carryFloor:document.getElementById('crmCarryFloor')?.value||'no',
     deliveryZone:document.getElementById('crmDeliveryZone')?.value||'city',
     deliveryKm:Number(document.getElementById('crmDeliveryKm')?.value)||0,
+    companyName:document.getElementById('crmCompany').value||'',
     items:crmGetItems(),
   };
 }
@@ -1796,7 +1799,7 @@ function crmApplyEstimatePdfLink(pdf){
   pdf.link(14, 232, 182, 24, { url:'https://nandrent.ru/uslovia' });
 }
 function crmBuildEstimateHTML(d,withDiscount){
-  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
+  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const itemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
   const itemsAfterDiscount=itemsTotal-discountAmt;
@@ -1862,7 +1865,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${P}${PR}">${ML('Клиент',clientName+(companyName?'<br><span style="font-size:12px;color:#888">'+companyName+'</span>':'')+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${PL}">${ML('Период аренды',crmFmtDate(startDate)+'<br>— '+crmFmtDate(endDate))}</div>
     <div style="${P}${PR}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
@@ -1888,7 +1891,7 @@ function crmBuildEstimateHTML(d,withDiscount){
 </div></div>`;
 }
 function crmBuildActHTML(d){
-  const{orderId,clientName,clientPhone,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
+  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
@@ -1916,7 +1919,7 @@ function crmBuildActHTML(d){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел. +7 (966) 866-86-66')}</div>
-    <div style="${PL}">${ML('Клиент',clientName+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${PL}">${ML('Клиент',clientName+(companyName?'<br><span style="font-size:11px;color:#888">'+companyName+'</span>':'')+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${P}${PR}">${ML('Сетап',setupMeta)}</div>
@@ -1951,6 +1954,35 @@ function crmDownloadAllPDF(){
   crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,crmApplyEstimatePdfLink,true);
   setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,crmApplyEstimatePdfLink,true),1200);
   setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
+}
+function crmSharePDF(type){
+  const d=crmGetPdfOrderData();
+  let html,fname;
+  if(type==='pro'){html=crmBuildEstimateHTML(d,true);fname=`Смета_профессионал_${d.orderId}.pdf`}
+  else if(type==='std'){html=crmBuildEstimateHTML(d,false);fname=`Смета_${d.orderId}.pdf`}
+  else{html=crmBuildActHTML(d);fname=`Акт_${d.orderId}.pdf`}
+  showToast('Генерируем PDF…','info');
+  const container=document.createElement('div');
+  container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
+  container.innerHTML=html;
+  document.body.appendChild(container);
+  html2canvas(container.firstElementChild,{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(canvas=>{
+    document.body.removeChild(container);
+    const{jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pdfW=pdf.internal.pageSize.getWidth(),pdfH=pdf.internal.pageSize.getHeight();
+    const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
+    let offset=0;
+    while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
+    if(type!=='act')crmApplyEstimatePdfLink(pdf);
+    const blob=pdf.output('blob');
+    const file=new File([blob],fname,{type:'application/pdf'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:fname}).then(()=>showToast('Отправлено','success')).catch(()=>{});
+    }else{
+      pdf.save(fname);showToast('Скачано (отправка не поддерживается)','info');
+    }
+  }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
 // CRM Dashboard
 function crmRenderDash(){

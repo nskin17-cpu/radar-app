@@ -681,6 +681,9 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой">Смета (со скидкой)</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateBtn" onclick="crmGenerateEstimatePDF(false)" style="display:none" title="Смета без скидки">Смета (без скидки)</button>
       <button class="btn btn-sm btn-secondary" id="crmActBtn" onclick="crmGenerateActPDF()" style="display:none" title="Акт передачи">Акт</button>
+      <button class="btn btn-sm" id="crmShareProBtn" onclick="crmSharePDF('pro')" style="display:none;background:#25D366;border-color:#25D366" title="Отправить смету со скидкой">📤 Смета (скидка)</button>
+      <button class="btn btn-sm" id="crmShareEstBtn" onclick="crmSharePDF('std')" style="display:none;background:#25D366;border-color:#25D366" title="Отправить смету">📤 Смета</button>
+      <button class="btn btn-sm" id="crmShareActBtn" onclick="crmSharePDF('act')" style="display:none;background:#25D366;border-color:#25D366" title="Отправить акт">📤 Акт</button>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
