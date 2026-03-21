@@ -1042,7 +1042,10 @@ function crmOpenClientModal(id=''){
   if(modal)crmApplyZeroClearBehavior(modal);
   openModal('crmClientModal');
 }
+var _crmSavingClient=false;
 async function crmSaveClient(){
+  if(_crmSavingClient)return;
+  const saveBtn=document.querySelector('#crmClientModal .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('crmClientId').value;
   const client=crmNormalizeClient({
     id,
@@ -1053,21 +1056,26 @@ async function crmSaveClient(){
     city:document.getElementById('crmClientCityInput')?.value||'Ростов-на-Дону'
   });
   if(!client.name){showToast('Укажите имя клиента','error');return}
-  let r={success:false};
-  if(id)r=await api('updateClient',{client});
-  else r=await api('addClient',{client});
-  if(r.success){
-    if(!id)client.id=r.id||('C_'+Date.now());
-    if(id){const i=crmClients.findIndex(x=>x.id===id);if(i>=0)crmClients[i]=client;}
-    else crmClients.push(client);
-    crmClients.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-    sbBackup('upsertClient',client);
-    closeModal('crmClientModal');
-    crmRenderClients();
-    showToast('Сохранено','success');
-  }else{
-    showToast('Не удалось сохранить (проверьте лист Clients в Apps Script)','error');
-  }
+  _crmSavingClient=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    let r={success:false};
+    if(id)r=await api('updateClient',{client});
+    else r=await api('addClient',{client});
+    if(r.success){
+      if(!id)client.id=r.id||('C_'+Date.now());
+      if(id){const i=crmClients.findIndex(x=>x.id===id);if(i>=0)crmClients[i]=client;}
+      else crmClients.push(client);
+      crmClients.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+      sbBackup('upsertClient',client);
+      closeModal('crmClientModal');
+      crmRenderClients();
+      showToast('Сохранено','success');
+    }else{
+      showToast('Не удалось сохранить (проверьте лист Clients в Apps Script)','error');
+    }
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_crmSavingClient=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function crmDeleteClient(){
   const id=document.getElementById('crmClientId').value;
@@ -1436,18 +1444,26 @@ function crmOpenCatRateModal(id){
   openModal('crmCatRateModal');
   crmApplyZeroClearBehavior(document.getElementById('crmCatRateModal'));
 }
+var _crmSavingCatRate=false;
 async function crmSaveCatRate(){
+  if(_crmSavingCatRate)return;
+  const saveBtn=document.querySelector('#crmCatRateModal .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('crmCatRateId').value;
   const rate=Number(document.getElementById('crmCatRateVal').value)||0;
   const cat=crmCategoriesData.find(c=>c.id===id);if(!cat)return;
-  const r=await api('updateCategory',{category:{id,name:cat.name,setupRate:rate}});
-  if(r.success){
-    cat.setupRate=rate;
-    sbBackup('upsertCategory',cat);
-    showToast('Сохранено','success');
-    closeModal('crmCatRateModal');
-    crmRenderPricingSection();
-  }else{showToast('Ошибка сохранения','error')}
+  _crmSavingCatRate=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    const r=await api('updateCategory',{category:{id,name:cat.name,setupRate:rate}});
+    if(r.success){
+      cat.setupRate=rate;
+      sbBackup('upsertCategory',cat);
+      showToast('Сохранено','success');
+      closeModal('crmCatRateModal');
+      crmRenderPricingSection();
+    }else{showToast('Ошибка сохранения','error')}
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_crmSavingCatRate=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 
 function crmOpenStockModal(id){
@@ -1965,6 +1981,27 @@ function crmRenderDash(){
   document.getElementById('crmMonthCount').textContent=mOrders.length;
   document.getElementById('crmYearRevenue').textContent=fN(yRev)+'₽';
   document.getElementById('crmYearAvg').textContent=yPaid.length?fN(Math.round(yRev/yPaid.length))+'₽':'0 ₽';
+  // Compensation stats
+  const mComp=mOrders.filter(o=>Number(o.compensationAmount)>0);
+  const yComp=yOrders.filter(o=>Number(o.compensationAmount)>0);
+  const mCompSum=mComp.reduce((s,o)=>s+Number(o.compensationAmount),0);
+  const yCompSum=yComp.reduce((s,o)=>s+Number(o.compensationAmount),0);
+  const mCompEl=document.getElementById('crmMonthComp');
+  const yCompEl=document.getElementById('crmYearComp');
+  if(mCompEl)mCompEl.textContent=mCompSum?fN(mCompSum)+'₽':'0 ₽';
+  if(yCompEl){
+    yCompEl.textContent=yCompSum?fN(yCompSum)+'₽':'0 ₽';
+    yCompEl.style.cursor=yCompSum?'pointer':'default';
+    yCompEl.onclick=yCompSum?function(){
+      const det=document.getElementById('crmCompensationDetails');
+      const tb=document.getElementById('crmCompTable');
+      if(det&&tb){
+        det.style.display=det.style.display==='none'?'block':'none';
+        tb.innerHTML=yComp.sort((a,b)=>(crmParseDateLocal(a.startDate)?.getTime()||0)-(crmParseDateLocal(b.startDate)?.getTime()||0))
+          .map(o=>`<tr><td>${o.startDate||'—'}</td><td>${esc(o.clientName||'—')}</td><td class="mono" style="color:var(--red)">${fN(Number(o.compensationAmount))}₽</td><td>${esc(o.compensationNote||'—')}</td></tr>`).join('');
+      }
+    }:null;
+  }
   // Charts
   const monthly=Array.from({length:12},(_,m)=>({m,rev:0,cnt:0,paidCnt:0}));
   yOrders.forEach(o=>{const m=crmParseDateLocal(o.startDate)?.getMonth();if(m==null)return;monthly[m].cnt++;if(crmPaidStatuses.has(o.paymentStatus)){monthly[m].rev+=o.orderAmount;monthly[m].paidCnt++}});
@@ -1992,7 +2029,8 @@ function crmRenderDash(){
     const paid=list.filter(o=>crmPaidStatuses.has(o.paymentStatus));
     const rev=paid.reduce((s,o)=>s+o.orderAmount,0);
     const avg=paid.length?Math.round(rev/paid.length):0;
-    return{year:y,count:list.length,paidCount:paid.length,rev,avg};
+    const comp=list.reduce((s,o)=>s+Number(o.compensationAmount||0),0);
+    return{year:y,count:list.length,paidCount:paid.length,rev,avg,comp};
   });
   const yl=byYear.map(x=>String(x.year));
   const rc=document.getElementById('crmCompareRevenue');
@@ -2003,9 +2041,9 @@ function crmRenderDash(){
   if(ac){window.crmCmpChart3=new Chart(ac,{type:'line',data:{labels:yl,datasets:[{data:byYear.map(x=>x.avg),borderColor:'#af52de',tension:.25,pointRadius:3,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>fN(v)+'₽'}}}}})}
   const tt=document.getElementById('crmCompareTable');
   if(tt){
-    if(!byYear.length){tt.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Нет данных</td></tr>'}
+    if(!byYear.length){tt.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Нет данных</td></tr>'}
     else{
-      tt.innerHTML=byYear.map((x,i)=>{const p=byYear[i-1];const d=p&&p.rev>0?Math.round(((x.rev-p.rev)/p.rev)*100):null;return`<tr><td>${x.year}</td><td>${x.count}</td><td>${x.paidCount}</td><td class="mono">${fN(x.rev)}₽</td><td class="mono">${x.avg?fN(x.avg)+'₽':'—'}</td><td class="mono" style="color:${d==null?'var(--text3)':d>=0?'var(--green)':'var(--red)'}">${d==null?'—':(d>0?'+':'')+d+'%'}</td></tr>`}).join('');
+      tt.innerHTML=byYear.map((x,i)=>{const p=byYear[i-1];const d=p&&p.rev>0?Math.round(((x.rev-p.rev)/p.rev)*100):null;return`<tr><td>${x.year}</td><td>${x.count}</td><td>${x.paidCount}</td><td class="mono">${fN(x.rev)}₽</td><td class="mono">${x.avg?fN(x.avg)+'₽':'—'}</td><td class="mono" style="color:${x.comp?'var(--red)':'var(--text3)'}">${x.comp?fN(x.comp)+'₽':'—'}</td><td class="mono" style="color:${d==null?'var(--text3)':d>=0?'var(--green)':'var(--red)'}">${d==null?'—':(d>0?'+':'')+d+'%'}</td></tr>`}).join('');
     }
   }
 }

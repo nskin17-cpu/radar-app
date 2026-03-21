@@ -254,33 +254,37 @@ async function deleteHistoryLogEntry(id){
     showToast('Изменение удалено локально, но не подтверждено в Google','error');
   }
 }
+var _savingComp=false;
 async function saveComp(){
+  if(_savingComp)return;
+  const saveBtn=document.querySelector('#modalComp .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('cId').value;
   const prev=id?competitors.find(x=>x.id===id):null;
   const comp=getCompForm();
   if(!comp.name){showToast('Укажите название','error');return}
-  let r;
-  if(id){
-    comp.id=id;
-    r=await api('updateCompetitor',{competitor:comp});
-  }else{
-    r=await api('addCompetitor',{competitor:comp});
-    if(r?.id)comp.id=r.id;
-  }
-  if(!r?.success){showToast('Ошибка сохранения','error');return}
-  if(prev){
-    const changes=collectPriceChanges(prev,comp,comp.id,comp.name);
-    showToast('DEBUG: найдено изменений: '+changes.length,'success');
-    if(changes.length){
-      await persistHistoryLogEntries(changes);
-      showToast('DEBUG: записано '+changes.length+' изменений','success');
+  _savingComp=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    let r;
+    if(id){
+      comp.id=id;
+      r=await api('updateCompetitor',{competitor:comp});
+    }else{
+      r=await api('addCompetitor',{competitor:comp});
+      if(r?.id)comp.id=r.id;
     }
-  }else{
-    showToast('DEBUG: prev=null (новый конкурент)','success');
-  }
-  showToast(id?'Обновлено':'Добавлено','success');
-  closeModal('modalComp');
-  await loadAll();
+    if(!r?.success){showToast('Ошибка сохранения','error');return}
+    if(prev){
+      const changes=collectPriceChanges(prev,comp,comp.id,comp.name);
+      if(changes.length){
+        await persistHistoryLogEntries(changes);
+      }
+    }
+    showToast(id?'Обновлено':'Добавлено','success');
+    closeModal('modalComp');
+    await loadAll();
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_savingComp=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});sbBackup('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
 
@@ -291,17 +295,25 @@ async function loadMyCompanyData(){
   fillMyForm();
 }
 function fillMyForm(){if(!myCompany)return;ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)el.value=myCompany[f]||''})}
+var _savingMyCompany=false;
 async function saveMyCompany(){
+  if(_savingMyCompany)return;
+  const saveBtn=document.querySelector('#page-mycompany .page-header .btn');
   const prev=myCompany?{...myCompany}:null;
   const o={};ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)o[f]=NUM.includes(f)?Number(el.value)||0:el.value.trim()});
-  const r=await api('saveMyCompany',{company:o});
-  if(r.success){
-    myCompany={...o,id:'MY'};
-    sbBackup('upsertMyCompany',myCompany);
-    if(prev)await persistHistoryLogEntries(collectPriceChanges(prev,myCompany,'MY',myCompany.name||'Моя компания'));
-    showToast('Сохранено','success');
-    loadDashboard();loadCompareSelects()
-  }else showToast('Ошибка сохранения','error')
+  _savingMyCompany=true;
+  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
+  try{
+    const r=await api('saveMyCompany',{company:o});
+    if(r.success){
+      myCompany={...o,id:'MY'};
+      sbBackup('upsertMyCompany',myCompany);
+      if(prev)await persistHistoryLogEntries(collectPriceChanges(prev,myCompany,'MY',myCompany.name||'Моя компания'));
+      showToast('Сохранено','success');
+      loadDashboard();loadCompareSelects()
+    }else showToast('Ошибка сохранения','error')
+  }catch(e){showToast('Ошибка сохранения','error')}
+  finally{_savingMyCompany=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'💾 Сохранить';}}
 }
 
 // HISTORY

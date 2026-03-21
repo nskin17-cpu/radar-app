@@ -504,6 +504,14 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="stat-card"><div class="stat-label">Заказов</div><div class="stat-value dark" id="crmMonthCount">0</div></div>
         <div class="stat-card"><div class="stat-label">Выручка за год</div><div class="stat-value green" id="crmYearRevenue">0 ₽</div></div>
         <div class="stat-card"><div class="stat-label">Средний чек за год</div><div class="stat-value purple" id="crmYearAvg">0 ₽</div></div>
+        <div class="stat-card"><div class="stat-label">Компенсации за месяц</div><div class="stat-value" style="color:var(--red)" id="crmMonthComp">0 ₽</div></div>
+        <div class="stat-card"><div class="stat-label">Компенсации за год</div><div class="stat-value" style="color:var(--red)" id="crmYearComp">0 ₽</div></div>
+      </div>
+      <div id="crmCompensationDetails" style="display:none;margin-bottom:14px">
+        <div class="chart-card">
+          <div class="chart-title" style="display:flex;justify-content:space-between;align-items:center">Детали компенсаций за год <button class="btn btn-sm btn-secondary" onclick="document.getElementById('crmCompensationDetails').style.display='none'" style="padding:2px 8px;font-size:11px">✕</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Дата</th><th>Клиент</th><th>Сумма</th><th>Причина</th></tr></thead><tbody id="crmCompTable"></tbody></table></div>
+        </div>
       </div>
       <div class="charts-grid">
         <div class="chart-card"><div class="chart-title">Выручка по месяцам</div><div class="chart-container"><canvas id="crmChartRevenue"></canvas></div></div>
@@ -523,7 +531,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Год</th><th>Заказы</th><th>Оплачено</th><th>Выручка</th><th>Средний чек</th><th>Δ к предыдущему году</th></tr></thead>
+            <thead><tr><th>Год</th><th>Заказы</th><th>Оплачено</th><th>Выручка</th><th>Средний чек</th><th>Компенсации</th><th>Δ к предыдущему году</th></tr></thead>
             <tbody id="crmCompareTable"></tbody>
           </table>
         </div>

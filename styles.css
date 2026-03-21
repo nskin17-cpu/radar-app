@@ -130,6 +130,19 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
   #page-dashboard .stat-value{
     font-size:16px;
   }
+  #page-crmdash .stats-grid{
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  #page-crmdash .stat-card{
+    padding:12px 12px;
+  }
+  #page-crmdash .stat-value{
+    font-size:15px;
+  }
+  #page-crmdash .stat-label{
+    font-size:8px;
+  }
   #page-dashboard .charts-grid{
     gap:12px;
   }
@@ -219,6 +232,22 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
   #crmItemsList > div [data-price]{
     font-size:12px!important;
     text-align:left;
+  }
+  #page-crm>.page-header+div{
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+    gap:6px!important;
+  }
+  #page-crm>.page-header+div .stat-card{
+    flex:none!important;
+    padding:8px 10px!important;
+  }
+  #page-crm>.page-header+div .stat-label{
+    font-size:8px!important;
+    margin-bottom:4px!important;
+  }
+  #page-crm>.page-header+div .stat-value{
+    font-size:16px!important;
   }
   #page-crm .table-wrap{overflow-x:hidden}
   #page-crm thead tr:not(.crm-month-sep){display:none}
