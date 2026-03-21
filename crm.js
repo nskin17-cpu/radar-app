@@ -1800,11 +1800,15 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
 }
 function crmApplyEstimatePdfLink(pdf){
   if(!pdf||typeof pdf.link!=='function')return;
-  pdf.setPage(1);
-  // Wide invisible clickable area over the "Условия работы" block in the estimate.
-  pdf.link(14, 232, 182, 24, { url:'https://nandrent.ru/uslovia' });
+  const totalPages=typeof pdf.getNumberOfPages==='function'?pdf.getNumberOfPages():1;
+  for(let page=1;page<=totalPages;page++){
+    pdf.setPage(page);
+    // Oversized invisible clickable area over the "Условия работы" footer block.
+    pdf.link(10, 226, 190, 34, { url:'https://nandrent.ru/uslovia' });
+  }
 }
 function crmBuildEstimateHTML(d,withDiscount){
+  const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const itemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
@@ -1821,9 +1825,9 @@ function crmBuildEstimateHTML(d,withDiscount){
   const PR='border-right:1px solid #ebebeb;';
   const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:14px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
-  const iName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
-  const iDetail='font-size:12.5px;color:#888;font-family:sans-serif';
-  const iRow='padding:7px 0;border-bottom:1px solid #f0f0f0';
+  const iName=`font-size:${isMobile?'12.5px':'14px'};color:#1a1a1a;font-family:sans-serif;margin-bottom:3px`;
+  const iDetail=`font-size:${isMobile?'11px':'12.5px'};color:#888;font-family:sans-serif`;
+  const iRow=`padding:${isMobile?'5px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
@@ -1859,7 +1863,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
 
-  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:12px;color:#333;line-height:1.6"><span style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
+  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:${isMobile?'11px':'12px'};color:#333;line-height:${isMobile?'1.5':'1.6'}"><span style="font-size:${isMobile?'8.5px':'8px'};letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
   const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий`):'';
   const payGrid=depositAmt>0
     ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`
@@ -1878,20 +1882,20 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${depositBlock}
     ${lastRow}
   </div>
-  <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:8px">Состав заказа</div>
+  <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'6px':'8px'}">Состав заказа</div>
   <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>
   ${totalsBlock}
-  <div style="margin-top:20px;padding:16px 20px;background:#f8f8f8;border-left:3px solid #1a1a1a">
+  <div style="margin-top:20px;padding:${isMobile?'18px 20px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
   </div>
-  <div style="margin-top:14px;padding:12px 14px;border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:10.5px;color:#4f4f4f;line-height:1.5"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
-  <div style="margin-top:10px;padding:10px 12px;border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
+  <div style="margin-top:14px;padding:${isMobile?'10px 12px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'9.4px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.42':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
+  <div style="margin-top:10px;padding:${isMobile?'12px 14px':'10px 12px'};border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
     <div>
-      <div style="font-size:8px;letter-spacing:1.8px;text-transform:uppercase;color:#9aa3b2;margin-bottom:3px">Условия работы</div>
-      <div style="font-size:10.5px;color:#5b6472;line-height:1.4">Подробные условия аренды, оплаты и отмены заказа доступны на сайте.</div>
+      <div style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.8px;text-transform:uppercase;color:#9aa3b2;margin-bottom:3px">Условия работы</div>
+      <div style="font-size:${isMobile?'11.2px':'10.5px'};color:#5b6472;line-height:1.4">Подробные условия аренды, оплаты и отмены заказа доступны на сайте.</div>
     </div>
-    <div style="white-space:nowrap;font-size:10.5px;color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
+    <div style="white-space:nowrap;font-size:${isMobile?'11.2px':'10.5px'};color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
   </div>
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
 </div></div>`;
