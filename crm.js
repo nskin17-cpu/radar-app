@@ -391,7 +391,8 @@ function crmNormalizeClient(c){
     name:String(c?.name||c?.clientName||'').trim(),
     company:String(c?.company||c?.companyName||'').trim(),
     phone:String(c?.phone||c?.clientPhone||'').trim(),
-    proDiscount:Number(c?.proDiscount||c?.pro_discount||0)||0
+    proDiscount:Number(c?.proDiscount||c?.pro_discount||0)||0,
+    city:String(c?.city||'Ростов-на-Дону').trim()
   };
 }
 function crmClientKey(name){
@@ -788,13 +789,15 @@ function crmRenderClients(){
   const list=crmClients.filter(c=>!q||[c.name,c.company,c.phone].join(' ').toLowerCase().includes(q));
   crmRenderClientsDashboard();
   if(crmClientAnalyticsOpen)crmRenderClientAnalytics();
-  if(!list.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
+  if(!list.length){t.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:26px">Клиентов пока нет</td></tr>';return}
   t.innerHTML=list.map((c,idx)=>{
     const m=crmClientMetrics(c,crmClientsYears,crmClientsAllYears);
     const avgCheck=m.ordersCount?Math.round(m.turnover/m.ordersCount):0;
+    const cityBadge=c.city==='Краснодар'?'badge-green':'badge-blue';
     return`<tr>
       <td class="mono">${idx+1}</td>
       <td class="crm-client-link" style="font-weight:600;cursor:pointer" onclick="crmOpenClientProfile('${esc(c.id)}')" title="Открыть карточку клиента">${esc(c.name)}</td>
+      <td><span class="badge ${cityBadge}">${esc(c.city||'Ростов-на-Дону')}</span></td>
       <td>${esc(c.company||'—')}</td>
       <td>${esc(c.phone||'—')}</td>
       <td class="mono">${Number(c.proDiscount||0)}%</td>
@@ -1011,6 +1014,8 @@ function crmOpenClientModal(id=''){
   document.getElementById('crmClientNameInput').value=c?.name||'';
   document.getElementById('crmClientCompanyInput').value=c?.company||'';
   document.getElementById('crmClientPhoneInput').value=c?.phone||'';
+  const cityInput=document.getElementById('crmClientCityInput');
+  if(cityInput)cityInput.value=c?.city||'Ростов-на-Дону';
   if(discountInput){
     discountInput.value=c?.proDiscount||0;
     if(!discountInput.dataset.clientZeroBound){
@@ -1044,7 +1049,8 @@ async function crmSaveClient(){
     name:document.getElementById('crmClientNameInput').value,
     company:document.getElementById('crmClientCompanyInput').value,
     phone:document.getElementById('crmClientPhoneInput').value,
-    proDiscount:document.getElementById('crmClientDiscountInput').value
+    proDiscount:document.getElementById('crmClientDiscountInput').value,
+    city:document.getElementById('crmClientCityInput')?.value||'Ростов-на-Дону'
   });
   if(!client.name){showToast('Укажите имя клиента','error');return}
   let r={success:false};

@@ -330,8 +330,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>№</th><th>Клиент</th><th>Компания</th><th>Телефон</th><th>Проф. скидка</th><th>Заказов</th><th>Оборот</th><th>Выручка без доставки/сетапа</th><th>Средний чек</th><th></th></tr></thead>
-          <tbody id="crmClientsTable"><tr><td colspan="10" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
+          <thead><tr><th>№</th><th>Клиент</th><th>Город</th><th>Компания</th><th>Телефон</th><th>Проф. скидка</th><th>Заказов</th><th>Оборот</th><th>Выручка без доставки/сетапа</th><th>Средний чек</th><th></th></tr></thead>
+          <tbody id="crmClientsTable"><tr><td colspan="11" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -437,6 +437,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="input-group"><label class="input-label">Имя Фамилия *</label><input type="text" id="crmClientNameInput" placeholder="Иван Иванов"></div>
         <div class="input-group"><label class="input-label">Компания</label><input type="text" id="crmClientCompanyInput" placeholder="ООО Пример"></div>
         <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmClientPhoneInput" placeholder="+7..."></div>
+        <div class="input-group"><label class="input-label">Город</label><select id="crmClientCityInput"><option value="Ростов-на-Дону">Ростов-на-Дону</option><option value="Краснодар">Краснодар</option></select></div>
         <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="text" id="crmClientDiscountInput" inputmode="numeric" pattern="[0-9]*" value="0"></div>
         <div class="modal-actions">
           <button class="btn btn-sm btn-danger" id="crmClientDeleteBtn" onclick="crmDeleteClient()" style="display:none;margin-right:auto">Удалить</button>
