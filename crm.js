@@ -1982,7 +1982,7 @@ function crmSharePDF(type){
     const blob=pdf.output('blob');
     const file=new File([blob],fname,{type:'application/pdf'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-      navigator.share({files:[file],title:fname}).then(()=>showToast('Отправлено','success')).catch(()=>{});
+      navigator.share({files:[file]}).then(()=>showToast('Отправлено','success')).catch(()=>{});
     }else{
       pdf.save(fname);showToast('Скачано (отправка не поддерживается)','info');
     }
