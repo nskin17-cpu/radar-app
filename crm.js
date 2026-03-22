@@ -1785,27 +1785,40 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
     }
   }
   document.body.appendChild(container);
-  html2canvas(container.firstElementChild,{scale:isMobile?1.8:2,useCORS:true,logging:false,backgroundColor:'#ffffff',windowWidth:1200}).then(canvas=>{
+  crmRenderPdfFromContainer(container,isMobile).then(pdf=>{
     document.body.removeChild(container);
-    const{jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pdfW=pdf.internal.pageSize.getWidth(),pdfH=pdf.internal.pageSize.getHeight();
-    const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
-    let offset=0;
-    while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
     if(cb)cb(pdf);
     if(openInTab){const url=URL.createObjectURL(pdf.output('blob'));window.open(url,'_blank');}
     else{pdf.save(filename);showToast('PDF скачан','success');}
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
+async function crmRenderPdfFromContainer(container,isMobile){
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const pdfW=pdf.internal.pageSize.getWidth(),pdfH=pdf.internal.pageSize.getHeight();
+  const pageNodes=container.querySelectorAll('[data-pdf-page]');
+  if(pageNodes.length){
+    for(let i=0;i<pageNodes.length;i++){
+      const canvas=await html2canvas(pageNodes[i],{scale:isMobile?1.8:2,useCORS:true,logging:false,backgroundColor:'#ffffff',windowWidth:1200});
+      if(i>0)pdf.addPage();
+      const ratio=pdfW/canvas.width;
+      const pageH=canvas.height*ratio;
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,0,pdfW,Math.min(pageH,pdfH));
+    }
+    return pdf;
+  }
+  const canvas=await html2canvas(container.firstElementChild,{scale:isMobile?1.8:2,useCORS:true,logging:false,backgroundColor:'#ffffff',windowWidth:1200});
+  const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
+  let offset=0;
+  while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
+  return pdf;
+}
 function crmApplyEstimatePdfLink(pdf){
   if(!pdf||typeof pdf.link!=='function')return;
   const totalPages=typeof pdf.getNumberOfPages==='function'?pdf.getNumberOfPages():1;
-  for(let page=1;page<=totalPages;page++){
-    pdf.setPage(page);
-    // Oversized invisible clickable area over the "Условия работы" footer block.
-    pdf.link(10, 226, 190, 34, { url:'https://nandrent.ru/uslovia' });
-  }
+  pdf.setPage(totalPages);
+  // Large invisible clickable area over the "Условия работы" footer block on the last page.
+  pdf.link(10, 226, 190, 34, { url:'https://nandrent.ru/uslovia' });
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
@@ -1868,37 +1881,39 @@ function crmBuildEstimateHTML(d,withDiscount){
   const payGrid=depositAmt>0
     ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`
     :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`;
-
-  return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
+  const pageShell=(inner)=>`<div data-pdf-page="1" style="width:794px;min-height:1123px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px;min-height:1039px">${inner}</div></div>`;
+  const headerBlock=`<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
     <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
+  </div>`;
+  const metaBlock=`<div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Клиент',clientName+(companyName?'<br><span style="font-size:12px;color:#888">'+companyName+'</span>':'')+(clientPhone?'<br>'+clientPhone:''))}</div>
     <div style="${PL}">${ML('Период аренды',crmFmtDate(startDate)+'<br>— '+crmFmtDate(endDate))}</div>
     <div style="${P}${PR}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
     ${depositBlock}
     ${lastRow}
-  </div>
-  <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'6px':'8px'}">Состав заказа</div>
-  <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>
-  ${totalsBlock}
-  <div style="margin-top:20px;padding:${isMobile?'18px 20px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
+  </div>`;
+  const itemsBlock=`<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'6px':'8px'}">Состав заказа</div>
+  <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>`;
+  const paymentBlock=`<div style="margin-top:20px;padding:${isMobile?'18px 20px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:10px">Условия оплаты</div>
     ${payGrid}
-  </div>
-  <div style="margin-top:14px;padding:${isMobile?'10px 12px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'9.4px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.42':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>
-  <div style="margin-top:10px;padding:${isMobile?'12px 14px':'10px 12px'};border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
+  </div>`;
+  const importantBlock=`<div style="margin-top:14px;padding:${isMobile?'10px 12px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'9.4px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.42':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>`;
+  const termsBlock=`<div style="margin-top:10px;padding:${isMobile?'12px 14px':'10px 12px'};border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
     <div>
       <div style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.8px;text-transform:uppercase;color:#9aa3b2;margin-bottom:3px">Условия работы</div>
       <div style="font-size:${isMobile?'11.2px':'10.5px'};color:#5b6472;line-height:1.4">Подробные условия аренды, оплаты и отмены заказа доступны на сайте.</div>
     </div>
     <div style="white-space:nowrap;font-size:${isMobile?'11.2px':'10.5px'};color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
-  </div>
-  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>
-</div></div>`;
+  </div>`;
+  const footerBlock=`<div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>`;
+
+  if(isMobile){
+    return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}`)}${pageShell(`${paymentBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+  }
+  return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
 }
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
@@ -1967,6 +1982,7 @@ function crmDownloadAllPDF(){
 }
 function crmSharePDF(type){
   const d=crmGetPdfOrderData();
+  const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   let html,fname;
   if(type==='pro'){html=crmBuildEstimateHTML(d,true);fname=`Смета_профессионал_${d.orderId}.pdf`}
   else if(type==='std'){html=crmBuildEstimateHTML(d,false);fname=`Смета_${d.orderId}.pdf`}
@@ -1976,14 +1992,8 @@ function crmSharePDF(type){
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=html;
   document.body.appendChild(container);
-  html2canvas(container.firstElementChild,{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'}).then(canvas=>{
+  crmRenderPdfFromContainer(container,isMobile).then(pdf=>{
     document.body.removeChild(container);
-    const{jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pdfW=pdf.internal.pageSize.getWidth(),pdfH=pdf.internal.pageSize.getHeight();
-    const ratio=pdfW/canvas.width,totalH=canvas.height*ratio;
-    let offset=0;
-    while(offset<totalH){if(offset>0)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',0.97),'JPEG',0,-offset,pdfW,totalH);offset+=pdfH;}
     if(type!=='act')crmApplyEstimatePdfLink(pdf);
     const blob=pdf.output('blob');
     const file=new File([blob],fname,{type:'application/pdf'});
