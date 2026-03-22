@@ -235,23 +235,44 @@ function collectPriceChanges(prev,next,companyId,companyName){
 }
 async function persistHistoryLogEntries(entries){
   if(!Array.isArray(entries)||!entries.length)return;
-  historyLog=[...entries,...historyLog].sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0));
-  entries.forEach(entry=>{
-    sbBackup('insertHistoryLog',entry);
-    api('addHistoryLog',{entry}).catch(()=>{});
-  });
+  const saved=[];
+  const failed=[];
+  for(const entry of entries){
+    try{
+      const r=await api('addHistoryLog',{entry});
+      if(r?.success){
+        saved.push(entry);
+        sbBackup('insertHistoryLog',entry);
+      }else{
+        failed.push(entry);
+      }
+    }catch(e){
+      failed.push(entry);
+    }
+  }
+  if(saved.length){
+    historyLog=[...saved,...historyLog].sort((a,b)=>new Date(b.createdAt||b.created_at||0)-new Date(a.createdAt||a.created_at||0));
+  }
+  if(failed.length){
+    showToast(`Часть истории цен не записалась в Google: ${failed.length}`,'error');
+  }
+  return{saved:saved.length,failed:failed.length};
 }
 async function deleteHistoryLogEntry(id){
   if(!id)return;
   if(!confirm('Удалить это изменение цены?'))return;
-  historyLog=historyLog.filter(entry=>entry.id!==id);
-  loadDashboard();
-  sbBackup('deleteHistoryLog',{id});
   try{
-    await api('deleteHistoryLog',{id});
+    const r=await api('deleteHistoryLog',{id});
+    if(!r?.success){
+      showToast(r?.error||'Не удалось удалить изменение в Google','error');
+      return;
+    }
+    historyLog=historyLog.filter(entry=>entry.id!==id);
+    loadDashboard();
+    sbBackup('deleteHistoryLog',{id});
     showToast('Изменение удалено','success');
   }catch(e){
-    showToast('Изменение удалено локально, но не подтверждено в Google','error');
+    showToast('Не удалось удалить изменение в Google','error');
   }
 }
 var _savingComp=false;
@@ -286,7 +307,21 @@ async function saveComp(){
   }catch(e){showToast('Ошибка сохранения','error')}
   finally{_savingComp=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
-async function deleteComp(id){if(!confirm('Удалить?'))return;await api('deleteCompetitor',{id});sbBackup('deleteCompetitor',{id});showToast('Удалено','success');await loadAll()}
+async function deleteComp(id){
+  if(!confirm('Удалить?'))return;
+  try{
+    const r=await api('deleteCompetitor',{id});
+    if(!r?.success){
+      showToast(r?.error||'Не удалось удалить конкурента','error');
+      return;
+    }
+    sbBackup('deleteCompetitor',{id});
+    showToast('Удалено','success');
+    await loadAll();
+  }catch(e){
+    showToast('Не удалось удалить конкурента','error');
+  }
+}
 
 // MY COMPANY (Google Sheets)
 async function loadMyCompanyData(){
