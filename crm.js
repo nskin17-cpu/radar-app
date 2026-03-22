@@ -1838,9 +1838,9 @@ function crmBuildEstimateHTML(d,withDiscount){
   const PR='border-right:1px solid #ebebeb;';
   const ML=(label,val)=>`<div style="font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:4px">${label}</div><div style="font-size:14px;font-weight:400;color:#1a1a1a;font-family:sans-serif;line-height:1.45">${val}</div>`;
 
-  const iName=`font-size:${isMobile?'11.4px':'14px'};color:#1a1a1a;font-family:sans-serif;margin-bottom:${isMobile?'2px':'3px'}`;
-  const iDetail=`font-size:${isMobile?'9.8px':'12.5px'};color:#888;font-family:sans-serif`;
-  const iRow=`padding:${isMobile?'4px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
+  const iName=`font-size:${isMobile?'10.6px':'14px'};color:#1a1a1a;font-family:sans-serif;margin-bottom:${isMobile?'1px':'3px'}`;
+  const iDetail=`font-size:${isMobile?'9.1px':'12.5px'};color:#888;font-family:sans-serif`;
+  const iRow=`padding:${isMobile?'3px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
   const itemsRowsHTML=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
@@ -1876,7 +1876,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
 
-  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:${isMobile?'11.8px':'12px'};color:#333;line-height:${isMobile?'1.56':'1.6'}"><span style="font-size:${isMobile?'8.8px':'8px'};letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
+  const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:${isMobile?'12.4px':'12px'};color:#333;line-height:${isMobile?'1.6':'1.6'}"><span style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
   const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий`):'';
   const payGrid=depositAmt>0
     ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Реквизиты',`Карта: <strong>+7 (906) 060-40-60</strong><br>Имя: Андрей Г. · Альфа-Банк`)}</div>`
@@ -1894,13 +1894,14 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${depositBlock}
     ${lastRow}
   </div>`;
-  const itemsBlock=`<div style="font-size:${isMobile?'8.4px':'9px'};letter-spacing:${isMobile?'2.4px':'3px'};text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'4px':'8px'}">Состав заказа</div>
+  const itemsBlock=`<div style="font-size:${isMobile?'7.9px':'9px'};letter-spacing:${isMobile?'2px':'3px'};text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'3px':'8px'}">Состав заказа</div>
   <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>`;
-  const paymentBlock=`<div style="margin-top:20px;padding:${isMobile?'20px 22px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
-    <div style="font-family:sans-serif;font-size:${isMobile?'9.6px':'9px'};letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:${isMobile?'12px':'10px'}">Условия оплаты</div>
+  const paymentBlock=`<div style="margin-top:20px;padding:${isMobile?'22px 22px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
+    <div style="font-family:sans-serif;font-size:${isMobile?'10px':'9px'};letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:${isMobile?'13px':'10px'}">Условия оплаты</div>
     ${payGrid}
   </div>`;
-  const importantBlock=`<div style="margin-top:14px;padding:${isMobile?'8px 11px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'8.7px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.34':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>`;
+  const receiptBlock=`<div style="margin-top:${isMobile?'10px':'20px'};padding-top:${isMobile?'10px':'12px'};border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:${isMobile?'10.4px':'10px'};color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>`;
+  const importantBlock=`<div style="margin-top:12px;padding:${isMobile?'6px 10px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'8.2px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.28':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>`;
   const termsBlock=`<div style="margin-top:10px;padding:${isMobile?'12px 14px':'10px 12px'};border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
     <div>
       <div style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.8px;text-transform:uppercase;color:#9aa3b2;margin-bottom:3px">Условия работы</div>
@@ -1908,12 +1909,16 @@ function crmBuildEstimateHTML(d,withDiscount){
     </div>
     <div style="white-space:nowrap;font-size:${isMobile?'11.2px':'10.5px'};color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
   </div>`;
-  const footerBlock=`<div style="margin-top:20px;padding-top:12px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>`;
+  const footerBlock=`<div style="margin-top:18px;padding-top:10px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Спасибо за заказ</span></div>`;
+  const mobileSplit=(items.length+(deliveryCost>0?1:0)+(setupCost>0?1:0))>4;
 
   if(isMobile){
-    return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}`)}${pageShell(`${paymentBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+    if(mobileSplit){
+      return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}`)}${pageShell(`${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+    }
+    return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
   }
-  return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+  return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
 }
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
