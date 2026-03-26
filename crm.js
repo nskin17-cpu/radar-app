@@ -113,7 +113,9 @@ function crmMonthTitle(v){
   return new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).format(d);
 }
 function crmIsLegacyYearOrder(){
-  return !!document.getElementById('crmOrderId').value;
+  const start=document.getElementById('crmStartDate')?.value||'';
+  const y=Number(String(start).slice(0,4));
+  return y===2023||y===2024;
 }
 function crmSyncLegacyMode(){
   const legacy=crmIsLegacyYearOrder();
@@ -317,6 +319,7 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryKm')?.addEventListener('input',()=>{const dc=document.getElementById('crmDeliveryCost');if(dc)dc.dataset.manual='';crmCalcTotal();});
   document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
+  document.getElementById('crmDiscount')?.addEventListener('input',crmCalcTotal);
   document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
   document.getElementById('crmPayment')?.addEventListener('change',crmSyncPaidAndRemaining);
   const clientInput=document.getElementById('crmClient');
