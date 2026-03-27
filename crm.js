@@ -129,8 +129,8 @@ function crmSyncLegacyMode(){
     amount.style.color='var(--blue)';
   }
   if(itemsTotal){
-    itemsTotal.readOnly=!legacy;
-    itemsTotal.style.background=legacy?'var(--surface)':'var(--surface2)';
+    itemsTotal.readOnly=false;
+    itemsTotal.style.background='var(--surface2)';
   }
   if(deliveryCost){
     deliveryCost.style.background='var(--surface)';
@@ -320,6 +320,7 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmDiscount')?.addEventListener('input',crmCalcTotal);
+  document.getElementById('crmItemsTotal')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
   document.getElementById('crmAmount')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmSyncPaidAndRemaining();});
   document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
   document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
@@ -1603,6 +1604,7 @@ function crmOpenDialog(id){
     const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
     const amEl=document.getElementById('crmAmount');if(amEl)amEl.dataset.manual='1';
     const bgEl=document.getElementById('crmBudget');if(bgEl)bgEl.dataset.manual='1';
+    const itEl=document.getElementById('crmItemsTotal');if(itEl)itEl.dataset.manual='1';
     setTimeout(crmCalcTotal,100);
   }else{
     document.getElementById('crmOrderId').value='';
@@ -1610,7 +1612,7 @@ function crmOpenDialog(id){
     ['crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('crmClient').value='';
     document.getElementById('crmAmount').value='';document.getElementById('crmAmount').dataset.manual='';document.getElementById('crmBudget').value='';document.getElementById('crmBudget').dataset.manual='';document.getElementById('crmDeposit').value='';
-    document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmPaidAmount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value='';if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
+    document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmPaidAmount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal')){document.getElementById('crmItemsTotal').value='';document.getElementById('crmItemsTotal').dataset.manual='';}if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
     document.getElementById('crmDeliveryType').value='delivery';
     document.getElementById('crmDeliveryZone').value='city';
     document.getElementById('crmDeliveryKm').value='0';
@@ -1677,7 +1679,8 @@ function crmCalcTotal(){
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
   const discountAmt=Math.round(itemsTotal*discountPct/100);
   const total=(itemsTotal-discountAmt)+deliveryCost+setupCost;
-  if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value=itemsTotal-discountAmt;
+  const itemsTotalEl=document.getElementById('crmItemsTotal');
+  if(itemsTotalEl&&itemsTotalEl.dataset.manual!=='1')itemsTotalEl.value=itemsTotal-discountAmt;
   if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
   const amountEl=document.getElementById('crmAmount');
   if(amountEl&&amountEl.dataset.manual!=='1')amountEl.value=total>0?total:0;
