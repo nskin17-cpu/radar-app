@@ -124,9 +124,9 @@ function crmSyncLegacyMode(){
   const deliveryCost=document.getElementById('crmDeliveryCost');
   const setupCost=document.getElementById('crmSetupCost');
   if(amount){
-    amount.readOnly=!legacy;
-    amount.style.background=legacy?'var(--surface)':'var(--blue-dim)';
-    amount.style.color=legacy?'var(--text)':'var(--blue)';
+    amount.readOnly=false;
+    amount.style.background='var(--blue-dim)';
+    amount.style.color='var(--blue)';
   }
   if(itemsTotal){
     itemsTotal.readOnly=!legacy;
@@ -320,6 +320,8 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmDiscount')?.addEventListener('input',crmCalcTotal);
+  document.getElementById('crmAmount')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmSyncPaidAndRemaining();});
+  document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
   document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
   document.getElementById('crmPayment')?.addEventListener('change',crmSyncPaidAndRemaining);
   const clientInput=document.getElementById('crmClient');
@@ -1599,13 +1601,15 @@ function crmOpenDialog(id){
     crmSyncDepositUI();
     const dcEl=document.getElementById('crmDeliveryCost');if(dcEl)dcEl.dataset.manual='1';
     const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
+    const amEl=document.getElementById('crmAmount');if(amEl)amEl.dataset.manual='1';
+    const bgEl=document.getElementById('crmBudget');if(bgEl)bgEl.dataset.manual='1';
     setTimeout(crmCalcTotal,100);
   }else{
     document.getElementById('crmOrderId').value='';
     crmFillClientSelect('');
     ['crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('crmClient').value='';
-    document.getElementById('crmAmount').value='';document.getElementById('crmBudget').value='';document.getElementById('crmDeposit').value='';
+    document.getElementById('crmAmount').value='';document.getElementById('crmAmount').dataset.manual='';document.getElementById('crmBudget').value='';document.getElementById('crmBudget').dataset.manual='';document.getElementById('crmDeposit').value='';
     document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmPaidAmount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value='';if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
     document.getElementById('crmDeliveryType').value='delivery';
     document.getElementById('crmDeliveryZone').value='city';
@@ -1669,13 +1673,14 @@ function crmCalcTotal(){
   if(deliveryCostEl&&deliveryCostEl.dataset.manual!=='1')deliveryCostEl.value=deliveryCost;
   if(setupCostEl&&setupCostEl.dataset.manual!=='1')setupCostEl.value=setupCost;
   const budgetEl=document.getElementById('crmBudget');
-  if(budgetEl)budgetEl.value=deliveryCost+setupCost;
+  if(budgetEl&&budgetEl.dataset.manual!=='1')budgetEl.value=deliveryCost+setupCost;
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
   const discountAmt=Math.round(itemsTotal*discountPct/100);
   const total=(itemsTotal-discountAmt)+deliveryCost+setupCost;
   if(document.getElementById('crmItemsTotal'))document.getElementById('crmItemsTotal').value=itemsTotal-discountAmt;
   if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
-  document.getElementById('crmAmount').value=total>0?total:0;
+  const amountEl=document.getElementById('crmAmount');
+  if(amountEl&&amountEl.dataset.manual!=='1')amountEl.value=total>0?total:0;
   crmSyncPaidAndRemaining();
 }
 function crmSyncPaidAndRemaining(){
