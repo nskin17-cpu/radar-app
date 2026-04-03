@@ -1600,10 +1600,7 @@ function crmOpenDialog(id){
     document.getElementById('crmCompensationAmount').value=o.compensationAmount||0;
     document.getElementById('crmCompensationNote').value=o.compensationNote||'';
     crmSyncDepositUI();
-    const dcEl=document.getElementById('crmDeliveryCost');if(dcEl)dcEl.dataset.manual='1';
-    const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
     const amEl=document.getElementById('crmAmount');if(amEl)amEl.dataset.manual='1';
-    const bgEl=document.getElementById('crmBudget');if(bgEl)bgEl.dataset.manual='1';
     const itEl=document.getElementById('crmItemsTotal');if(itEl)itEl.dataset.manual='1';
     setTimeout(crmCalcTotal,100);
   }else{
