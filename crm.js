@@ -1828,8 +1828,8 @@ function crmApplyEstimatePdfLink(pdf){
   if(!pdf||typeof pdf.link!=='function')return;
   const totalPages=typeof pdf.getNumberOfPages==='function'?pdf.getNumberOfPages():1;
   pdf.setPage(totalPages);
-  // Large invisible clickable area over the "Условия работы" footer block on the last page.
-  pdf.link(10, 226, 190, 34, { url:'https://nandrent.ru/uslovia' });
+  // Large clickable area covering bottom half of last page where "Условия работы" block lands.
+  pdf.link(10, 180, 190, 100, { url:'https://nandrent.ru/uslovia' });
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
@@ -1852,12 +1852,6 @@ function crmBuildEstimateHTML(d,withDiscount){
   const iName=`font-size:${isMobile?'10.6px':'14px'};color:#1a1a1a;font-family:sans-serif;margin-bottom:${isMobile?'1px':'3px'}`;
   const iDetail=`font-size:${isMobile?'9.1px':'12.5px'};color:#888;font-family:sans-serif`;
   const iRow=`padding:${isMobile?'3px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
-  const itemsRowsHTML=items.map(i=>{
-    const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
-    const sum=unitPrice*Number(i.qty);
-    const iDisplay=crmGetItemDisplayName(i);
-    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
-  }).join('');
   const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
   const setupRow=setupCost>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">Сетап</div><div style="${iDetail}">Сумма: ${crmFmtN(setupCost)} ₽</div></div>`:'';
 
@@ -1905,8 +1899,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     ${depositBlock}
     ${lastRow}
   </div>`;
-  const itemsBlock=`<div style="font-size:${isMobile?'7.9px':'9px'};letter-spacing:${isMobile?'2px':'3px'};text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'3px':'8px'}">Состав заказа</div>
-  <div>${itemsRowsHTML}${deliveryRow}${setupRow}</div>`;
+  const itemsTitle=(label)=>`<div style="font-size:${isMobile?'7.9px':'9px'};letter-spacing:${isMobile?'2px':'3px'};text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:${isMobile?'3px':'8px'}">${label}</div>`;
   const paymentBlock=`<div style="margin-top:20px;padding:${isMobile?'22px 22px':'16px 20px'};background:#f8f8f8;border-left:3px solid #1a1a1a">
     <div style="font-family:sans-serif;font-size:${isMobile?'10px':'9px'};letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:${isMobile?'13px':'10px'}">Условия оплаты</div>
     ${payGrid}
@@ -1921,15 +1914,60 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="white-space:nowrap;font-size:${isMobile?'11.2px':'10.5px'};color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
   </div>`;
   const footerBlock=`<div style="margin-top:18px;padding-top:10px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Спасибо за заказ</span></div>`;
-  const mobileSplit=(items.length+(deliveryCost>0?1:0)+(setupCost>0?1:0))>4;
+  const bottomSection=`${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`;
 
-  if(isMobile){
-    if(mobileSplit){
-      return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}`)}${pageShell(`${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
-    }
-    return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+  // Dynamic pagination: split items across pages so nothing gets cut
+  const itemRowH=isMobile?28:40;
+  const headerMetaH=isMobile?260:280;
+  const bottomH=isMobile?380:420;
+  const titleH=30;
+  const pageH=1039;
+  // Build individual item HTML rows
+  const allItemRows=items.map(i=>{
+    const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
+    const sum=unitPrice*Number(i.qty);
+    const iDisplay=crmGetItemDisplayName(i);
+    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
+  });
+  if(deliveryCost>0)allItemRows.push(deliveryRow);
+  if(setupCost>0)allItemRows.push(setupRow);
+  const totalItems=allItemRows.length;
+  // How many items fit on first page (with header+meta) and subsequent pages
+  const firstPageItemSlots=Math.floor((pageH-headerMetaH-titleH)/itemRowH);
+  const fullPageItemSlots=Math.floor((pageH-titleH)/itemRowH);
+  // Check if everything fits on one page
+  const allOnOnePage=(headerMetaH+titleH+(totalItems*itemRowH)+bottomH)<=pageH;
+  if(allOnOnePage){
+    const itemsBlock=itemsTitle('Состав заказа')+`<div>${allItemRows.join('')}</div>`;
+    return pageShell(`${headerBlock}${metaBlock}${itemsBlock}${bottomSection}`);
   }
-  return`${pageShell(`${headerBlock}${metaBlock}${itemsBlock}${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`)}`;
+  // Multi-page: split items
+  const pages=[];
+  let idx=0;
+  // First page: header + meta + first chunk of items
+  const firstChunk=allItemRows.slice(idx,idx+firstPageItemSlots);
+  idx+=firstChunk.length;
+  pages.push(pageShell(`${headerBlock}${metaBlock}${itemsTitle('Состав заказа')}<div>${firstChunk.join('')}</div>`));
+  // Middle pages: more items
+  while(idx<totalItems){
+    const remaining=totalItems-idx;
+    const fitsWithBottom=(remaining*itemRowH+titleH+bottomH)<=pageH;
+    if(fitsWithBottom){
+      // Last page: remaining items + bottom section
+      const lastChunk=allItemRows.slice(idx);
+      idx+=lastChunk.length;
+      pages.push(pageShell(`${itemsTitle('Состав заказа (продолжение)')}<div>${lastChunk.join('')}</div>${bottomSection}`));
+    }else{
+      const chunk=allItemRows.slice(idx,idx+fullPageItemSlots);
+      idx+=chunk.length;
+      pages.push(pageShell(`${itemsTitle('Состав заказа (продолжение)')}<div>${chunk.join('')}</div>`));
+    }
+  }
+  // If items ended exactly on a page boundary, add bottom section on new page
+  if(!pages[pages.length-1].includes('Условия оплаты')){
+    pages.push(pageShell(bottomSection));
+  }
+  return pages.join('');
 }
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
