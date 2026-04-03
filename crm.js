@@ -1914,10 +1914,10 @@ function crmBuildEstimateHTML(d,withDiscount){
   const bottomSection=`${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`;
 
   // Dynamic pagination: split items across pages so nothing gets cut
-  const itemRowH=isMobile?28:40;
-  const headerMetaH=isMobile?260:280;
-  const bottomH=isMobile?380:420;
-  const titleH=30;
+  const itemRowH=isMobile?34:48;
+  const headerMetaH=isMobile?290:310;
+  const bottomH=isMobile?440:500;
+  const titleH=35;
   const pageH=1039;
   // Build individual item HTML rows
   const allItemRows=items.map(i=>{
