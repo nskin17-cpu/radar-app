@@ -1758,6 +1758,8 @@ function crmFmtDateShort(s){
   return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
 }
 function crmGetPdfOrderData(){
+  const amEl=document.getElementById('crmAmount');
+  const itEl=document.getElementById('crmItemsTotal');
   return{
     orderId:document.getElementById('crmOrderId').value||'NEW',
     clientName:document.getElementById('crmClient').value||'—',
@@ -1775,6 +1777,8 @@ function crmGetPdfOrderData(){
     deliveryKm:Number(document.getElementById('crmDeliveryKm')?.value)||0,
     companyName:document.getElementById('crmCompany').value||'',
     items:crmGetItems(),
+    manualOrderAmount:(amEl&&amEl.dataset.manual==='1')?Number(amEl.value)||0:null,
+    manualItemsTotal:(itEl&&itEl.dataset.manual==='1')?Number(itEl.value)||0:null,
   };
 }
 function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
@@ -1830,11 +1834,12 @@ function crmApplyEstimatePdfLink(pdf){
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
-  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
-  const itemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
+  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items,manualOrderAmount,manualItemsTotal}=d;
+  const calcItemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
+  const itemsTotal=calcItemsTotal;
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
-  const itemsAfterDiscount=itemsTotal-discountAmt;
-  const grandTotal=itemsAfterDiscount+deliveryCost+setupCost;
+  const itemsAfterDiscount=(manualItemsTotal!=null)?manualItemsTotal:(itemsTotal-discountAmt);
+  const grandTotal=(manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost);
   const prepay=Math.round(grandTotal*0.5);
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
