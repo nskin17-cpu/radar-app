@@ -1838,8 +1838,8 @@ function crmBuildEstimateHTML(d,withDiscount){
   const calcItemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
   const itemsTotal=calcItemsTotal;
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
-  const itemsAfterDiscount=(manualItemsTotal!=null)?manualItemsTotal:(itemsTotal-discountAmt);
-  const grandTotal=(manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost);
+  const itemsAfterDiscount=(withDiscount&&manualItemsTotal!=null)?manualItemsTotal:(itemsTotal-discountAmt);
+  const grandTotal=(withDiscount&&manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost);
   const prepay=Math.round(grandTotal*0.5);
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
