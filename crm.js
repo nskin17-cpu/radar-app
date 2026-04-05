@@ -1599,10 +1599,12 @@ function crmOpenDialog(id){
     document.getElementById('crmDepositStatus').value=o.depositStatus||'pending';
     document.getElementById('crmCompensationAmount').value=o.compensationAmount||0;
     document.getElementById('crmCompensationNote').value=o.compensationNote||'';
+    document.getElementById('crmExtraChargeAmount').value=o.extraChargeAmount||0;
+    document.getElementById('crmExtraChargeNote').value=o.extraChargeNote||'';
+    if(Number(o.extraChargeAmount||0)>0){document.getElementById('crmExtraChargeFields').style.display='block';}
     crmSyncDepositUI();
     const amEl=document.getElementById('crmAmount');if(amEl)amEl.dataset.manual='1';
-    const itEl=document.getElementById('crmItemsTotal');if(itEl)itEl.dataset.manual='1';
-    setTimeout(crmCalcTotal,100);
+    setTimeout(()=>{crmCalcTotal();const itEl2=document.getElementById('crmItemsTotal');if(itEl2)itEl2.dataset.manual='1';},100);
   }else{
     document.getElementById('crmOrderId').value='';
     crmFillClientSelect('');
@@ -1623,6 +1625,9 @@ function crmOpenDialog(id){
     document.getElementById('crmDepositStatus').value='pending';
     document.getElementById('crmCompensationAmount').value='0';
     document.getElementById('crmCompensationNote').value='';
+    document.getElementById('crmExtraChargeAmount').value='0';
+    document.getElementById('crmExtraChargeNote').value='';
+    document.getElementById('crmExtraChargeFields').style.display='none';
     crmSyncDepositUI();
     const dcEl2=document.getElementById('crmDeliveryCost');if(dcEl2)dcEl2.dataset.manual='';
     const scEl2=document.getElementById('crmSetupCost');if(scEl2)scEl2.dataset.manual='';
@@ -1675,7 +1680,8 @@ function crmCalcTotal(){
   if(budgetEl&&budgetEl.dataset.manual!=='1')budgetEl.value=deliveryCost+setupCost;
   const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
   const discountAmt=Math.round(itemsTotal*discountPct/100);
-  const total=(itemsTotal-discountAmt)+deliveryCost+setupCost;
+  const extraCharge=Number(document.getElementById('crmExtraChargeAmount')?.value||0);
+  const total=(itemsTotal-discountAmt)+deliveryCost+setupCost+extraCharge;
   const itemsTotalEl=document.getElementById('crmItemsTotal');
   if(itemsTotalEl&&itemsTotalEl.dataset.manual!=='1')itemsTotalEl.value=itemsTotal-discountAmt;
   if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
@@ -1721,7 +1727,7 @@ async function crmSaveOrder(){
   crmSyncPaidAndRemaining();
   const orderAmount=Number(document.getElementById('crmAmount').value)||0;
   const paidAmount=isPaid?orderAmount:(Number(document.getElementById('crmPaidAmount').value)||0);
-  const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,paidAmount,remainingAmount:Math.max(0,orderAmount-paidAmount),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||''};
+  const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,paidAmount,remainingAmount:Math.max(0,orderAmount-paidAmount),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||'',extraChargeAmount:Number(document.getElementById('crmExtraChargeAmount')?.value||0),extraChargeNote:document.getElementById('crmExtraChargeNote')?.value||''};
   if(!o.clientName){showToast('Укажите клиента','error');return}
   if(!crmClients.some(c=>c.name===o.clientName)){showToast('Клиента нет в базе. Сначала добавьте клиента в разделе Клиенты.','error');return}
   if(id){
@@ -1779,6 +1785,8 @@ function crmGetPdfOrderData(){
     items:crmGetItems(),
     manualOrderAmount:(amEl&&amEl.dataset.manual==='1')?Number(amEl.value)||0:null,
     manualItemsTotal:(itEl&&itEl.dataset.manual==='1')?Number(itEl.value)||0:null,
+    extraChargeAmount:Number(document.getElementById('crmExtraChargeAmount')?.value||0),
+    extraChargeNote:document.getElementById('crmExtraChargeNote')?.value||'',
   };
 }
 function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
@@ -1834,12 +1842,13 @@ function crmApplyEstimatePdfLink(pdf){
 }
 function crmBuildEstimateHTML(d,withDiscount){
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
-  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items,manualOrderAmount,manualItemsTotal}=d;
+  const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items,manualOrderAmount,manualItemsTotal,extraChargeAmount,extraChargeNote}=d;
   const calcItemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
   const itemsTotal=calcItemsTotal;
+  const extraCharge=Number(extraChargeAmount||0);
   const discountAmt=withDiscount?Math.round(itemsTotal*discountPct/100):0;
   const itemsAfterDiscount=(withDiscount&&manualItemsTotal!=null)?manualItemsTotal:(itemsTotal-discountAmt);
-  const grandTotal=(withDiscount&&manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost);
+  const grandTotal=(withDiscount&&manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost+extraCharge);
   const prepay=Math.round(grandTotal*0.5);
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
@@ -1856,6 +1865,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const iRow=`padding:${isMobile?'3px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
   const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
   const setupRow=setupCost>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">Сетап</div><div style="${iDetail}">Сумма: ${crmFmtN(setupCost)} ₽</div></div>`:'';
+  const extraChargeRow=extraCharge>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">${extraChargeNote||'Доп. услуга'}</div><div style="${iDetail}">Сумма: ${crmFmtN(extraCharge)} ₽</div></div>`:'';
 
   const totRow=(label,val,color='#888',size='12px',weight='400')=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-family:sans-serif;font-size:${size};color:${color};font-weight:${weight}"><span>${label}</span><span style="white-space:nowrap;font-variant-numeric:tabular-nums;min-width:80px;text-align:right;color:${color}">${val}</span></div>`;
   let totalsBlock=`<div style="margin-top:16px;border-top:2px solid #1a1a1a;padding-top:14px;display:flex;justify-content:center"><div style="width:400px">`;
@@ -1867,6 +1877,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   }
   if(deliveryCost>0)totalsBlock+=totRow('Доставка',crmFmtN(deliveryCost)+' ₽');
   if(setupCost>0)totalsBlock+=totRow('Сетап',crmFmtN(setupCost)+' ₽');
+  if(extraCharge>0)totalsBlock+=totRow(extraChargeNote||'Доп. услуга',crmFmtN(extraCharge)+' ₽');
   totalsBlock+=`<hr style="border:none;border-top:1px solid #ccc;margin:8px 0">`;
   totalsBlock+=totRow('Итого к оплате <span style="font-size:10px;color:#888;font-weight:500;margin-left:6px">без учета залога</span>',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
   totalsBlock+=`</div></div>`;
@@ -1933,6 +1944,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   });
   if(deliveryCost>0)allItemRows.push(deliveryRow);
   if(setupCost>0)allItemRows.push(setupRow);
+  if(extraCharge>0)allItemRows.push(extraChargeRow);
   const totalItems=allItemRows.length;
   // How many items fit on first page (with header+meta) and subsequent pages
   const firstPageItemSlots=Math.floor((pageH-headerMetaH-titleH)/itemRowH);

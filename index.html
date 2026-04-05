@@ -662,6 +662,13 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="input-group"><label class="input-label">Проф. скидка %</label><input type="number" id="crmDiscount" min="0" max="100" value="0" oninput="crmCalcTotal()"></div>
       <div class="input-group"><label class="input-label">Скидка ₽</label><input type="number" id="crmDiscountAmount" readonly style="background:var(--surface2)"></div>
     </div>
+    <div style="margin-top:6px"><a href="#" id="crmExtraChargeToggle" onclick="event.preventDefault();var f=document.getElementById('crmExtraChargeFields');f.style.display=f.style.display==='none'?'block':'none'" style="font-size:12px;color:var(--blue)">+ Доп. услуга</a></div>
+    <div id="crmExtraChargeFields" style="display:none;margin-top:6px">
+      <div class="crm-grid-2">
+        <div class="input-group"><label class="input-label">Сумма доп. услуги ₽</label><input type="number" id="crmExtraChargeAmount" min="0" value="0" oninput="crmCalcTotal()"></div>
+        <div class="input-group"><label class="input-label">Причина</label><input type="text" id="crmExtraChargeNote" placeholder="напр. доп. точка разгрузки"></div>
+      </div>
+    </div>
     <div class="crm-grid-3">
       <div class="input-group"><label class="input-label" style="color:var(--blue);font-weight:700">Общая сумма ₽</label><input type="number" id="crmAmount" style="background:var(--blue-dim);font-weight:700;color:var(--blue);font-size:15px"></div>
       <div class="input-group"><label class="input-label">Бюджет сотрудника ₽</label><input type="number" id="crmBudget" min="0"></div>
