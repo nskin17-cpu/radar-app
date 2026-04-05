@@ -1604,6 +1604,8 @@ function crmOpenDialog(id){
     if(Number(o.extraChargeAmount||0)>0){document.getElementById('crmExtraChargeFields').style.display='block';}
     crmSyncDepositUI();
     const amEl=document.getElementById('crmAmount');if(amEl)amEl.dataset.manual='1';
+    const dcEl=document.getElementById('crmDeliveryCost');if(dcEl)dcEl.dataset.manual='1';
+    const scEl=document.getElementById('crmSetupCost');if(scEl)scEl.dataset.manual='1';
     setTimeout(()=>{crmCalcTotal();const itEl2=document.getElementById('crmItemsTotal');if(itEl2)itEl2.dataset.manual='1';},100);
   }else{
     document.getElementById('crmOrderId').value='';
