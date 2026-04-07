@@ -1532,6 +1532,13 @@ async function crmSaveStockItem(){
     if(r.success){
       if(!id&&r.id)item.id=r.id;
       sbBackup('upsertStockItem',item);
+      // Auto-add new category if not in list
+      if(item.category&&!crmCategories.includes(item.category)){
+        crmCategories.push(item.category);
+        crmCategories.sort();
+        crmCategoriesData.push({id:item.category,name:item.category,setupRate:item.setupRate||0});
+        api('addCategory',{category:{name:item.category,setupRate:item.setupRate||0}});
+      }
       showToast(id?'Обновлено':'Добавлено','success');
       closeModal('crmStockModal');
       const r2=await api('getStock');
