@@ -373,10 +373,18 @@ async function crmInit(){
   if(r2.success)crmStock=r2.stock||[];
   if(r4?.success&&(r4.categories||[]).length){
     crmCategoriesData=r4.categories||[];
-    crmCategories=crmCategoriesData.map(c=>c.name);
-  }else{
-    crmCategories=[...new Set(['Приборы',...crmStock.map(s=>s.category).filter(Boolean)])].sort();
   }
+  // Merge categories from sheet + stock (so new stock categories always appear)
+  const catFromSheet=crmCategoriesData.map(c=>c.name);
+  const catFromStock=crmStock.map(s=>s.category).filter(Boolean);
+  crmCategories=[...new Set([...catFromSheet,...catFromStock])].sort();
+  // Add missing stock categories to crmCategoriesData for setupRate lookup
+  crmCategories.forEach(name=>{
+    if(!crmCategoriesData.some(c=>c.name===name)){
+      const stockItem=crmStock.find(s=>s.category===name);
+      crmCategoriesData.push({id:name,name,setupRate:Number(stockItem?.setupRate||0)});
+    }
+  });
   if(r5?.success&&Array.isArray(r5.clients))crmClients=crmDedupClients(r5.clients);
   else crmClients=[];
   crmApplyPricingConfig(crmExtractPricingConfig(r3));
