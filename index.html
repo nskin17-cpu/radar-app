@@ -411,7 +411,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="modal" style="width:440px">
         <div class="modal-title" id="crmStockModalTitle">Добавить позицию</div>
         <input type="hidden" id="crmStockId">
-        <div class="input-group"><label class="input-label">Категория *</label><select id="crmStockCat"></select></div>
+        <div class="input-group"><label class="input-label">Категория *</label><select id="crmStockCat"><option value="">Выберите категорию</option></select></div>
+        <div class="input-group"><label class="input-label" style="font-size:10px;color:var(--text2)">Или создать новую категорию</label><input type="text" id="crmStockNewCat" placeholder="Напр. Лорен ротанг золотая основа" oninput="if(this.value.trim())document.getElementById('crmStockCat').value=''"></div>
         <div class="input-group"><label class="input-label">Название *</label><input type="text" id="crmStockName" placeholder="Стул Непал белый"></div>
         <div class="crm-grid-2">
           <div class="input-group"><label class="input-label">Цена аренды ₽</label><input type="number" id="crmStockPrice" min="0" value="0"></div>

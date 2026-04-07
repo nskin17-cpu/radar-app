@@ -1494,9 +1494,11 @@ function crmOpenStockModal(id){
         const rate=Number(opt?.dataset.rate||0);
         const rateEl=document.getElementById('crmStockSetupRate');
         if(rateEl&&!document.getElementById('crmStockId').value)rateEl.value=rate;
+        const nc=document.getElementById('crmStockNewCat');if(nc&&catSel.value)nc.value='';
       });
     }
   }
+  const newCatEl=document.getElementById('crmStockNewCat');if(newCatEl)newCatEl.value='';
   document.getElementById('crmStockName').value=s?.name||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
   document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
@@ -1513,7 +1515,7 @@ async function crmSaveStockItem(){
   const id=document.getElementById('crmStockId').value;
   const item={
     id,
-    category:document.getElementById('crmStockCat').value.trim(),
+    category:(document.getElementById('crmStockNewCat')?.value.trim()||document.getElementById('crmStockCat').value.trim()),
     name:document.getElementById('crmStockName').value.trim(),
     price:Number(document.getElementById('crmStockPrice').value)||0,
     setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
