@@ -509,18 +509,18 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
       <div class="form-card">
         <div class="modal-section">Подключение к Supabase</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-          Адрес проекта и публичный ключ. Меняйте, только если переезжаете на другой проект Supabase.
+        <div id="settingsSbHint" style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+          Действуют встроенные значения из кода приложения — менять ничего не нужно.
         </div>
         <div style="display:grid;grid-template-columns:1fr;gap:10px;max-width:500px">
           <div class="input-group"><label class="input-label">Supabase URL</label><input type="text" id="settingsSbUrl" placeholder="https://xxxxxx.supabase.co"></div>
           <div class="input-group"><label class="input-label">Supabase Anon Key</label><input type="text" id="settingsSbKey" placeholder="eyJhbGci..."></div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-sm" onclick="saveSupabaseSettings()">💾 Сохранить</button>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           <button class="btn btn-sm btn-secondary" onclick="testSupabaseConnection()">🔌 Проверить связь</button>
+          <button class="btn btn-sm btn-secondary" onclick="saveSupabaseSettings()">Сохранить переопределение</button>
           <button class="btn btn-sm btn-secondary" id="settingsSyncBtn" onclick="syncAllToSupabase()" title="Добавит недостающие и обновит существующие записи. Ничего не удаляет.">⬇ Импорт из Google Sheets</button>
-          <button class="btn btn-sm btn-danger" onclick="clearSupabaseSettings()" style="margin-left:auto">Очистить</button>
+          <button class="btn btn-sm btn-secondary" onclick="clearSupabaseSettings()" style="margin-left:auto">Вернуть встроенные</button>
         </div>
         <div id="settingsStatus" style="margin-top:10px;font-size:12px"></div>
       </div>
@@ -757,13 +757,29 @@ function saveSupabaseSettings(){
   window.SUPABASE_URL=url;window.SUPABASE_ANON_KEY=key;
   st.style.color='var(--green)';st.textContent='Сохранено. Дублирование в Supabase активно.';
 }
+// Сброс возвращает встроенные значения, а не оставляет приложение без базы:
+// Supabase теперь единственное хранилище, обнулять адрес нельзя.
 function clearSupabaseSettings(){
+  if(!confirm('Вернуть встроенные адрес и ключ Supabase?\n\nРучное переопределение будет удалено, подключение останется рабочим.'))return;
   localStorage.removeItem('sbUrl');localStorage.removeItem('sbKey');
-  window.SUPABASE_URL='';window.SUPABASE_ANON_KEY='';
-  document.getElementById('settingsSbUrl').value='';
-  document.getElementById('settingsSbKey').value='';
   const st=document.getElementById('settingsStatus');
-  st.style.color='var(--text2)';st.textContent='Настройки Supabase удалены. Данные хранятся только в Google Sheets.';
+  st.style.color='var(--text2)';
+  st.textContent='Возвращены встроенные настройки. Перезагрузите страницу, чтобы они применились.';
+  fillSupabaseFields();
+}
+/** Показывает реально используемые адрес и ключ, откуда бы они ни пришли. */
+function fillSupabaseFields(){
+  const urlEl=document.getElementById('settingsSbUrl');
+  const keyEl=document.getElementById('settingsSbKey');
+  const override=!!localStorage.getItem('sbUrl');
+  urlEl.value=window.SUPABASE_URL||'';
+  keyEl.value=window.SUPABASE_ANON_KEY||'';
+  const hint=document.getElementById('settingsSbHint');
+  if(hint){
+    hint.textContent=override
+      ? 'Действуют значения, заданные вручную. Кнопка «Вернуть встроенные» отменит их.'
+      : 'Действуют встроенные значения из кода приложения — менять ничего не нужно.';
+  }
 }
 async function testSupabaseConnection(){
   const st=document.getElementById('settingsStatus');
@@ -781,11 +797,10 @@ const _origSwitchForSettings=switchPage;
 switchPage=function(p){
   _origSwitchForSettings(p);
   if(p==='settings'){
-    document.getElementById('settingsSbUrl').value=localStorage.getItem('sbUrl')||'';
-    document.getElementById('settingsSbKey').value=localStorage.getItem('sbKey')||'';
+    fillSupabaseFields();
     const st=document.getElementById('settingsStatus');
-    if(window.SUPABASE_URL){st.style.color='var(--green)';st.textContent='Supabase настроен. Дублирование активно.'}
-    else{st.style.color='var(--text2)';st.textContent='Supabase не настроен — приложение не сможет сохранять данные.'}
+    if(window.SUPABASE_URL){st.style.color='var(--green)';st.textContent='Supabase подключён — основное и единственное хранилище.'}
+    else{st.style.color='var(--red)';st.textContent='Supabase не настроен — приложение не сможет сохранять данные.'}
     radarRefreshSyncPanel();
   }
 };
