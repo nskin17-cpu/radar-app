@@ -175,8 +175,27 @@
   /* ── Окно заказа: заполнение с телефона ─────────────────────────────────── */
   /* Пока открыто окно, страница под ним зафиксирована (см. lockBodyScroll) */
   body.modal-open{overflow:hidden;overscroll-behavior:none}
-  .modal-overlay{overscroll-behavior:contain;touch-action:pan-y}
-  #crmOrderModal .modal{overscroll-behavior-y:contain}
+  .modal-overlay{overscroll-behavior:none;touch-action:pan-y}
+  #crmOrderModal .modal{overscroll-behavior:none}
+
+  /* Отскок прокрутки гасится и на уровне CSS (страховка к touch-guard в radar.js) */
+  .modal-overlay{overscroll-behavior:none}
+  .modal-overlay .modal{overscroll-behavior:none}
+
+  /* Долгое нажатие не должно выделять подписи и кнопки — выделение выглядит
+     как «окно дёрнулось» и вызывает системное меню копирования */
+  .modal-overlay .input-label,
+  .modal-overlay .modal-section,
+  .modal-overlay .btn,
+  .modal-overlay summary,
+  .crm-om-line>span,
+  .crm-om-grid>div>span,
+  .crm-order-meta{
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
+  }
+  /* Без manipulation двойной тап по кнопке масштабирует страницу */
+  .btn,select,summary,label,.nav-item{touch-action:manipulation}
 
   /* ГЛАВНОЕ ПРАВИЛО МОБИЛЬНОЙ ВЁРСТКИ.
      Safari на iOS увеличивает всю страницу, когда пользователь ставит курсор

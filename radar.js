@@ -703,6 +703,50 @@ function unlockBodyScroll(){
   document.body.classList.remove('modal-open');
   window.scrollTo(0,_scrollLockY);
 }
+/**
+ * Гаситель «резинового» отскока iOS внутри открытого окна.
+ *
+ * Safari тянет прокручиваемую область за палец даже у края (rubber-band) —
+ * визуально «окно двигается при зажатии». CSS overscroll-behavior этот отскок
+ * не убирает. Единственный надёжный способ — самим глушить touchmove:
+ *  • касание вне окна (подложка) — блокируем всегда;
+ *  • внутри окна прокрутка разрешена, только пока элементу реально есть куда
+ *    прокручиваться в направлении жеста; на границе — блокируем, чтобы жест
+ *    не превратился в оттягивание всего окна.
+ */
+let _touchStartY=0;
+function radarModalTouchGuard(e){
+  if(e.touches.length!==1)return;
+  const overlay=document.querySelector('.modal-overlay.active');
+  if(!overlay)return;
+  const scroller=e.target.closest('.modal, .crm-client-picker-dropdown, .crm-order-log, textarea');
+  if(!scroller||!overlay.contains(scroller)){
+    if(e.cancelable)e.preventDefault();
+    return;
+  }
+  const dy=e.touches[0].clientY-_touchStartY;
+  const canScroll=(box)=>dy>0?box.scrollTop>0:Math.ceil(box.scrollTop+box.clientHeight)<box.scrollHeight;
+  if(canScroll(scroller))return;
+  // вложенный скролл упёрся в край — отдаём жест самому окну, если ему есть куда
+  const modal=overlay.querySelector('.modal');
+  if(scroller!==modal&&modal&&canScroll(modal))return;
+  if(e.cancelable)e.preventDefault();
+}
+document.addEventListener('touchstart',e=>{if(e.touches.length===1)_touchStartY=e.touches[0].clientY},{passive:true});
+document.addEventListener('touchmove',e=>{
+  if(document.body.classList.contains('modal-open'))radarModalTouchGuard(e);
+},{passive:false});
+// После закрытия клавиатуры iOS иногда оставляет видимую область сдвинутой —
+// возвращаем её на место.
+if(window.visualViewport){
+  let _kb=false;
+  window.visualViewport.addEventListener('resize',()=>{
+    const shrunk=window.visualViewport.height<window.innerHeight-60;
+    if(_kb&&!shrunk&&document.body.classList.contains('modal-open'))window.scrollTo(0,0);
+    _kb=shrunk;
+  });
+}
+
 function openModal(id){
   const el=document.getElementById(id);
   if(!el||el.classList.contains('active'))return;
