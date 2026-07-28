@@ -673,10 +673,48 @@ async function runAiAnalysis(){
 }
 
 // UI
-function openModal(id){document.getElementById(id).classList.add('active')}
+/**
+ * Блокировка прокрутки страницы под открытым окном.
+ *
+ * Без неё на телефоне палец, начавший движение на подложке или дошедший до края
+ * формы, прокручивал страницу за окном — и окно «уезжало». position:fixed на body
+ * с сохранением позиции прокрутки — единственный способ, который надёжно
+ * работает в Safari на iOS.
+ */
+let _scrollLockY=0,_scrollLockCount=0;
+function lockBodyScroll(){
+  if(_scrollLockCount++>0)return;
+  _scrollLockY=window.scrollY||window.pageYOffset||0;
+  document.body.style.position='fixed';
+  document.body.style.top=`-${_scrollLockY}px`;
+  document.body.style.left='0';
+  document.body.style.right='0';
+  document.body.style.width='100%';
+  document.body.classList.add('modal-open');
+}
+function unlockBodyScroll(){
+  if(_scrollLockCount===0)return;
+  if(--_scrollLockCount>0)return;
+  document.body.style.position='';
+  document.body.style.top='';
+  document.body.style.left='';
+  document.body.style.right='';
+  document.body.style.width='';
+  document.body.classList.remove('modal-open');
+  window.scrollTo(0,_scrollLockY);
+}
+function openModal(id){
+  const el=document.getElementById(id);
+  if(!el||el.classList.contains('active'))return;
+  el.classList.add('active');
+  lockBodyScroll();
+}
 function closeModal(id,force=false){
   if(!force&&typeof window.canCloseModal==='function'&&!window.canCloseModal(id))return;
-  document.getElementById(id).classList.remove('active');
+  const el=document.getElementById(id);
+  if(!el||!el.classList.contains('active'))return;
+  el.classList.remove('active');
+  unlockBodyScroll();
 }
 document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id)})});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-overlay.active').forEach(m=>closeModal(m.id))});

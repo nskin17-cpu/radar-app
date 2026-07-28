@@ -134,13 +134,31 @@
   .crm-om-grid select,.crm-om-line select{min-height:38px;font-size:12px!important}
 
   /* ── Окно заказа: заполнение с телефона ─────────────────────────────────── */
+  /* Пока открыто окно, страница под ним зафиксирована (см. lockBodyScroll) */
+  body.modal-open{overflow:hidden;overscroll-behavior:none}
+  .modal-overlay{overscroll-behavior:contain;touch-action:pan-y}
+  #crmOrderModal .modal{overscroll-behavior-y:contain}
+
   /* iOS увеличивает страницу при фокусе, если шрифт поля меньше 16 px */
   #crmOrderModal input,#crmOrderModal select,#crmOrderModal textarea{
     font-size:16px;
     min-height:42px;
   }
   #crmOrderModal textarea{min-height:64px}
-  #crmOrderModal .input-label{font-size:10px}
+  #crmOrderModal .input-label{
+    font-size:10px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  /* Короткие поля — по два в ряд. Одно поле на строку растягивало форму
+     на несколько экранов, и до состава заказа приходилось долго листать. */
+  #crmOrderModal .crm-grid-2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px 10px!important}
+  #crmOrderModal .crm-grid-3{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px 10px!important}
+  /* Клиент, адрес и комментарий остаются во всю ширину */
+  #crmOrderModal .crm-row-wide{grid-column:1 / -1}
+  #crmOrderModal .input-group{margin-bottom:8px}
+  /* Итоговая сумма — акцентом на всю ширину */
+  #crmOrderModal .crm-grid-3 .input-group:first-child{grid-column:1 / -1}
 
   /* Строка позиции: категория и изделие на всю ширину,
      ниже одной строкой — количество, сетап, цена и удаление */
