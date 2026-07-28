@@ -33,11 +33,22 @@
 .modal-title-row{display:flex;align-items:center;gap:12px}
 .modal-title-row .modal-title{flex:1 1 auto;min-width:0}
 
+/* ── Кнопки: сильно скруглённые углы во всём приложении ───────────────────── */
+/* radar-ui.css подключается после styles.css, поэтому эти правила перекрывают
+   старые радиусы (var(--radius-sm), 4px и т.п.) без роста специфичности. */
+.btn,
+.filter-btn,
+.btn-icon,
+.crm-om-toggle,
+.crm-modal-close{
+  border-radius:999px;
+}
+
 /* Крестик закрытия — то же действие, что «Отмена» */
 .crm-modal-close{
   flex:0 0 auto;
   width:36px;height:36px;
-  border:0;border-radius:10px;
+  border:0;
   background:var(--surface2,#f5f5f7);color:var(--text2,#6b6b70);
   font-size:16px;line-height:1;font-weight:600;
   display:flex;align-items:center;justify-content:center;
@@ -283,7 +294,7 @@
     position:sticky;
     bottom:0;
     left:0;right:0;
-    display:grid;grid-template-columns:1fr;gap:10px;
+    display:grid;grid-template-columns:1fr 1.4fr;gap:10px;
     margin:14px -12px 0;
     padding:12px 12px calc(12px + env(safe-area-inset-bottom))!important;
     background:var(--surface,#fff);
@@ -292,7 +303,7 @@
     z-index:5;
   }
   #crmOrderModal .modal-actions .btn{width:100%;min-height:48px;font-size:15px;font-weight:600}
-  .crm-modal-close{width:42px;height:42px;font-size:18px;border-radius:12px}
+  .crm-modal-close{width:42px;height:42px;font-size:18px}
 
   .crm-collapse>summary{min-height:44px}
   .modal-title-row{gap:8px}
