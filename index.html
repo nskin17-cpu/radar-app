@@ -12,10 +12,15 @@
 <meta name="theme-color" content="#f5f5f7">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- html2canvas + jsPDF оставлены как запасной движок документов (RadarConfig.documents.engine='legacy') -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- pdfmake: векторные смета и акт, одинаковые на всех устройствах -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="radar-ui.css">
 <script>
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -475,12 +480,37 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- SETTINGS -->
     <div id="page-settings" class="page">
-      <div class="page-header"><div><div class="page-title">Настройки</div><div class="page-desc">Резервное хранилище и интеграции</div></div></div>
+      <div class="page-header"><div><div class="page-title">Настройки</div><div class="page-desc">Источник данных, синхронизация и интеграции</div></div></div>
+
       <div class="form-card">
-        <div class="modal-section">Supabase — резервное хранилище</div>
+        <div class="modal-section">Источник данных</div>
+        <div class="radar-sync-panel" id="radarSyncPanel">
+          <div class="radar-sync-row"><span>Основное хранилище</span><strong id="syncPrimary">—</strong></div>
+          <div class="radar-sync-row"><span>Google Sheets</span><span id="syncGoogle" class="radar-sync-pill off">выключены</span></div>
+          <div class="radar-sync-row"><span>Соединение</span><strong id="syncOnline">—</strong></div>
+          <div class="radar-sync-row"><span>Ждут отправки</span><strong id="syncPending">0</strong></div>
+          <div class="radar-sync-row"><span>Локальная копия заказов</span><strong id="syncCache">0</strong></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" onclick="radarRefreshSyncPanel()">Обновить</button>
+          <button class="btn btn-sm btn-secondary" onclick="radarFlushOutbox()">Отправить очередь сейчас</button>
+          <button class="btn btn-sm btn-secondary" onclick="radarToggleGoogleSheets()" id="syncToggleBtn">Включить Google Sheets</button>
+          <button class="btn btn-sm btn-secondary" onclick="radarExportToSheets()" id="syncExportBtn">Выгрузить Supabase → Google Sheets</button>
+          <button class="btn btn-sm btn-secondary" onclick="radarImportMissingOrders()" id="syncImportBtn" title="Переносит только заказы, которых ещё нет в Supabase">Забрать недостающие заказы из Sheets</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--text2);margin-top:10px;line-height:1.6">
+          Сейчас единственный источник данных — Supabase: приложение читает и пишет только туда.
+          Код интеграции с Google Sheets сохранён и включается кнопкой выше.
+          Перед повторным включением синхронизации выгрузите накопленные данные — кнопка «Выгрузить Supabase → Google Sheets»
+          перенесёт заказы, клиентов и склад без потерь (только добавление и обновление, ничего не удаляется).
+        </div>
+        <div id="syncExportStatus" style="margin-top:10px;font-size:12px"></div>
+      </div>
+
+      <div class="form-card">
+        <div class="modal-section">Подключение к Supabase</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-          Данные будут автоматически дублироваться в Supabase при каждом сохранении.<br>
-          Google Sheets остаётся основным хранилищем. Supabase — страховочная копия.
+          Адрес проекта и публичный ключ. Меняйте, только если переезжаете на другой проект Supabase.
         </div>
         <div style="display:grid;grid-template-columns:1fr;gap:10px;max-width:500px">
           <div class="input-group"><label class="input-label">Supabase URL</label><input type="text" id="settingsSbUrl" placeholder="https://xxxxxx.supabase.co"></div>
@@ -489,7 +519,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn btn-sm" onclick="saveSupabaseSettings()">💾 Сохранить</button>
           <button class="btn btn-sm btn-secondary" onclick="testSupabaseConnection()">🔌 Проверить связь</button>
-          <button class="btn btn-sm btn-secondary" id="settingsSyncBtn" onclick="syncAllToSupabase()">🔄 Синхронизировать в Supabase</button>
+          <button class="btn btn-sm btn-secondary" id="settingsSyncBtn" onclick="syncAllToSupabase()" title="Добавит недостающие и обновит существующие записи. Ничего не удаляет.">⬇ Импорт из Google Sheets</button>
           <button class="btn btn-sm btn-danger" onclick="clearSupabaseSettings()" style="margin-left:auto">Очистить</button>
         </div>
         <div id="settingsStatus" style="margin-top:10px;font-size:12px"></div>
@@ -611,7 +641,11 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <!-- CRM ORDER DIALOG -->
 <div class="modal-overlay" id="crmOrderModal">
   <div class="modal" style="width:660px">
-    <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
+    <div class="modal-title-row">
+      <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
+      <span class="crm-save-badge" id="crmSaveBadge"></span>
+    </div>
+    <div class="crm-order-meta" id="crmOrderMeta" style="display:none"></div>
     <input type="hidden" id="crmOrderId">
     <div class="crm-grid-2">
       <div class="input-group">
@@ -703,9 +737,16 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
 <div class="toast-container" id="toasts"></div>
 
+<!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
+<script src="radar-config.js"></script>
+<script src="radar-pricing.js"></script>
+<script src="radar-docs.js"></script>
 <script src="supabase.js"></script>
+<script src="radar-store.js"></script>
+<script src="radar-gateway.js"></script>
 <script src="radar.js"></script>
 <script src="crm.js"></script>
+<script src="radar-status.js"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
@@ -744,9 +785,77 @@ switchPage=function(p){
     document.getElementById('settingsSbKey').value=localStorage.getItem('sbKey')||'';
     const st=document.getElementById('settingsStatus');
     if(window.SUPABASE_URL){st.style.color='var(--green)';st.textContent='Supabase настроен. Дублирование активно.'}
-    else{st.style.color='var(--text2)';st.textContent='Supabase не настроен. Данные хранятся только в Google Sheets.'}
+    else{st.style.color='var(--text2)';st.textContent='Supabase не настроен — приложение не сможет сохранять данные.'}
+    radarRefreshSyncPanel();
   }
 };
+
+// ── Панель состояния синхронизации ───────────────────────────────────────────
+function radarRefreshSyncPanel(){
+  const cfg=window.RadarConfig,store=window.RadarStore;
+  if(!cfg||!store)return;
+  const google=cfg.isGoogleEnabled();
+  document.getElementById('syncPrimary').textContent=cfg.isSupabasePrimary()?'Supabase':'Google Sheets';
+  const g=document.getElementById('syncGoogle');
+  g.textContent=google?'включены':'выключены';
+  g.className='radar-sync-pill '+(google?'on':'off');
+  document.getElementById('syncOnline').textContent=navigator.onLine?'есть':'нет';
+  document.getElementById('syncPending').textContent=store.pendingCount();
+  document.getElementById('syncCache').textContent=store.getOrdersCache().length;
+  document.getElementById('syncToggleBtn').textContent=google?'Выключить Google Sheets':'Включить Google Sheets';
+}
+async function radarFlushOutbox(){
+  const st=document.getElementById('syncExportStatus');
+  st.style.color='var(--text2)';st.textContent='Отправляю очередь…';
+  await window.RadarStore.flush({force:true});
+  const left=window.RadarStore.pendingCount();
+  st.style.color=left?'var(--red)':'var(--green)';
+  st.textContent=left?`Не отправлено: ${left}. Проверьте связь и нажмите ещё раз.`:'Очередь пуста — всё сохранено.';
+  radarRefreshSyncPanel();
+}
+function radarToggleGoogleSheets(){
+  const cfg=window.RadarConfig;
+  const on=!cfg.isGoogleEnabled();
+  if(on&&!confirm('Включить запись в Google Sheets?\n\nSupabase останется основным источником. Перед включением рекомендуется выгрузить накопленные данные.'))return;
+  cfg.set({googleSheets:{enabled:on,mirrorWrites:on}});
+  location.reload();
+}
+async function radarExportToSheets(){
+  const st=document.getElementById('syncExportStatus');
+  const btn=document.getElementById('syncExportBtn');
+  if(!confirm('Выгрузить все заказы, клиентов и склад из Supabase в Google Sheets?\n\nЭто займёт несколько минут: Apps Script отвечает медленно. Ничего не удаляется — только добавление и обновление.'))return;
+  btn.disabled=true;st.style.color='var(--text2)';st.textContent='Выгрузка началась…';
+  try{
+    // Выгрузка идёт напрямую в Apps Script, минуя флаг: он для повседневной работы.
+    const res=await window.RadarStore.exportToGoogleSheets((a,d)=>gasApi(a,d),msg=>{st.textContent=msg});
+    const r=res.report||{};
+    st.style.color=res.success?'var(--green)':'var(--red)';
+    st.textContent=`Выгружено — заказы: ${r.orders||0}, клиенты: ${r.clients||0}, склад: ${r.stock||0}`+
+      ((r.failed&&r.failed.length)?`. Не удалось: ${r.failed.length} (${r.failed.slice(0,5).join(', ')}…)`:'');
+  }catch(e){
+    st.style.color='var(--red)';st.textContent='Ошибка выгрузки: '+(e?.message||e);
+  }finally{btn.disabled=false}
+}
+async function radarImportMissingOrders(){
+  const st=document.getElementById('syncExportStatus');
+  const btn=document.getElementById('syncImportBtn');
+  if(!confirm('Сверить Google Sheets и Supabase и перенести заказы, которых в Supabase нет?\n\nСуществующие записи не изменяются, ничего не удаляется.'))return;
+  btn.disabled=true;st.style.color='var(--text2)';st.textContent='Сверяю списки…';
+  try{
+    const r=await window.RadarStore.importMissingOrdersFromGoogle((a,d)=>gasApi(a,d));
+    if(r.error){st.style.color='var(--red)';st.textContent='Ошибка: '+r.error;return}
+    st.style.color=r.failed.length?'var(--red)':'var(--green)';
+    st.innerHTML=`В Google Sheets: ${r.inSheets}, в Supabase было: ${r.inSupabase}. Перенесено: ${r.imported.length}`+
+      (r.imported.length?'<br>'+r.imported.map(o=>`• ${o.client} — ${o.amount}₽ (позиций: ${o.items})`).join('<br>'):'')+
+      (r.skippedEmpty.length?`<br>Пропущено пустых строк без клиента: ${r.skippedEmpty.length}`:'')+
+      (r.failed.length?`<br>Не удалось: ${r.failed.map(f=>f.id+' — '+f.error).join('; ')}`:'');
+    if(r.imported.length&&typeof crmInit==='function'){crmOrders=[];await crmInit()}
+    radarRefreshSyncPanel();
+  }catch(e){st.style.color='var(--red)';st.textContent='Ошибка: '+(e?.message||e)}
+  finally{btn.disabled=false}
+}
+window.addEventListener('online',radarRefreshSyncPanel);
+window.addEventListener('offline',radarRefreshSyncPanel);
 </script>
 </body>
 </html>

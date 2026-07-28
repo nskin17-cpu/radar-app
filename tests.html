@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar NR — проверка модуля заказов</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:24px;background:#f5f5f7;color:#1d1d1f}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:#86868b;font-size:13px;margin-bottom:18px}
+  #summary{display:inline-block;padding:8px 14px;border-radius:8px;font-weight:700;font-size:14px;margin-bottom:14px}
+  .ok{background:#dff6e8;color:#1c7c3c}.bad{background:#ffe5e3;color:#c0261c}.run{background:#e0edff;color:#0a68d8}
+  .grp{background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:10px;border:1px solid rgba(0,0,0,.07)}
+  .grp h2{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:1.2px;color:#86868b}
+  .t{display:flex;gap:8px;padding:4px 0;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;border-bottom:1px solid #f2f2f4}
+  .t:last-child{border:0}
+  .t .m{color:#1c7c3c;flex:0 0 18px}.t.f .m{color:#c0261c}
+  .t .d{color:#c0261c;margin-left:auto;font-size:12px}
+  iframe{width:100%;height:760px;border:1px solid rgba(0,0,0,.12);border-radius:10px;background:#fff}
+  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:#fff;cursor:pointer;margin-right:8px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
+  window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
+  // Тесты не должны трогать рабочие ключи кэша и очереди.
+  localStorage.setItem('radar.config.v1',JSON.stringify({
+    outbox:{storageKey:'test.outbox'},
+    cache:{ordersKey:'test.orders',clientsKey:'test.clients',stockKey:'test.stock',
+           categoriesKey:'test.cats',pricingKey:'test.pricing',draftKey:'test.draft',sessionKey:'test.session'}
+  }));
+</script>
+<script src="radar-config.js"></script>
+<script src="radar-pricing.js"></script>
+<script src="radar-docs.js"></script>
+<script src="radar-store.js"></script>
+</head>
+<body>
+<h1>Radar NR — проверка модуля заказов и смет</h1>
+<div class="sub">Тесты идут по живой базе Supabase. Все создаваемые записи помечены префиксом <code>TEST-</code> и удаляются в конце.</div>
+<div id="summary" class="run">Запуск…</div>
+<div id="out"></div>
+<div class="grp">
+  <h2>Смета на 120 позиций — визуальная проверка</h2>
+  <button onclick="downloadDoc('estimate',true)">Скачать смету со скидкой</button>
+  <button onclick="downloadDoc('estimate',false)">Смета без скидки</button>
+  <button onclick="downloadDoc('act')">Акт</button>
+  <div style="font-size:12px;color:#86868b;margin-top:10px">Документы собираются из тех же данных, что и проверки выше — откройте их в любом просмотрщике PDF.</div>
+  <div id="preview" style="margin-top:12px"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  // pdf.js — только для тестового стенда: рисует готовый PDF на canvas,
+  // чтобы разметку можно было проверить глазами, а не на слово.
+  // Воркер с чужого домена браузер не пускает — подсовываем его как blob.
+  let workerReady=null;
+  async function initPdfJs(){
+    if(!window.pdfjsLib)return false;
+    if(workerReady)return workerReady;
+    workerReady=(async()=>{
+      const src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      try{
+        const code=await (await fetch(src)).text();
+        pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+      }catch(e){pdfjsLib.GlobalWorkerOptions.workerSrc=src}
+      return true;
+    })();
+    return workerReady;
+  }
+  /**
+   * Разбирает готовый PDF: текст постранично и целиком, без отрисовки.
+   * Заголовки в макете идут с разрядкой букв (characterSpacing), поэтому
+   * рядом отдаётся «сжатая» версия текста без пробелов — по ней и проверяем.
+   */
+  async function extractPdf(kind,pageNo){
+    await initPdfJs();
+    const calc=kind==='act'?window._docCalcStd:window._docCalcPro;
+    const blob=await RadarDocs.toBlob(kind,window._docOrder,calc,{withDiscount:kind!=='act'});
+    const doc=await pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;
+    const pageTexts=[];
+    for(let i=1;i<=doc.numPages;i++){
+      const p=await doc.getPage(i);
+      pageTexts.push((await p.getTextContent()).items.map(x=>x.str).join(' '));
+    }
+    const n=pageNo===0?doc.numPages:Math.min(pageNo||1,doc.numPages);
+    const page=await doc.getPage(n);
+    const all=pageTexts.join('\n');
+    return{
+      doc,page,blob,n,pages:doc.numPages,
+      text:pageTexts[n-1],
+      pageTexts,
+      all,
+      squash:all.replace(/\s+/g,''),
+      squashPage:i=>(pageTexts[i-1]||'').replace(/\s+/g,'')
+    };
+  }
+  function downloadDoc(kind,withDiscount){
+    const calc=kind==='act'?window._docCalcStd:(withDiscount?window._docCalcPro:window._docCalcStd);
+    RadarDocs.download(kind,window._docOrder,calc,{withDiscount:!!withDiscount});
+  }
+</script>
+
+<script>
+// ── микро-раннер ─────────────────────────────────────────────────────────────
+const out=document.getElementById('out');
+let pass=0,fail=0,group=null;
+function G(name){group=document.createElement('div');group.className='grp';group.innerHTML='<h2>'+name+'</h2>';out.appendChild(group)}
+function check(name,cond,detail){
+  const row=document.createElement('div');
+  row.className='t'+(cond?'':' f');
+  row.innerHTML='<span class="m">'+(cond?'✓':'✕')+'</span><span>'+name+'</span>'+
+                (!cond&&detail?'<span class="d">'+String(detail).slice(0,140)+'</span>':'');
+  group.appendChild(row);
+  cond?pass++:fail++;
+  return cond;
+}
+function eq(name,actual,expected){return check(name+' = '+expected,actual===expected,'получено: '+actual)}
+// Предупреждение — состояние окружения, а не дефект кода (например, не применённая миграция).
+let warns=0;
+function warn(name,cond,detail){
+  const row=document.createElement('div');
+  row.className='t';
+  row.innerHTML='<span class="m" style="color:'+(cond?'#1c7c3c':'#b8860b')+'">'+(cond?'✓':'!')+'</span><span>'+name+'</span>'+
+                (!cond?'<span class="d" style="color:#b8860b">'+String(detail||'').slice(0,160)+'</span>':'');
+  group.appendChild(row);
+  if(cond)pass++;else warns++;
+  return cond;
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+const P=window.RadarPricing,S=window.RadarStore,D=window.RadarDocs;
+const TEST_ID='TEST-'+Date.now();
+let bigOrder=null;
+
+// ── 1. Сервис расчёта ────────────────────────────────────────────────────────
+function testPricing(){
+  G('1. Единый сервис расчёта');
+  const pricing={deliveryBaseCity:7200,deliveryPerKm:110,setupMin:2500,setupGlass:55,setupPlate:45,setupChairNepal:105};
+  const items=[
+    {name:'Стул "Непал" Белый',category:'Непал',qty:10,price:720,setup:true,setupRate:105},
+    {name:'Бокал вино',category:'Бокалы',qty:20,price:60,setup:true,setupRate:55},
+    {name:'Тарелка обеденная',category:'Тарелки',qty:20,price:50,setup:false,setupRate:45}
+  ];
+  const base={items,pricing,deliveryType:'delivery',deliveryZone:'city',paymentStatus:'pending_confirmation'};
+
+  // Сырой сетап 10*105+20*55 = 2150 — это ниже минимума 2500, поэтому итог 2500.
+  const SETUP=2500;
+  let r=P.calcOrder(base);
+  eq('сумма позиций',r.itemsGross,10*720+20*60+20*50);          // 9400
+  eq('доставка по городу',r.deliveryCost,7200);
+  eq('сетап подтянут до минимума',r.setupCost,SETUP);
+  eq('итог',r.orderAmount,9400+7200+SETUP);
+
+  r=P.calcOrder({...base,items:[{...items[0],qty:60}]});
+  eq('сетап выше минимума считается по ставке',r.setupCost,60*105);
+
+  r=P.calcOrder({...base,items:[{...items[2],setup:false}]});
+  eq('сетап выключен у всех позиций -> 0',r.setupCost,0);
+
+  r=P.calcOrder({...base,deliveryZone:'outside',deliveryKm:30});
+  eq('доставка за город',r.deliveryCost,7200+30*110);
+
+  r=P.calcOrder({...base,deliveryType:'pickup'});
+  eq('самовывоз -> доставка 0',r.deliveryCost,0);
+
+  r=P.calcOrder({...base,discount:20});
+  eq('скидка 20%',r.discountAmount,1880);
+  eq('товары со скидкой',r.itemsTotal,9400-1880);
+  eq('итог со скидкой',r.orderAmount,7520+7200+SETUP);
+
+  r=P.calcOrder({...base,extraChargeAmount:3000});
+  eq('доп. услуга в итоге',r.orderAmount,9400+7200+SETUP+3000);
+
+  r=P.calcOrder({...base,manual:{orderAmount:12345,deliveryCost:0}});
+  eq('ручная сумма не перетирается',r.orderAmount,12345);
+  eq('ручная доставка = 0',r.deliveryCost,0);
+
+  r=P.calcOrder({...base,paymentStatus:'paid'});
+  eq('оплачен -> внесено = итог',r.paidAmount,r.orderAmount);
+  eq('оплачен -> остаток 0',r.remainingAmount,0);
+
+  r=P.calcOrder({...base,paidAmount:5000});
+  eq('остаток',r.remainingAmount,r.orderAmount-5000);
+
+  check('категории посчитаны',r.categories.length===3,r.categories.length);
+  check('сумма по категории «Непал»',r.categories.find(c=>c.category==='Непал').total===7200);
+
+  const est=P.calcEstimate({items,discount:20,deliveryType:'delivery',deliveryZone:'city',
+    deliveryCost:7200,setupCost:2150,extraChargeAmount:0,paymentStatus:'confirmed',paidAmount:0},pricing,true);
+  eq('цена позиции со скидкой',est.items[0].unitPrice,576);
+  const estNo=P.calcEstimate({items,discount:20,deliveryType:'delivery',deliveryZone:'city',
+    deliveryCost:7200,setupCost:2150,extraChargeAmount:0,paymentStatus:'confirmed',paidAmount:0},pricing,false);
+  eq('смета без скидки — полная цена',estNo.items[0].unitPrice,720);
+}
+
+// ── 2. Модель заказа ─────────────────────────────────────────────────────────
+function testModel(){
+  G('2. Единая модель заказа');
+  const raw={id:'O1',clientName:'Тест',deliveryZone:'outside',deliveryKm:42,
+    extraChargeAmount:1500,extraChargeNote:'вторая точка',items:[{name:'A',qty:'7',price:'100'}],
+    orderAmount:5000,paidAmount:2000,startDate:'2026-08-01T00:00:00.000Z'};
+  const o=S.normalizeOrder(raw);
+  eq('зона доставки сохранена',o.deliveryZone,'outside');
+  eq('км сохранены',o.deliveryKm,42);
+  eq('доп. услуга сохранена',o.extraChargeAmount,1500);
+  eq('причина доп. услуги',o.extraChargeNote,'вторая точка');
+  eq('qty приведён к числу',o.items[0].qty,7);
+  eq('цена приведена к числу',o.items[0].price,100);
+  eq('дата обрезана до YYYY-MM-DD',o.startDate,'2026-08-01');
+  eq('остаток посчитан',o.remainingAmount,3000);
+  check('номер заказа сгенерирован',/^NR-\d{6}-\d{4}$/.test(o.orderNumber),o.orderNumber);
+
+  const row=S.orderToRow(o);
+  check('в строку БД попала зона',row.delivery_zone==='outside');
+  check('в строку БД попали км',row.delivery_km===42);
+  check('в строку БД попала доп. услуга',row.extra_charge_amount===1500);
+  check('пустая дата -> null',S.orderToRow(S.normalizeOrder({id:'x'})).start_date===null);
+
+  const back=S.normalizeOrder(row);
+  eq('round-trip: зона',back.deliveryZone,'outside');
+  eq('round-trip: км',back.deliveryKm,42);
+
+  G('3. История изменений');
+  const prev=S.normalizeOrder({id:'O1',clientName:'Иван',orderAmount:1000,items:[{name:'A',qty:1,price:10}]});
+  const next=S.normalizeOrder({id:'O1',clientName:'Пётр',orderAmount:2000,items:[{name:'A',qty:2,price:10}]});
+  const log=S.buildChangeLog(prev,next,'tester');
+  check('замечена смена клиента',log.some(e=>e.field==='clientName'&&e.from==='Иван'&&e.to==='Пётр'));
+  check('замечена смена суммы',log.some(e=>e.field==='orderAmount'));
+  check('замечено изменение состава',log.some(e=>e.field==='items'));
+  check('автор записан',log.every(e=>e.user==='tester'));
+  eq('без изменений — пустая история',S.buildChangeLog(prev,prev,'t').length,0);
+  check('создание отмечено',S.buildChangeLog(null,next,'t')[0].field==='_created');
+}
+
+// ── 4. Очередь (outbox) ──────────────────────────────────────────────────────
+function testOutbox(){
+  G('4. Журнал упреждающей записи');
+  S.clearOutbox();
+  const o=S.normalizeOrder({id:TEST_ID+'-q',clientName:'Очередь',orderAmount:100});
+  S.saveOrder(o);
+  eq('операция в очереди',S.pendingCount(),1);
+  const raw=localStorage.getItem('test.outbox');
+  check('очередь лежит в localStorage (переживёт перезагрузку)',!!raw&&raw.includes(TEST_ID));
+
+  S.saveOrder({...o,orderAmount:200});
+  S.saveOrder({...o,orderAmount:300});
+  eq('правки одного заказа схлопнулись',S.pendingCount(),1);
+  eq('в очереди последнее состояние',S.readOutbox()[0].payload.orderAmount,300);
+
+  S.saveOrder(S.normalizeOrder({id:TEST_ID+'-q2',clientName:'Второй',orderAmount:1}));
+  eq('разные заказы не схлопываются',S.pendingCount(),2);
+
+  const restored=S.applyPendingOps([]);
+  check('неотправленный заказ виден в списке',restored.some(x=>x.id===TEST_ID+'-q'),
+        'иначе он «пропал бы» после перезагрузки');
+  eq('и с актуальной суммой',restored.find(x=>x.id===TEST_ID+'-q').orderAmount,300);
+
+  S.deleteOrder(TEST_ID+'-q');
+  check('удаление вытесняет запись',S.applyPendingOps([{id:TEST_ID+'-q'}]).every(x=>x.id!==TEST_ID+'-q'));
+  S.clearOutbox();
+  eq('очередь очищена',S.pendingCount(),0);
+}
+
+// ── 5. Живой Supabase: полный жизненный цикл ─────────────────────────────────
+async function testSupabase(){
+  G('5. Supabase — создание, чтение, правка, удаление');
+  const sb=S.sb();
+  if(!check('клиент Supabase создан',!!sb))return;
+  check('клиент — синглтон (нет утечки)',S.sb()===sb);
+
+  const order=S.normalizeOrder({
+    id:TEST_ID,clientName:'ТЕСТ Автопроверка',clientPhone:'8-000-000-00-00',
+    startDate:'2026-12-01',endDate:'2026-12-02',status:'preparing',paymentStatus:'confirmed',
+    deliveryType:'delivery',deliveryZone:'outside',deliveryKm:25,deliveryAddress:'Тестовый адрес',
+    orderAmount:12345,paidAmount:1000,discount:15,extraChargeAmount:700,extraChargeNote:'тест',
+    items:[{name:'Позиция 1',category:'Тест',qty:3,price:100},{name:'Позиция 2',category:'Тест',qty:2,price:250}],
+    comment:'создан автотестом'
+  });
+  S.saveOrder(order,{user:'autotest'});
+  await S.flush({force:true});
+  eq('очередь пуста после отправки',S.pendingCount(),0);
+  eq('статус = сохранено',S.getStatus().state,'saved');
+
+  let res=await sb.from('orders').select('*').eq('id',TEST_ID);
+  if(!check('заказ найден в базе',res.data&&res.data.length===1,res.error&&res.error.message))return;
+  const row=res.data[0];
+  eq('клиент записан',row.client_name,'ТЕСТ Автопроверка');
+  eq('сумма записана',Number(row.order_amount),12345);
+  eq('позиций записано',row.items.length,2);
+  check('дата записана',row.start_date==='2026-12-01',row.start_date);
+
+  const hasZone='delivery_zone' in row;
+  warn('колонка delivery_zone есть',hasZone,'миграция sql/migration-2026-07-orders.sql ещё не применена — зона, км, доп. услуга и история пока не сохраняются');
+  warn('колонка change_log есть','change_log' in row,'после миграции появится история изменений');
+  if(hasZone)eq('зона доставки записана',row.delivery_zone,'outside');
+  check('заказ сохранён и без миграции (мягкая деградация)',Number(row.order_amount)===12345);
+
+  // правка
+  const loaded=S.normalizeOrder(row);
+  S.saveOrder({...loaded,orderAmount:99999,status:'in_progress'},{previous:loaded,user:'autotest'});
+  await S.flush({force:true});
+  res=await sb.from('orders').select('*').eq('id',TEST_ID);
+  eq('правка применилась',Number(res.data[0].order_amount),99999);
+  eq('статус изменился',res.data[0].status,'in_progress');
+  eq('прочие поля не потерялись',res.data[0].client_name,'ТЕСТ Автопроверка');
+  eq('позиции не потерялись',res.data[0].items.length,2);
+
+  // частичный патч (как из списка заказов)
+  const cur=S.normalizeOrder(res.data[0]);
+  S.saveOrder({...cur,paymentStatus:'paid'},{previous:cur,user:'autotest'});
+  await S.flush({force:true});
+  res=await sb.from('orders').select('*').eq('id',TEST_ID);
+  eq('частичная правка: оплата',res.data[0].payment_status,'paid');
+  eq('частичная правка: позиции целы',res.data[0].items.length,2);
+  eq('частичная правка: сумма цела',Number(res.data[0].order_amount),99999);
+
+  // идемпотентность: повтор той же записи не плодит дубли
+  S.saveOrder(cur,{previous:cur,user:'autotest'});
+  S.saveOrder(cur,{previous:cur,user:'autotest'});
+  await S.flush({force:true});
+  res=await sb.from('orders').select('id').eq('id',TEST_ID);
+  eq('повторная отправка не создала дубль',res.data.length,1);
+}
+
+// ── 6. Офлайн ────────────────────────────────────────────────────────────────
+async function testOffline(){
+  G('6. Обрыв связи и восстановление');
+  const real=Object.getOwnPropertyDescriptor(Navigator.prototype,'onLine');
+  Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});
+  window.dispatchEvent(new Event('offline'));
+
+  const id=TEST_ID+'-off';
+  S.saveOrder(S.normalizeOrder({id,clientName:'ТЕСТ Офлайн',orderAmount:555,startDate:'2026-12-03'}));
+  await S.flush({force:true});
+  eq('офлайн: заказ остался в очереди',S.pendingCount(),1);
+  eq('офлайн: статус',S.getStatus().state,'offline');
+  check('офлайн: заказ виден в списке',S.applyPendingOps([]).some(x=>x.id===id));
+
+  Object.defineProperty(navigator,'onLine',real||{configurable:true,get:()=>true});
+  window.dispatchEvent(new Event('online'));
+  await sleep(300);
+  await S.flush({force:true});
+  eq('после восстановления очередь ушла',S.pendingCount(),0);
+  const res=await S.sb().from('orders').select('id').eq('id',id);
+  check('заказ доехал до базы сам',res.data&&res.data.length===1);
+}
+
+// ── 7. Большой заказ ─────────────────────────────────────────────────────────
+async function testBigOrder(){
+  G('7. Большой заказ (300 позиций)');
+  const items=Array.from({length:300},(_,i)=>({
+    name:'Позиция с очень длинным названием для проверки переноса строк № '+(i+1),
+    category:'Категория '+(i%7+1),qty:(i%9)+1,price:(i%13+1)*50,setup:i%2===0,setupRate:55
+  }));
+  const id=TEST_ID+'-big';
+  const t0=performance.now();
+  const calc=P.calcOrder({items,pricing:{},deliveryType:'delivery',deliveryZone:'city',paymentStatus:'confirmed'});
+  const calcMs=performance.now()-t0;
+  check('расчёт 300 позиций быстрее 50 мс',calcMs<50,calcMs.toFixed(1)+' мс');
+
+  const order=S.normalizeOrder({id,clientName:'ТЕСТ Большой',startDate:'2026-12-04',endDate:'2026-12-05',
+    items,orderAmount:calc.orderAmount,deliveryCost:calc.deliveryCost,setupCost:calc.setupCost});
+  S.saveOrder(order,{user:'autotest'});
+  await S.flush({force:true});
+  eq('большой заказ отправлен',S.pendingCount(),0);
+  const res=await S.sb().from('orders').select('items,order_amount').eq('id',id);
+  if(check('большой заказ найден в базе',res.data&&res.data.length===1,res.error&&res.error.message)){
+    eq('все 300 позиций сохранились',res.data[0].items.length,300);
+    eq('сумма сохранилась',Number(res.data[0].order_amount),calc.orderAmount);
+  }
+  bigOrder={order:S.normalizeOrder({...order,clientName:'ТЕСТ Большой заказ',clientPhone:'8-900-000-00-00',
+    deliveryAddress:'Ростов-на-Дону, ул. Тестовая, 1',depositAmount:15000,discount:20,carryFloor:'yes'}),items};
+}
+
+// ── 8. Документы ─────────────────────────────────────────────────────────────
+function pdfPageCount(bytes){
+  const s=new TextDecoder('latin1').decode(bytes);
+  const m=s.match(/\/Count\s+(\d+)/g);
+  if(!m)return 0;
+  return Math.max(...m.map(x=>Number(x.replace(/\D/g,''))));
+}
+async function testDocs(){
+  G('8. Генерация смет (pdfmake)');
+  check('pdfmake загрузился',D.ready());
+  const items=bigOrder?bigOrder.items.slice(0,120):[{name:'Позиция',category:'К',qty:1,price:100,setup:true}];
+  const order=S.normalizeOrder({id:TEST_ID+'-doc',orderNumber:'NR-202612-0001',
+    clientName:'ООО «Ромашка» / Мария Иванова',clientPhone:'8-900-123-45-67',companyName:'Ромашка',
+    startDate:'2026-12-04',endDate:'2026-12-05',deliveryType:'delivery',deliveryZone:'outside',deliveryKm:35,
+    deliveryAddress:'Ростов-на-Дону, ул. Тестовая, 1, банкетный зал «Гранд»',
+    depositAmount:15000,discount:20,carryFloor:'yes',extraChargeAmount:4500,extraChargeNote:'Вторая точка разгрузки',items});
+
+  const calcPro=P.calcEstimate(order,{},true);
+  const calcStd=P.calcEstimate(order,{},false);
+  check('в смете со скидкой цена ниже',calcPro.items[0].unitPrice<calcStd.items[0].unitPrice);
+  eq('итог сметы = итогу расчёта формы',calcPro.orderAmount,
+     P.calcOrder({items,pricing:{},discount:20,deliveryType:'delivery',deliveryZone:'outside',deliveryKm:35,
+       extraChargeAmount:4500,manual:{deliveryCost:calcPro.deliveryCost,setupCost:calcPro.setupCost}}).orderAmount);
+
+  const t0=performance.now();
+  const blob=await D.toBlob('estimate',order,calcPro,{withDiscount:true});
+  const ms=performance.now()-t0;
+  check('смета на 120 позиций собралась',blob.size>0,blob.size);
+  check('сборка быстрее 5 с',ms<5000,ms.toFixed(0)+' мс');
+  check('это настоящий PDF, а не картинка',blob.type==='application/pdf',blob.type);
+  check('файл лёгкий (<600 КБ) — вектор, а не растр',blob.size<600*1024,Math.round(blob.size/1024)+' КБ');
+
+  const bytes=new Uint8Array(await blob.arrayBuffer());
+  eq('сигнатура PDF',String.fromCharCode(...bytes.slice(0,4)),'%PDF');
+  const pages=pdfPageCount(bytes);
+  check('документ разбит на несколько страниц',pages>=3,'страниц: '+pages);
+
+  const act=await D.toBlob('act',order,calcStd);
+  check('акт собрался',act.size>0);
+  eq('имя файла сметы',D.fileName('estimate',order,{withDiscount:true}),'Смета_профессионал_NR-202612-0001.pdf');
+  eq('имя файла акта',D.fileName('act',order),'Акт_NR-202612-0001.pdf');
+
+  // Пустой заказ не должен ронять генератор
+  const empty=S.normalizeOrder({id:'E',clientName:'Пусто'});
+  const emptyBlob=await D.toBlob('estimate',empty,P.calcEstimate(empty,{},false),{withDiscount:false});
+  check('смета без позиций не падает',emptyBlob.size>0);
+
+  window._docOrder=order;window._docCalcPro=calcPro;window._docCalcStd=calcStd;
+}
+
+// ── 9. Уборка ────────────────────────────────────────────────────────────────
+async function cleanup(){
+  G('9. Уборка тестовых данных');
+  const sb=S.sb();
+  const res=await sb.from('orders').delete().like('id','TEST-%').select('id');
+  check('тестовые заказы удалены из базы',!res.error,res.error&&res.error.message);
+  const left=await sb.from('orders').select('id').like('id','TEST-%');
+  eq('тестовых заказов не осталось',(left.data||[]).length,0);
+  ['test.outbox','test.orders','test.clients','test.stock','test.cats','test.pricing','test.draft','test.session',
+   'radar.config.v1'].forEach(k=>localStorage.removeItem(k));
+  check('локальные тестовые ключи очищены',!localStorage.getItem('test.outbox'));
+}
+
+// ── 8b. Текст внутри PDF (кириллица не должна превращаться в кракозябры) ─────
+async function testPdfText(){
+  G('8b. Содержимое PDF');
+  if(!window.pdfjsLib){check('pdf.js доступен для проверки',false);return}
+  const est=await extractPdf('estimate',1);
+  const S1=est.squash;
+  check('текст извлекается (PDF векторный, а не картинка)',est.all.length>2000,est.all.length+' символов');
+  check('кириллица читается',S1.includes('СМЕТА')&&S1.includes('КЛИЕНТ'),est.text.slice(0,140));
+  check('символ рубля на месте',S1.includes('₽'));
+  check('название компании',S1.includes('NANDRENT'));
+  check('номер заказа в документе',S1.includes('NR-202612-0001'));
+  check('имя клиента попало в документ',S1.includes('МарияИванова'),est.text.slice(0,240));
+  check('раздел «Состав заказа»',S1.includes('СОСТАВЗАКАЗА'));
+  check('длинное название позиции не обрезано',S1.includes('оченьдлиннымназванием'));
+  const itemsFound=(S1.match(/Позициясоченьдлинным/g)||[]).length;
+  check('все 120 позиций в документе',itemsFound===120,'найдено: '+itemsFound);
+  check('документ многостраничный',est.pages>=5,'страниц: '+est.pages);
+
+  const withHeader=est.pageTexts.filter(t=>t.replace(/\s+/g,'').includes('Наименование')).length;
+  check('шапка таблицы повторяется на каждой странице с позициями',withHeader>=est.pages-2,
+        'страниц с шапкой: '+withHeader+' из '+est.pages);
+  const numbered=est.pageTexts.filter((t,i)=>t.replace(/\s+/g,'').includes((i+1)+'/'+est.pages)).length;
+  check('колонтитул с номером на каждой странице',numbered===est.pages,'пронумеровано: '+numbered);
+
+  check('итоговый блок присутствует',S1.includes('Итогокоплате'));
+  check('скидка показана',S1.includes('Скидка20%'));
+  check('доп. услуга в итогах',S1.includes('Второйточкаразгрузки')||S1.includes('Втораяточкаразгрузки'));
+  check('условия оплаты',S1.includes('ПРЕДОПЛАТА')&&S1.includes('УСЛОВИЯОПЛАТЫ'));
+  check('залог в условиях',S1.includes('ЗАЛОГ')&&S1.includes('15000'));
+  check('ссылка на условия работы',S1.includes('nandrent.ru/uslovia'));
+  check('зона доставки за город',S1.includes('35кмотгорода'));
+  // Итоговый и платёжный блоки не должны разрываться между страницами (unbreakable)
+  const totalsPage=est.pageTexts.findIndex(t=>t.replace(/\s+/g,'').includes('Итогокоплате'))+1;
+  const paymentPage=est.pageTexts.findIndex(t=>t.replace(/\s+/g,'').includes('УСЛОВИЯОПЛАТЫ'))+1;
+  check('блок «Итог» не разорван между страницами',
+        est.squashPage(totalsPage).includes('Сумматоваров')&&est.squashPage(totalsPage).includes('Итогокоплате'),
+        'стр. '+totalsPage);
+  check('блок «Условия оплаты» не разорван между страницами',
+        est.squashPage(paymentPage).includes('ПРЕДОПЛАТА')&&est.squashPage(paymentPage).includes('РЕКВИЗИТЫ'),
+        'стр. '+paymentPage);
+
+  const act=await extractPdf('act',1);
+  const A=act.squash;
+  check('акт: заголовок',A.includes('АКТПЕРЕДАЧИ'));
+  check('акт: колонки получено/возвращено',A.includes('Получено')&&A.includes('Возвращено'));
+  check('акт: подписи',/подтверждаю/i.test(act.all));
+  check('акт: все позиции',(A.match(/Позициясоченьдлинным/g)||[]).length===120,
+        'найдено: '+(A.match(/Позициясоченьдлинным/g)||[]).length);
+  check('акт: залог',A.includes('ЗАЛОГПРИНЯТ'));
+
+  // ── Геометрия: ничего не выходит за поля и не наезжает на колонтитул ───────
+  G('8c. Геометрия страниц (поля не съезжают)');
+  const M={left:60,right:60,top:44,bottom:46};
+  let worst={l:1e9,r:-1e9,t:-1e9,b:1e9},outside=[],total=0;
+  for(let i=1;i<=est.pages;i++){
+    const page=await est.doc.getPage(i);
+    const vp=page.getViewport({scale:1});
+    const txt=await page.getTextContent();
+    txt.items.forEach(it=>{
+      if(!it.str.trim())return;
+      total++;
+      const x=it.transform[4],y=it.transform[5],w=it.width||0,h=it.height||0;
+      worst.l=Math.min(worst.l,x); worst.r=Math.max(worst.r,x+w);
+      worst.b=Math.min(worst.b,y); worst.t=Math.max(worst.t,y+h);
+      // pdf.js отдаёт height как кегль шрифта, а не как реальную высоту глифов
+      // (верх строки = базовая линия + восходящий элемент ≈ 0.93 кегля),
+      // поэтому по вертикали допуск больше: расхождение чисто измерительное.
+      if(x<M.left-1||x+w>vp.width-M.right+1||y<8||y+h>vp.height-M.top+3){
+        outside.push(`стр.${i} "${it.str.slice(0,30)}" x=${x.toFixed(1)} y=${y.toFixed(1)} w=${w.toFixed(1)}`);
+      }
+    });
+  }
+  check('текстовых фрагментов проверено',total>1000,total);
+  check('ни один элемент не выходит за поля',outside.length===0,outside.slice(0,3).join(' | '));
+  check('левое поле выдержано',worst.l>=M.left-1,'мин. x = '+worst.l.toFixed(1));
+  check('правое поле выдержано',worst.r<=595.28-M.right+1,'макс. x+w = '+worst.r.toFixed(1));
+  check('низ страницы не перекрыт',worst.b>=8,'мин. y = '+worst.b.toFixed(1));
+  check('верх страницы не перекрыт',worst.t<=841.89-M.top+3,'макс. y+h = '+worst.t.toFixed(1));
+}
+
+(async function run(){
+  const sum=document.getElementById('summary');
+  try{
+    testPricing();
+    testModel();
+    testOutbox();
+    await testSupabase();
+    await testOffline();
+    await testBigOrder();
+    await testDocs();
+    await testPdfText();
+    await cleanup();
+  }catch(e){
+    G('НЕОЖИДАННАЯ ОШИБКА');
+    check(String(e&&e.stack||e),false);
+  }
+  sum.className=fail?'bad':'ok';
+  sum.textContent=(fail?`Провалено ${fail} из ${pass+fail}`:`Все ${pass} проверок пройдены`)+
+                  (warns?` · предупреждений: ${warns}`:'');
+  window.__done=true;window.__pass=pass;window.__fail=fail;window.__warns=warns;
+})();
+</script>
+</body>
+</html>

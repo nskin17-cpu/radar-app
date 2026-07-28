@@ -44,19 +44,90 @@ function normalizeCompetitorRecord(raw){
   return out;
 }
 
+const GAS_TIMEOUT_MS=25000;
+
+/**
+ * Единая точка обращения к данным.
+ *
+ * Маршрут выбирается по RadarConfig:
+ *   • Supabase основной  -> запрос уходит в RadarGateway (тот же контракт ответа);
+ *   • Google выключены   -> действие не выполняется и честно возвращает ошибку,
+ *                           вместо того чтобы молча «получиться»;
+ *   • Google включены    -> прежний вызов Apps Script.
+ *
+ * Возврат {success:false} больше не притворяется успехом: вызывающий код обязан
+ * проверять success (см. crmSaveOrder).
+ */
 async function api(action,data={}){
-  try{const r=await fetch(API_URL,{method:'POST',mode:'cors',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...data,action})});return await r.json()}
-  catch(e){try{const p=new URLSearchParams({payload:JSON.stringify({...data,action})});const r2=await fetch(API_URL+'?'+p.toString(),{method:'GET',redirect:'follow'});return await r2.json()}catch(e2){showToast('Ошибка сети','error');return{success:false}}}
+  if(window.RadarConfig?.isSupabasePrimary()&&window.RadarGateway?.handles(action)){
+    return window.RadarGateway.call(action,data);
+  }
+  if(window.RadarConfig&&!window.RadarConfig.isGoogleActionAllowed(action)){
+    return {success:false,disabled:true,error:`Google Sheets отключены (действие «${action}» пропущено)`};
+  }
+  return gasApi(action,data);
 }
 
-// Дублирование данных в Supabase (резервное хранилище, fire-and-forget)
+/** Прямой вызов Google Apps Script. Код интеграции сохранён целиком. */
+async function gasApi(action,data={}){
+  const body=JSON.stringify({...data,action});
+  const withTimeout=async(fn)=>{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),GAS_TIMEOUT_MS);
+    try{return await fn(ctrl.signal)}finally{clearTimeout(t)}
+  };
+  try{
+    const r=await withTimeout(signal=>fetch(API_URL,{method:'POST',mode:'cors',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body,signal}));
+    return await r.json();
+  }catch(e){
+    // Повтор через GET оставлен как запасной путь, но только для чтения:
+    // повторять запись небезопасно — исходный POST мог уже дойти до сервера,
+    // и ретрай создавал второй такой же заказ.
+    const isRead=/^get/i.test(action);
+    if(!isRead)return{success:false,error:'Нет связи с Google Apps Script'};
+    try{
+      const p=new URLSearchParams({payload:body});
+      const r2=await withTimeout(signal=>fetch(API_URL+'?'+p.toString(),{method:'GET',redirect:'follow',signal}));
+      return await r2.json();
+    }catch(e2){
+      showToast('Ошибка сети','error');
+      return{success:false,error:'Нет связи с сервером'};
+    }
+  }
+}
+
+/**
+ * Зеркалирование в Supabase для устаревшего пути (когда Google снова основной).
+ * Когда основной источник — Supabase, запись уже прошла через RadarStore,
+ * и дублировать её не нужно.
+ */
 function sbBackup(action,payload){
+  if(window.RadarConfig?.isSupabasePrimary())return;
   if(typeof window.supabaseWrite==='function'){
     window.supabaseWrite(action,payload).catch(()=>{});
   }
 }
 
 // AUTH
+// Проверка логина остаётся в Apps Script: в Supabase таблица users пуста,
+// своего бэкенда для хэшей паролей нет. Данные при этом читаются из Supabase,
+// поэтому недоступность Google на работу с заказами уже не влияет.
+const SESSION_TTL_MS=14*24*60*60*1000;
+function saveSession(user){
+  try{localStorage.setItem(window.RadarConfig.cache.sessionKey,JSON.stringify({user,at:Date.now()}))}catch(e){}
+}
+function readSession(){
+  try{
+    const raw=localStorage.getItem(window.RadarConfig.cache.sessionKey);
+    if(!raw)return null;
+    const s=JSON.parse(raw);
+    if(!s||!s.user||!s.at)return null;
+    if(Date.now()-s.at>SESSION_TTL_MS)return null;
+    return s.user;
+  }catch(e){return null}
+}
+function clearSession(){try{localStorage.removeItem(window.RadarConfig.cache.sessionKey)}catch(e){}}
+
 async function handleLogin(){
   if(isLoggingIn)return;
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPass').value;
@@ -67,15 +138,33 @@ async function handleLogin(){
   if(btn){btn.disabled=true;btn.textContent='Вход...'}
   try{
     const r=await api('login',{username:u,password:p});
-    if(r.success){currentUser=r.user;showApp()}
-    else err.textContent=r.error||'Ошибка'
+    if(r.success){currentUser=r.user;saveSession(r.user);showApp();return}
+    // Сервис авторизации недоступен, но сессия этого же пользователя ещё жива —
+    // пускаем в приложение, чтобы обрыв связи с Google не блокировал работу.
+    const cached=readSession();
+    if(!r.success&&r.error&&/связ|сет|Apps Script/i.test(r.error)&&cached&&cached.username===u){
+      currentUser=cached;showApp();
+      showToast('Вход по сохранённой сессии — сервер авторизации недоступен','info');
+      return;
+    }
+    err.textContent=r.error||'Ошибка';
   }finally{
     isLoggingIn=false;
     if(btn){btn.disabled=false;btn.textContent='Войти'}
   }
 }
-function showApp(){document.getElementById('loginScreen').style.display='none';document.getElementById('app').classList.add('active');document.getElementById('userName').textContent=currentUser.username;document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':'Сотрудник';document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();switchPage('crm');loadAll()}
-function logout(){currentUser=null;document.getElementById('app').classList.remove('active');document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginError').textContent=''}
+function showApp(){document.getElementById('loginScreen').style.display='none';document.getElementById('app').classList.add('active');document.getElementById('userName').textContent=currentUser.username;document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':'Сотрудник';document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();window.currentUser=currentUser;switchPage('crm');loadAll()}
+function logout(){
+  if(window.RadarStore&&window.RadarStore.pendingCount()>0&&!confirm('Есть изменения, которые ещё не отправлены на сервер. Выйти всё равно?'))return;
+  currentUser=null;window.currentUser=null;clearSession();
+  document.getElementById('app').classList.remove('active');document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginError').textContent='';
+}
+// Восстановление сессии: перезагрузка страницы больше не требует повторного входа,
+// а значит не создаёт окна, в котором несохранённые данные некуда положить.
+document.addEventListener('DOMContentLoaded',()=>{
+  const u=readSession();
+  if(u){currentUser=u;showApp()}
+});
 document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
 document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus()});
 document.getElementById('loginUser').addEventListener('input',()=>{document.getElementById('loginError').textContent=''});
@@ -83,92 +172,56 @@ document.getElementById('loginPass').addEventListener('input',()=>{document.getE
 
 async function loadAll(){await loadCompetitors();await loadMyCompanyData();await loadHistory();await loadHistoryLog();loadDashboard();loadCompareSelects()}
 
+/**
+ * Импорт Google Sheets -> Supabase.
+ *
+ * Только добавление и обновление: удаление (prune) намеренно отключено.
+ * Раньше эта кнопка после импорта вычищала из Supabase всё, чего нет в таблице, —
+ * а именно там и лежали заказы, потерянные Google-таблицей. Такой «порядок»
+ * добивал единственную уцелевшую копию.
+ *
+ * Запросы идут напрямую в Apps Script (gasApi), поэтому импорт работает
+ * и при выключённой интеграции — он для того и нужен.
+ */
 async function syncAllToSupabase(){
   const st=document.getElementById('settingsStatus');
   const btn=document.getElementById('settingsSyncBtn');
   if(isSupabaseSyncRunning)return;
-  if(!window.supabaseWrite){
+  if(!window.RadarStore?.sb()){
     if(st){st.style.color='var(--red)';st.textContent='Supabase не настроен. Сохраните URL и ключ.'}
     showToast('Supabase не настроен','error');
     return;
   }
+  if(!confirm('Импортировать данные из Google Sheets в Supabase?\n\nБудут добавлены недостающие и обновлены существующие записи. Ничего не удаляется.\nApps Script отвечает медленно — процесс займёт несколько минут.'))return;
+
   isSupabaseSyncRunning=true;
-  if(btn){btn.disabled=true;btn.textContent='⏳ Синхронизация...';}
-  if(st){st.style.color='var(--text2)';st.textContent='Идет полная синхронизация Google Sheets -> Supabase. Не нажимайте кнопку повторно.'}
-  showToast('Синхронизация...','info');
-  if(typeof window.migrateGoogleToSupabase==='function'){
-    const res=await window.migrateGoogleToSupabase((action,data)=>api(action,data));
+  if(btn){btn.disabled=true;btn.textContent='⏳ Импорт...';}
+  if(st){st.style.color='var(--text2)';st.textContent='Идёт импорт Google Sheets → Supabase. Не нажимайте кнопку повторно.'}
+  showToast('Импорт из Google Sheets...','info');
+
+  try{
+    const res=await window.migrateGoogleToSupabase((action,data)=>gasApi(action,data));
     if(res?.success){
-      let pruned=0;
-      let prunedClients=0;
-      let prunedStock=0;
-      if(typeof window.pruneDeletedOrdersFromSupabase==='function'){
-        const pruneRes=await window.pruneDeletedOrdersFromSupabase((action,data)=>api(action,data));
-        if(pruneRes?.success)pruned=pruneRes.deleted||0;
-      }
-      if(typeof window.pruneDeletedClientsFromSupabase==='function'){
-        const pruneClientsRes=await window.pruneDeletedClientsFromSupabase((action,data)=>api(action,data));
-        if(pruneClientsRes?.success)prunedClients=pruneClientsRes.deleted||0;
-      }
-      if(typeof window.pruneDeletedStockFromSupabase==='function'){
-        const pruneStockRes=await window.pruneDeletedStockFromSupabase((action,data)=>api(action,data));
-        if(pruneStockRes?.success)prunedStock=pruneStockRes.deleted||0;
-      }
       const r=res.results||{};
       const parts=[
-        `заказы: ${r.orders||0}`,
-        `клиенты: ${r.clients||0}`,
-        `склад: ${r.stock||0}`,
-        `категории: ${r.categories||0}`,
-        `конкуренты: ${r.competitors||0}`,
-        `история: ${r.history||0}`,
-        `pricing: ${r.pricing||0}`,
-        `моя компания: ${r.myCompany?'1':'0'}`,
-        `удалено заказов: ${pruned}`,
-        `удалено клиентов: ${prunedClients}`,
-        `удалено склад: ${prunedStock}`
+        `заказы: ${r.orders||0}`,`клиенты: ${r.clients||0}`,`склад: ${r.stock||0}`,
+        `категории: ${r.categories||0}`,`конкуренты: ${r.competitors||0}`,
+        `история: ${r.history||0}`,`цены: ${r.pricing||0}`,`моя компания: ${r.myCompany?'1':'0'}`
       ];
-      if(st){st.style.color='var(--green)';st.textContent=`Синхронизация завершена: ${parts.join(', ')}`;}
-      if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
-      isSupabaseSyncRunning=false;
-      showToast(`Синхронизировано — ${parts.join(', ')}`,'success');
-      return;
+      if(st){st.style.color='var(--green)';st.textContent=`Импорт завершён: ${parts.join(', ')}. Удаление не выполнялось.`}
+      showToast('Импорт завершён','success');
+      if(typeof crmInit==='function'){crmOrders=[];await crmInit()}
+    }else{
+      if(st){st.style.color='var(--red)';st.textContent=`Ошибка импорта: ${res?.error||'неизвестно'}`}
+      showToast(`Ошибка импорта: ${res?.error||'неизвестно'}`,'error');
     }
-    if(st){st.style.color='var(--red)';st.textContent=`Ошибка синхронизации: ${res?.error||'неизвестно'}`;}
-    if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
+  }catch(e){
+    if(st){st.style.color='var(--red)';st.textContent='Ошибка импорта: '+(e?.message||e)}
+    showToast('Ошибка импорта','error');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='⬇ Импорт из Google Sheets';}
     isSupabaseSyncRunning=false;
-    showToast(`Ошибка синхронизации: ${res?.error||'неизвестно'}`,'error');
-    return;
   }
-  let ok=0,fail=0;
-  const ro=await api('getOrders');
-  if(ro.success&&Array.isArray(ro.orders)){
-    for(const o of ro.orders){
-      try{await window.supabaseWrite('upsertOrder',o);ok++}catch(e){fail++}
-    }
-  }
-  const rc=await api('getClients');
-  if(rc.success&&Array.isArray(rc.clients)){
-    for(const c of rc.clients){
-      try{await window.supabaseWrite('upsertClient',c);ok++}catch(e){fail++}
-    }
-  }
-  const rs=await api('getStock');
-  if(rs.success&&Array.isArray(rs.stock)){
-    for(const s of rs.stock){
-      try{await window.supabaseWrite('upsertStockItem',s);ok++}catch(e){fail++}
-    }
-  }
-  if(competitors.length){
-    try{await window.supabaseWrite('upsertCompetitors',competitors);ok++}catch(e){fail++}
-  }
-  if(myCompany){
-    try{await window.supabaseWrite('upsertMyCompany',myCompany);ok++}catch(e){fail++}
-  }
-  if(st){st.style.color=fail?'var(--red)':'var(--green)';st.textContent=`Синхронизация завершена: синхронизировано ${ok} объектов${fail?', ошибок: '+fail:''}`;}
-  if(btn){btn.disabled=false;btn.textContent='🔄 Синхронизировать в Supabase';}
-  isSupabaseSyncRunning=false;
-  showToast(`Синхронизировано: ${ok} объектов${fail?', ошибок: '+fail:''}`, fail?'error':'success');
 }
 
 // NAV
@@ -453,8 +506,6 @@ function getHistoryPeriodCutoff(period){
 }
 function getFilteredHistoryRows(){
   const cutoff=getHistoryPeriodCutoff(historyLogPeriod);
-  console.log('DEBUG historyLog length:',historyLog.length,'field:',historyLogField,'company:',historyLogCompany);
-  if(historyLog.length)console.log('DEBUG first entry:',JSON.stringify(historyLog[0]));
   const result=historyLog
     .filter(h=>h.fieldKey===historyLogField)
     .filter(h=>historyLogCompany==='all'||h.companyId===historyLogCompany)
@@ -463,7 +514,6 @@ function getFilteredHistoryRows(){
       const dt=new Date(h.createdAt);
       return !Number.isNaN(dt.getTime())&&dt>=cutoff;
     });
-  console.log('DEBUG filtered rows:',result.length);
   return result;
 }
 function renderHistoryChart(comps,defs){

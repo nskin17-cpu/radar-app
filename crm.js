@@ -201,38 +201,20 @@ function crmSyncDeliveryControls(autoFocus=false){
   if(km)km.disabled=!(type==='delivery'&&zone==='outside');
   if(autoFocus&&type==='delivery'&&zone==='outside')setTimeout(()=>km?.focus(),50);
 }
+// Расчёты живут в RadarPricing (radar-pricing.js) — здесь только тонкие обёртки,
+// чтобы форма, список заказов и PDF считали по одним и тем же правилам.
 function crmCalcDeliveryCost(){
-  const type=document.getElementById('crmDeliveryType')?.value||'pickup';
-  const zone=document.getElementById('crmDeliveryZone')?.value||'city';
-  const km=Math.max(0,Number(document.getElementById('crmDeliveryKm')?.value||0));
-  if(type!=='delivery')return 0;
-  if(zone==='outside')return Math.round(crmPricing.deliveryBaseCity+km*crmPricing.deliveryPerKm);
-  return Math.round(crmPricing.deliveryBaseCity);
+  return RadarPricing.calcDelivery({
+    deliveryType:document.getElementById('crmDeliveryType')?.value||'pickup',
+    deliveryZone:document.getElementById('crmDeliveryZone')?.value||'city',
+    deliveryKm:Number(document.getElementById('crmDeliveryKm')?.value||0)
+  },crmPricing);
 }
-function crmItemSetupRate(name,category){
-  const s=`${String(name||'')} ${String(category||'')}`.toLowerCase();
-  if(s.includes('лорен'))return crmPricing.setupChairLoren;
-  if(s.includes('модерн')&&s.includes('подуш'))return crmPricing.setupChairModernCushion;
-  if(s.includes('модерн')&&(s.includes('вяз')||s.includes('дерево')))return crmPricing.setupChairModernWood;
-  if(s.includes('модерн'))return crmPricing.setupChairModern;
-  if(s.includes('непал')&&(s.includes('метал')||s.includes('спинк')))return crmPricing.setupChairNepalMetal;
-  if(s.includes('непал'))return crmPricing.setupChairNepal;
-  if(s.includes('бокал')||s.includes('флют')||s.includes('мартин')||s.includes('рокс')||s.includes('glass'))return crmPricing.setupGlass;
-  if(s.includes('тарел'))return crmPricing.setupPlate;
-  return 0;
+function crmItemSetupRate(name,category,explicitRate){
+  return RadarPricing.setupRateFor(name,category,crmPricing,explicitRate);
 }
 function crmCalcSetupCost(){
-  let total=0;
-  document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]').forEach(q=>{
-    const row=q.parentElement;
-    const setupCheck=row.querySelector('[data-setup]');if(setupCheck&&!setupCheck.checked)return;
-    const opt=row.querySelector('[data-name]')?.selectedOptions[0];
-    const qty=Math.max(0,Number(q.value||0));
-    const rate=Number(opt?.dataset.setupRate||0);
-    total+=rate*qty;
-  });
-  if(total>0&&total<crmPricing.setupMin)total=crmPricing.setupMin;
-  return Math.round(total);
+  return RadarPricing.calcSetup(crmGetItems(),crmPricing);
 }
 function crmApplyZeroClearBehavior(scope){
   scope.querySelectorAll('input[type="number"]').forEach(inp=>{
@@ -319,12 +301,16 @@ function crmBindDialogInputs(){
   document.getElementById('crmDeliveryKm')?.addEventListener('input',()=>{const dc=document.getElementById('crmDeliveryCost');if(dc)dc.dataset.manual='';crmCalcTotal();});
   document.getElementById('crmDeliveryCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
   document.getElementById('crmSetupCost')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal();});
-  document.getElementById('crmDiscount')?.addEventListener('input',crmCalcTotal);
-  document.getElementById('crmItemsTotal')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
-  document.getElementById('crmAmount')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmSyncPaidAndRemaining();});
-  document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';});
-  document.getElementById('crmPaidAmount')?.addEventListener('input',crmSyncPaidAndRemaining);
-  document.getElementById('crmPayment')?.addEventListener('change',crmSyncPaidAndRemaining);
+  document.getElementById('crmDiscount')?.addEventListener('input',()=>{crmClearDerivedManual('discount');crmCalcTotal()});
+  document.getElementById('crmExtraChargeAmount')?.addEventListener('input',()=>{crmClearDerivedManual('extra');crmCalcTotal()});
+  document.getElementById('crmItemsTotal')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal()});
+  document.getElementById('crmAmount')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmSyncPaidAndRemaining();crmScheduleAutosave()});
+  document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmScheduleAutosave()});
+  document.getElementById('crmPaidAmount')?.addEventListener('input',()=>{crmSyncPaidAndRemaining();crmScheduleAutosave()});
+  document.getElementById('crmPayment')?.addEventListener('change',()=>{crmSyncPaidAndRemaining();crmScheduleAutosave()});
+  // Автосохранение на любое изменение формы, включая текстовые поля и селекты.
+  m.addEventListener('input',()=>crmScheduleAutosave());
+  m.addEventListener('change',()=>crmScheduleAutosave());
   const clientInput=document.getElementById('crmClient');
   clientInput?.addEventListener('focus',()=>crmOpenClientDropdown(false));
   clientInput?.addEventListener('input',e=>crmOpenClientDropdown(false));
@@ -353,7 +339,13 @@ function crmCanCloseOrderDialog(){
   return false;
 }
 function crmCancelOrderDialog(){
+  // «Отмена» отменяет только незаписанный черновик. Всё, что уже успело уйти
+  // в очередь автосохранения, остаётся сохранённым — иначе кнопка молча
+  // удаляла бы данные, которые пользователь считает записанными.
+  clearTimeout(crmAutosaveTimer);
+  crmAutosaveEnabled=false;
   crmOrderDialogDirty=false;
+  crmClearDraft();
   closeModal('crmOrderModal',true);
 }
 async function crmFillSetupRates(){
@@ -367,9 +359,20 @@ async function crmFillSetupRates(){
     sbBackup('upsertStockItem',s);
   }
 }
+let crmInitDone=false;
 async function crmInit(){
+  // Сначала показываем локальный кэш — приложение открывается мгновенно и работает
+  // даже без сети; затем поверх ложатся свежие данные.
+  const cached=RadarStore.applyPendingOps(RadarStore.getOrdersCache());
+  if(cached.length&&!crmOrders.length){crmOrders=cached;crmRenderAll()}
+  // Неотправленные изменения прошлой сессии уходят на сервер до того,
+  // как мы прочитаем данные, — иначе свежий заказ мог бы «пропасть» из списка.
+  if(RadarStore.pendingCount())await RadarStore.flush({force:true});
+
   const[r1,r2,r3,r4,r5]=await Promise.all([api('getOrders'),api('getStock'),api('getPricingConfig'),api('getCategories'),api('getClients')]);
   if(r1.success)crmOrders=(r1.orders||[]).map(crmNormalize);
+  else showToast('Не удалось загрузить заказы: '+(r1.error||'нет связи'),'error');
+  if(r1.fromCache)showToast('Заказы показаны из локальной копии — нет связи с Supabase','info');
   if(r2.success)crmStock=r2.stock||[];
   if(r4?.success&&(r4.categories||[]).length){
     crmCategoriesData=r4.categories||[];
@@ -390,15 +393,48 @@ async function crmInit(){
   crmApplyPricingConfig(crmExtractPricingConfig(r3));
   crmRenderAll();
   crmFillSetupRates();
+  crmInitDone=true;
+  crmOfferDraftRecovery();
 }
-function crmNormalize(o){
-  let items=Array.isArray(o.items)?o.items:[];
-  if(typeof o.items==='string')try{items=JSON.parse(o.items)}catch{items=[]}
-  const orderAmount=Number(o.orderAmount||0);
-  const remainingAmount=Math.max(0,Number(o.remainingAmount||0));
-  const paidAmount=Math.max(0,Number(o.paidAmount!=null?o.paidAmount:o.paid_amount!=null?o.paid_amount:Math.max(0,orderAmount-remainingAmount)));
-  return{id:o.id||'',clientName:o.clientName||'',clientPhone:o.clientPhone||'',companyName:o.companyName||'',startDate:o.startDate?String(o.startDate).slice(0,10):'',endDate:o.endDate?String(o.endDate).slice(0,10):'',orderAmount,budgetAmount:Number(o.budgetAmount||0),depositAmount:Number(o.depositAmount||0),deliveryCost:Number(o.deliveryCost||0),setupCost:Number(o.setupCost||0),discount:Number(o.discount||0),paidAmount,remainingAmount,status:o.status||'preparing',paymentStatus:o.paymentStatus||'pending_confirmation',deliveryType:o.deliveryType||'pickup',deliveryAddress:o.deliveryAddress||'',setupRequired:o.setupRequired||'no',items:items.map(i=>({name:String(i.name||'').trim(),qty:String(i.qty||'1'),category:String(i.category||'').trim(),price:Number(i.price||0),setup:i.setup!==undefined?i.setup:true})),comment:o.comment||'',carryFloor:o.carryFloor||o.carry_floor||'no',depositStatus:o.depositStatus||o.deposit_status||'pending',compensationAmount:Number(o.compensationAmount||o.compensation_amount||0),compensationNote:o.compensationNote||o.compensation_note||''};
+
+/**
+ * Если прошлая сессия оборвалась на середине заполнения формы,
+ * предлагаем вернуться к черновику вместо того, чтобы молча его потерять.
+ */
+function crmOfferDraftRecovery(){
+  const d=crmReadDraft();
+  if(!d)return;
+  const f=d.form||{};
+  const alreadySaved=f.id&&crmOrders.some(o=>o.id===f.id);
+  if(alreadySaved){crmClearDraft();return}
+  const when=new Date(d.at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const who=f.clientName||'без клиента';
+  if(confirm(`Найден незаконченный заказ (${who}, ${when}). Открыть его?`))crmRestoreDraft(d);
+  else crmClearDraft();
 }
+function crmRestoreDraft(d){
+  crmOpenDialog('');
+  const f=d.form||{};
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v};
+  crmOrderDialogInit=true;
+  set('crmClient',f.clientName);set('crmPhone',f.clientPhone);set('crmCompany',f.companyName);
+  set('crmStartDate',f.startDate);set('crmEndDate',f.endDate);set('crmAddress',f.deliveryAddress);
+  set('crmStatus',f.status);set('crmPayment',f.paymentStatus);set('crmDeliveryType',f.deliveryType);
+  set('crmDeliveryZone',f.deliveryZone);set('crmDeliveryKm',f.deliveryKm);set('crmCarryFloor',f.carryFloor);
+  set('crmDiscount',f.discount);set('crmDeposit',f.depositAmount);set('crmComment',f.comment);
+  set('crmExtraChargeAmount',f.extraChargeAmount);set('crmExtraChargeNote',f.extraChargeNote);
+  document.getElementById('crmItemsList').innerHTML='';
+  (f.items||[]).filter(i=>i.name).forEach(i=>crmAddItemRow(i));
+  if(!(f.items||[]).filter(i=>i.name).length)crmAddItemRow();
+  crmSyncDeliveryControls();
+  crmOrderDialogInit=false;
+  crmCalcTotal();
+  showToast('Черновик восстановлен','success');
+}
+// Единая модель заказа живёт в RadarStore. Прежняя версия этой функции теряла
+// deliveryZone, deliveryKm, extraChargeAmount и extraChargeNote: они сохранялись,
+// но при следующей загрузке обнулялись, потому что нормализация о них не знала.
+function crmNormalize(o){return RadarStore.normalizeOrder(o)}
 function crmNormalizeClient(c){
   return{
     id:String(c?.id||''),
@@ -564,9 +600,36 @@ function crmRenderOrders(){
     <td><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></td>
   </tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:4px 10px 8px 24px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
   }).join('');
-  t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmStatus;const o=crmOrders.find(x=>x.id===id);if(o){o.status=e.target.value;await api('updateOrder',{order:{id,status:e.target.value}});sbBackup('upsertOrder',o);crmRenderAll();showToast('Статус обновлён','success')}}));
-  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmPayment;const o=crmOrders.find(x=>x.id===id);if(o){const p=e.target.value;o.paymentStatus=p;const update={id,paymentStatus:p};if(crmPaidStatuses.has(p)){o.paidAmount=Number(o.orderAmount||0);o.remainingAmount=0;update.paidAmount=o.paidAmount;update.remainingAmount=0}await api('updateOrder',{order:update});sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();crmRenderAll();showToast('Оплата обновлена','success')}}));
-  t.querySelectorAll('[data-crm-deposit]').forEach(sel=>sel.addEventListener('change',async e=>{const id=sel.dataset.crmDeposit;const o=crmOrders.find(x=>x.id===id);if(o){o.depositStatus=e.target.value;sel.style.background=depositBg[e.target.value]||'';await api('updateOrder',{order:{id,depositStatus:e.target.value}});sbBackup('upsertOrder',o);if(e.target.value==='returned_comp')crmOpenDialog(id);else showToast('Статус залога обновлён','success');}}))}
+  // Быстрые правки прямо из списка.
+  // Раньше здесь уходил частичный объект ({id, status}) — и на сервере рисковал
+  // затереть остальные поля. Теперь патч всегда накладывается на полный заказ.
+  const quickPatch=async(id,patch,message)=>{
+    const o=crmOrders.find(x=>x.id===id);
+    if(!o)return;
+    const next={...o,...patch};
+    RadarStore.saveOrder(next,{previous:o,user:currentUser?.username});
+    const ix=crmOrders.findIndex(x=>x.id===id);
+    if(ix>=0)crmOrders[ix]={...next};
+    crmRenderAll();
+    await RadarStore.flush({force:true});
+    if(message)showToast(RadarStore.getStatus().pending>0?message+' (отправка продолжается)':message,'success');
+  };
+  t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',e=>{
+    quickPatch(sel.dataset.crmStatus,{status:e.target.value},'Статус обновлён');
+  }));
+  t.querySelectorAll('[data-crm-payment]').forEach(sel=>sel.addEventListener('change',e=>{
+    const id=sel.dataset.crmPayment,p=e.target.value;
+    const o=crmOrders.find(x=>x.id===id);if(!o)return;
+    const patch={paymentStatus:p};
+    if(crmPaidStatuses.has(p)){patch.paidAmount=Number(o.orderAmount||0);patch.remainingAmount=0}
+    quickPatch(id,patch,'Оплата обновлена');
+  }));
+  t.querySelectorAll('[data-crm-deposit]').forEach(sel=>sel.addEventListener('change',e=>{
+    const id=sel.dataset.crmDeposit,v=e.target.value;
+    sel.style.background=depositBg[v]||'';
+    quickPatch(id,{depositStatus:v},v==='returned_comp'?null:'Статус залога обновлён')
+      .then(()=>{if(v==='returned_comp')crmOpenDialog(id)});
+  }))}
 function crmRenderStats(){
   const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();
   const mo=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&d.getMonth()===cm&&d.getFullYear()===cy});
@@ -1125,15 +1188,18 @@ async function crmSyncPresetClients(){
   crmRenderClients();
   showToast(`Загружено клиентов: ${ok}${fail?`, ошибок: ${fail}`:''}`, fail?'error':'success');
 }
-async function crmSyncClientsToSupabase(){
-  try{ await api('recalcClientsStats'); }catch{}
-  try{
-    const r=await api('getClients');
-    if(r?.success&&Array.isArray(r.clients)){
-      crmClients=crmDedupClients(r.clients);
-      for(const c of crmClients)sbBackup('upsertClient',c);
-    }
-  }catch{}
+/**
+ * Пересчёт показателей клиентов.
+ *
+ * Раньше эта функция вызывалась после КАЖДОГО сохранения заказа и делала три вещи:
+ * recalcClientsStats в Apps Script (~5 c), getClients (~8 c) и 119 последовательных
+ * upsert'ов в Supabase. Итого до 20–30 секунд, в течение которых заказ ещё нигде
+ * не был зафиксирован надёжно. Теперь статистика считается локально из уже
+ * загруженных заказов — мгновенно и без сети.
+ */
+function crmSyncClientsToSupabase(){
+  crmClients=RadarGateway.recalcClientStats(crmClients,crmOrders);
+  return Promise.resolve();
 }
 function crmSetQuickFilter(f){crmQuickFilter=crmQuickFilter===f?'all':f;crmRenderOrders();crmSyncQuickFilterUI()}
 function crmGetMultiValues(id){
@@ -1655,8 +1721,35 @@ function crmOpenDialog(id){
   crmSyncPaidAndRemaining();
   crmCloseClientDropdown();
   crmPositionClientDropdown();
+  crmRenderOrderMeta(id?crmOrders.find(x=>x.id===id):null);
   crmOrderDialogInit=false;
+  crmAutosaveEnabled=true;
   openModal('crmOrderModal');
+}
+
+/** Шапка окна заказа: номер, даты создания/изменения, история правок. */
+function crmRenderOrderMeta(order){
+  const box=document.getElementById('crmOrderMeta');
+  if(!box)return;
+  if(!order){box.innerHTML='';box.style.display='none';return}
+  box.style.display='block';
+  const fmt=v=>{
+    if(!v)return '—';
+    const d=new Date(v);
+    return Number.isNaN(d.getTime())?'—':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  };
+  const log=(order.changeLog||[]).slice().reverse().slice(0,20);
+  const logHtml=log.length
+    ? log.map(e=>`<div class="crm-log-row"><span>${esc(fmt(e.at))}</span><strong>${esc(e.label||e.field)}</strong>${e.from!=null&&e.to!=null?`<span>${esc(String(e.from).slice(0,40))} → ${esc(String(e.to).slice(0,40))}</span>`:''}<span class="crm-log-user">${esc(e.user||'')}</span></div>`).join('')
+    : '<div class="crm-log-row"><span>Изменений пока не записано</span></div>';
+  box.innerHTML=`
+    <div class="crm-order-meta-line">
+      <span class="crm-order-num">${esc(order.orderNumber||order.id)}</span>
+      <span>Создан: ${esc(fmt(order.createdAt))}</span>
+      <span>Изменён: ${esc(fmt(order.updatedAt))}</span>
+      <a href="#" onclick="event.preventDefault();var l=document.getElementById('crmOrderLog');l.style.display=l.style.display==='none'?'block':'none'">История изменений (${log.length})</a>
+    </div>
+    <div id="crmOrderLog" class="crm-order-log" style="display:none">${logHtml}</div>`;
 }
 function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   if(!crmOrderDialogInit)crmOrderDialogDirty=true;
@@ -1671,41 +1764,153 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const itemOpts=fallbackOpt+stockItems.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${item.name===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
   const setupChecked=item.setup!==false?'checked':'';
   const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
-  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
+  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
   const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('[data-price]'),qtyInp=row.querySelector('[data-qty]');
-  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r0=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r0>0?' '+r0+'₽':'';const setupCb0=row.querySelector('[data-setup]');if(setupCb0&&r0===0)setupCb0.checked=false;crmCalcTotal()});
-  nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r>0?' '+r+'₽':'';const setupCb=row.querySelector('[data-setup]');if(setupCb&&r===0)setupCb.checked=false;crmCalcTotal()});
-  qtyInp.addEventListener('input',crmCalcTotal);
+  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r0=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r0>0?' '+r0+'₽':'';const setupCb0=row.querySelector('[data-setup]');if(setupCb0&&r0===0)setupCb0.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
+  nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r>0?' '+r+'₽':'';const setupCb=row.querySelector('[data-setup]');if(setupCb&&r===0)setupCb.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
+  // Любое изменение состава возвращает производные суммы в автоматический режим.
+  qtyInp.addEventListener('input',()=>{crmClearDerivedManual('items');crmCalcTotal()});
   list.appendChild(row);
-  row.querySelector('[data-setup]')?.addEventListener('change',crmCalcTotal);
+  row.querySelector('[data-setup]')?.addEventListener('change',()=>{crmClearDerivedManual('items');crmCalcTotal()});
   crmApplyZeroClearBehavior(row);
+  if(!crmOrderDialogInit)crmCalcTotal();
 }
+/** Значение поля, если пользователь правил его вручную; иначе null (считаем автоматически). */
+function crmManual(id){
+  const el=document.getElementById(id);
+  return el&&el.dataset.manual==='1'?Number(el.value||0):null;
+}
+
+/**
+ * Снимает пометку «правил вручную» с производных сумм.
+ *
+ * Логика такая: открытый без правок старый заказ сохраняет свои суммы как есть
+ * (пересчёт молча переписал бы историю). Но как только меняется то, из чего сумма
+ * складывается — состав, доставка, скидка, — соответствующие итоги снова считаются
+ * автоматически. Отсюда требование «суммы пересчитываются после любого изменения».
+ */
+function crmClearDerivedManual(scope){
+  const clear=ids=>ids.forEach(id=>{const el=document.getElementById(id);if(el)el.dataset.manual=''});
+  if(scope==='items')clear(['crmSetupCost','crmItemsTotal','crmAmount','crmBudget']);
+  else if(scope==='delivery')clear(['crmDeliveryCost','crmAmount','crmBudget']);
+  else if(scope==='discount')clear(['crmItemsTotal','crmAmount']);
+  else if(scope==='extra')clear(['crmAmount']);
+}
+
+/**
+ * Снимок формы заказа в канонической модели.
+ * Одна точка чтения DOM — её используют и расчёт, и автосохранение, и PDF,
+ * поэтому «в форме одно, в смете другое» стало невозможным.
+ */
+function crmReadForm(){
+  const g=id=>document.getElementById(id);
+  const val=id=>g(id)?.value??'';
+  const manual={};
+  const dc=crmManual('crmDeliveryCost'); if(dc!=null)manual.deliveryCost=dc;
+  const sc=crmManual('crmSetupCost');    if(sc!=null)manual.setupCost=sc;
+  const it=crmManual('crmItemsTotal');   if(it!=null)manual.itemsTotal=it;
+  const am=crmManual('crmAmount');       if(am!=null)manual.orderAmount=am;
+  const bu=crmManual('crmBudget');       if(bu!=null)manual.budgetAmount=bu;
+  return{
+    id:val('crmOrderId'),
+    clientName:val('crmClient').trim(),
+    clientPhone:val('crmPhone'),
+    companyName:val('crmCompany'),
+    startDate:val('crmStartDate'),
+    endDate:val('crmEndDate'),
+    status:val('crmStatus')||'preparing',
+    paymentStatus:val('crmPayment')||'pending_confirmation',
+    deliveryType:val('crmDeliveryType')||'pickup',
+    deliveryZone:val('crmDeliveryZone')||'city',
+    deliveryKm:Number(val('crmDeliveryKm'))||0,
+    deliveryAddress:val('crmAddress'),
+    carryFloor:val('crmCarryFloor')||'no',
+    discount:Number(val('crmDiscount'))||0,
+    extraChargeAmount:Number(val('crmExtraChargeAmount'))||0,
+    extraChargeNote:val('crmExtraChargeNote'),
+    depositAmount:Number(val('crmDeposit'))||0,
+    depositStatus:val('crmDepositStatus')||'pending',
+    compensationAmount:Number(val('crmCompensationAmount'))||0,
+    compensationNote:val('crmCompensationNote'),
+    paidAmount:Number(val('crmPaidAmount'))||0,
+    comment:val('crmComment'),
+    items:crmGetItems(true),
+    _manual:manual
+  };
+}
+
+/** Полный заказ для сохранения: форма + пересчитанные итоги. */
+function crmCollectOrder(){
+  const form=crmReadForm();
+  const legacy=crmIsLegacyYearOrder();
+  // Для заказов 2023–2024 цены в справочнике нулевые: пересчёт затёр бы
+  // исторические суммы, поэтому берём их из формы как есть.
+  const calc=legacy
+    ? null
+    : RadarPricing.calcOrder({...form,pricing:crmPricing,manual:form._manual});
+  const order={...form};
+  delete order._manual;
+  order.items=form.items.filter(i=>i.name);
+  if(calc){
+    order.itemsTotal=calc.itemsTotal;
+    order.deliveryCost=calc.deliveryCost;
+    order.setupCost=calc.setupCost;
+    order.budgetAmount=calc.budgetAmount;
+    order.orderAmount=calc.orderAmount;
+    order.paidAmount=calc.paidAmount;
+    order.remainingAmount=calc.remainingAmount;
+    order.setupRequired=calc.setupRequired;
+  }else{
+    order.itemsTotal=Number(document.getElementById('crmItemsTotal')?.value||0);
+    order.deliveryCost=Number(document.getElementById('crmDeliveryCost')?.value||0);
+    order.setupCost=Number(document.getElementById('crmSetupCost')?.value||0);
+    order.budgetAmount=Number(document.getElementById('crmBudget')?.value||0);
+    order.orderAmount=Number(document.getElementById('crmAmount')?.value||0);
+    const paid=crmPaidStatuses.has(order.paymentStatus)?order.orderAmount:order.paidAmount;
+    order.paidAmount=Math.min(paid,order.orderAmount);
+    order.remainingAmount=Math.max(0,order.orderAmount-order.paidAmount);
+    order.setupRequired=order.setupCost>0?'yes':'no';
+  }
+  return order;
+}
+
+/**
+ * Пересчёт формы. Вызывается на любое изменение — суммы всегда актуальны,
+ * перезагрузка страницы для этого не нужна.
+ */
 function crmCalcTotal(){
-  if(crmIsLegacyYearOrder())return;
-  let itemsTotal=0;
-  document.getElementById('crmItemsList').querySelectorAll('[data-qty]').forEach(q=>{
-    const row=q.parentElement;const opt=row.querySelector('[data-name]').selectedOptions[0];
-    const price=opt?Number(opt.dataset.price||0):0;
-    itemsTotal+=price*Number(q.value||1);
+  if(crmIsLegacyYearOrder()){crmScheduleAutosave();return}
+  const form=crmReadForm();
+  const calc=RadarPricing.calcOrder({...form,pricing:crmPricing,manual:form._manual});
+  const paint=(id,value)=>{
+    const el=document.getElementById(id);
+    if(el&&el.dataset.manual!=='1')el.value=value;
+  };
+  paint('crmDeliveryCost',calc.deliveryCost);
+  paint('crmSetupCost',calc.setupCost);
+  paint('crmBudget',calc.budgetAmount);
+  paint('crmItemsTotal',calc.itemsTotal);
+  paint('crmAmount',calc.orderAmount);
+  const da=document.getElementById('crmDiscountAmount');
+  if(da)da.value=calc.discountAmount;
+  const paidEl=document.getElementById('crmPaidAmount');
+  const remEl=document.getElementById('crmRemaining');
+  if(paidEl)paidEl.value=calc.paidAmount;
+  if(remEl)remEl.value=calc.remainingAmount;
+  crmRenderItemLineTotals(calc);
+  crmScheduleAutosave();
+}
+
+/** Подсказка суммы по каждой строке — видно, из чего складывается итог. */
+function crmRenderItemLineTotals(calc){
+  const rows=document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]')||[];
+  rows.forEach((q,ix)=>{
+    const span=q.parentElement.querySelector('[data-price]');
+    const line=calc.items[ix];
+    if(!span||!line)return;
+    span.textContent=line.lineTotal?fN(line.lineTotal)+'₽':'';
+    span.title=line.price?`${fN(line.price)}₽ × ${line.qty}`:'';
   });
-  const deliveryCostEl=document.getElementById('crmDeliveryCost');
-  const setupCostEl=document.getElementById('crmSetupCost');
-  const deliveryCost=deliveryCostEl?.dataset.manual==='1'?Number(deliveryCostEl.value||0):crmCalcDeliveryCost();
-  const setupCost=setupCostEl?.dataset.manual==='1'?Number(setupCostEl.value||0):crmCalcSetupCost();
-  if(deliveryCostEl&&deliveryCostEl.dataset.manual!=='1')deliveryCostEl.value=deliveryCost;
-  if(setupCostEl&&setupCostEl.dataset.manual!=='1')setupCostEl.value=setupCost;
-  const budgetEl=document.getElementById('crmBudget');
-  if(budgetEl&&budgetEl.dataset.manual!=='1')budgetEl.value=deliveryCost+setupCost;
-  const discountPct=Number(document.getElementById('crmDiscount')?.value||0);
-  const discountAmt=Math.round(itemsTotal*discountPct/100);
-  const extraCharge=Number(document.getElementById('crmExtraChargeAmount')?.value||0);
-  const total=(itemsTotal-discountAmt)+deliveryCost+setupCost+extraCharge;
-  const itemsTotalEl=document.getElementById('crmItemsTotal');
-  if(itemsTotalEl&&itemsTotalEl.dataset.manual!=='1')itemsTotalEl.value=itemsTotal-discountAmt;
-  if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value=discountAmt;
-  const amountEl=document.getElementById('crmAmount');
-  if(amountEl&&amountEl.dataset.manual!=='1')amountEl.value=total>0?total:0;
-  crmSyncPaidAndRemaining();
 }
 function crmSyncPaidAndRemaining(){
   const amountEl=document.getElementById('crmAmount');
@@ -1721,52 +1926,168 @@ function crmSyncPaidAndRemaining(){
   paidEl.value=paid;
   remainingEl.value=Math.max(0,total-paid);
 }
-function crmGetItems(){
+/**
+ * Позиции заказа из формы.
+ * includeEmpty=true — сохраняет соответствие «строка формы ↔ элемент массива»,
+ * это нужно, чтобы подписывать суммы напротив каждой строки.
+ */
+function crmGetItems(includeEmpty){
   const items=[];
-  document.getElementById('crmItemsList').querySelectorAll('[data-qty]').forEach(q=>{
+  document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]').forEach(q=>{
     const row=q.parentElement;
     const nameSel=row.querySelector('[data-name]');
-    const cat=row.querySelector('[data-cat]').value;
+    const cat=row.querySelector('[data-cat]')?.value||'';
     const name=crmGetSelectedItemName(nameSel,cat);
     const opt=nameSel?.selectedOptions?.[0];
     let price=Number(opt?.dataset.price||0);
-    if(!price&&name){const stockItem=crmStock.find(s=>s.name===name);if(stockItem)price=Number(stockItem.price)||0;}
-    if(name)items.push({name,category:cat,qty:q.value||'1',price,setup:row.querySelector('[data-setup]')?.checked!==false});
+    let setupRate=Number(opt?.dataset.setupRate||0);
+    if(name){
+      const stockItem=crmStock.find(s=>s.name===name);
+      if(!price&&stockItem)price=Number(stockItem.price)||0;
+      if(!setupRate&&stockItem)setupRate=Number(stockItem.setupRate)||0;
+    }
+    if(!name&&!includeEmpty)return;
+    items.push({
+      name,category:cat,
+      qty:Math.max(0,Number(q.value||0)),
+      price,setupRate,
+      setup:row.querySelector('[data-setup]')?.checked!==false
+    });
   });
   return items;
 }
+// ── СОХРАНЕНИЕ ЗАКАЗА ────────────────────────────────────────────────────────
+// Ключевое изменение: id заказа выдаёт клиент, а не сервер, и данные сначала
+// ложатся в локальный журнал (RadarStore.saveOrder), и только потом уходят в
+// Supabase. Поэтому «сохранил и сразу вышел из приложения» больше не теряет
+// заказ: очередь доедет сама — после возврата связи или при следующем запуске.
+
+let crmAutosaveTimer=null;
+let crmAutosaveEnabled=false;
+
+/**
+ * Записывает текущее состояние формы. Возвращает id заказа.
+ * silent=true — фоновое автосохранение, без тостов и закрытия окна.
+ */
+function crmPersistOrder(opts={}){
+  const order=crmCollectOrder();
+  if(!order.clientName)return null;
+  const isNew=!order.id;
+  if(isNew)order.id=RadarStore.makeOrderId();
+  const previous=isNew?null:crmOrders.find(o=>o.id===order.id)||null;
+
+  // Открытие заказа не должно порождать запись: если ничего не изменилось,
+  // автосохранению нечего делать.
+  if(opts.skipIfUnchanged&&previous&&!RadarStore.buildChangeLog(previous,RadarStore.normalizeOrder(order)).length){
+    return previous.id;
+  }
+
+  const res=RadarStore.saveOrder(order,{previous,user:currentUser?.username});
+  if(!res.queued){
+    showToast('Не удалось записать заказ локально — освободите место в браузере','error');
+    return null;
+  }
+  // Локальное состояние синхронизируем сразу: список и статистика не ждут сервер.
+  const saved=res.order;
+  const idx=crmOrders.findIndex(o=>o.id===saved.id);
+  if(idx>=0)crmOrders[idx]=saved; else crmOrders.push(saved);
+  const idEl=document.getElementById('crmOrderId');
+  if(idEl&&!idEl.value)idEl.value=saved.id;
+  if(!opts.silent)crmRenderAll();
+  crmClearDraft();
+  return saved.id;
+}
+
+/** Автосохранение: любое изменение формы попадает в очередь через паузу. */
+function crmScheduleAutosave(){
+  if(!crmAutosaveEnabled)return;
+  if(!RadarConfig.autosave.enabled)return;
+  if(crmOrderDialogInit)return;
+  crmSaveDraft();
+  clearTimeout(crmAutosaveTimer);
+  crmAutosaveTimer=setTimeout(()=>{
+    if(!document.getElementById('crmOrderModal')?.classList.contains('active'))return;
+    const id=crmPersistOrder({silent:true,skipIfUnchanged:true});
+    if(id){
+      crmOrderDialogDirty=false;
+      crmRenderOrders();
+      crmRenderStats();
+    }
+  },RadarConfig.autosave.debounceMs);
+}
+
+/**
+ * Черновик формы. Спасает то, что ещё нельзя отправить на сервер —
+ * например, заказ без выбранного клиента, брошенный на середине.
+ */
+function crmSaveDraft(){
+  try{
+    const form=crmReadForm();
+    if(!form.clientName&&!form.items.some(i=>i.name))return;
+    localStorage.setItem(RadarConfig.cache.draftKey,JSON.stringify({at:Date.now(),form}));
+  }catch(e){}
+}
+function crmClearDraft(){try{localStorage.removeItem(RadarConfig.cache.draftKey)}catch(e){}}
+function crmReadDraft(){
+  try{
+    const raw=localStorage.getItem(RadarConfig.cache.draftKey);
+    if(!raw)return null;
+    const d=JSON.parse(raw);
+    if(!d||!d.form)return null;
+    if(Date.now()-(d.at||0)>7*24*3600*1000)return null;
+    return d;
+  }catch(e){return null}
+}
+
 var _crmSaving=false;
 async function crmSaveOrder(){
   if(_crmSaving)return;
-  const saveBtn=document.querySelector('#crmOrderModal .btn-primary');
-  const id=document.getElementById('crmOrderId').value;
-  const paymentStatus=document.getElementById('crmPayment').value;
-  const isPaid=crmPaidStatuses.has(paymentStatus);
-  crmSyncPaidAndRemaining();
-  const orderAmount=Number(document.getElementById('crmAmount').value)||0;
-  const paidAmount=isPaid?orderAmount:(Number(document.getElementById('crmPaidAmount').value)||0);
-  const o={clientName:document.getElementById('crmClient').value,clientPhone:document.getElementById('crmPhone').value,companyName:document.getElementById('crmCompany').value,startDate:document.getElementById('crmStartDate').value,endDate:document.getElementById('crmEndDate').value,orderAmount,budgetAmount:Number(document.getElementById('crmBudget').value)||0,depositAmount:Number(document.getElementById('crmDeposit').value)||0,deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,setupCost:Number(document.getElementById('crmSetupCost').value)||0,discount:Number(document.getElementById('crmDiscount').value)||0,paidAmount,remainingAmount:Math.max(0,orderAmount-paidAmount),status:document.getElementById('crmStatus').value,paymentStatus,deliveryType:document.getElementById('crmDeliveryType').value,deliveryAddress:document.getElementById('crmAddress').value,setupRequired:document.getElementById('crmSetupCost').value>0?'yes':'no',items:crmGetItems(),comment:document.getElementById('crmComment').value,carryFloor:document.getElementById('crmCarryFloor')?.value||'no',depositStatus:document.getElementById('crmDepositStatus')?.value||'pending',compensationAmount:Number(document.getElementById('crmCompensationAmount')?.value||0),compensationNote:document.getElementById('crmCompensationNote')?.value||'',extraChargeAmount:Number(document.getElementById('crmExtraChargeAmount')?.value||0),extraChargeNote:document.getElementById('crmExtraChargeNote')?.value||'',deliveryZone:document.getElementById('crmDeliveryZone')?.value||'city',deliveryKm:Number(document.getElementById('crmDeliveryKm')?.value||0)};
-  if(!o.clientName){showToast('Укажите клиента','error');return}
-  if(!crmClients.some(c=>c.name===o.clientName)){showToast('Клиента нет в базе. Сначала добавьте клиента в разделе Клиенты.','error');return}
+  const form=crmReadForm();
+  if(!form.clientName){showToast('Укажите клиента','error');return}
+  // Незнакомый клиент — теперь предупреждение, а не отказ:
+  // блокировать сохранение заполненного заказа опаснее, чем принять нового клиента.
+  if(!crmClients.some(c=>c.name===form.clientName)){
+    showToast('Клиента нет в базе — заказ сохранён, клиента добавьте в разделе «Клиенты»','info');
+  }
+  const id=form.id;
   if(id){
     const prevItems=(crmOrders.find(x=>x.id===id)?.items||[]).filter(i=>i.name);
-    if(prevItems.length>0&&o.items.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
+    const nowItems=form.items.filter(i=>i.name);
+    if(prevItems.length>0&&nowItems.length===0&&!confirm('Список изделий пустой — изделия не выбраны. Сохранить без изделий?'))return;
   }
+
   _crmSaving=true;
-  if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
   try{
-    if(id){
-      o.id=id;await api('updateOrder',{order:o});const idx=crmOrders.findIndex(x=>x.id===id);if(idx>=0)crmOrders[idx]={...crmOrders[idx],...o};sbBackup('upsertOrder',o);await crmSyncClientsToSupabase();showToast('Обновлено','success')}
-    else{const r=await api('addOrder',{order:o});if(r.success){o.id=r.id;crmOrders.push(crmNormalize(o));sbBackup('upsertOrder',o);await crmSyncClientsToSupabase()}showToast('Заказ создан','success')}
-    crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();
-  }catch(e){showToast('Ошибка сохранения','error')}
-  finally{_crmSaving=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
+    const savedId=crmPersistOrder();
+    if(!savedId)return;
+    crmOrderDialogDirty=false;
+    closeModal('crmOrderModal',true);
+    // Ждём подтверждения от Supabase, чтобы сказать правду о результате.
+    await RadarStore.flush({force:true});
+    const st=RadarStore.getStatus();
+    if(st.pending>0){
+      showToast(navigator.onLine
+        ? 'Заказ сохранён локально, отправка продолжается'
+        : 'Нет сети — заказ сохранён локально и уйдёт после подключения','info');
+    }else{
+      showToast(id?'Обновлено':'Заказ создан','success');
+    }
+  }catch(e){
+    showToast('Ошибка сохранения: '+(e?.message||e),'error');
+  }finally{_crmSaving=false}
 }
+
 async function crmDeleteOrder(){
-  const id=document.getElementById('crmOrderId').value;if(!id||!confirm('Удалить заказ?'))return;
-  await api('deleteOrder',{id});sbBackup('deleteOrder',{id});crmOrders=crmOrders.filter(o=>o.id!==id);
-  await crmSyncClientsToSupabase();
-  crmOrderDialogDirty=false;closeModal('crmOrderModal',true);crmRenderAll();showToast('Удалено','success');
+  const id=document.getElementById('crmOrderId').value;
+  if(!id||!confirm('Удалить заказ?'))return;
+  RadarStore.deleteOrder(id);
+  crmOrders=crmOrders.filter(o=>o.id!==id);
+  crmOrderDialogDirty=false;
+  crmClearDraft();
+  closeModal('crmOrderModal',true);
+  crmRenderAll();
+  await RadarStore.flush({force:true});
+  showToast(RadarStore.getStatus().pending>0?'Удаление уйдёт на сервер после подключения':'Удалено','success');
 }
 
 // ── PDF DOCUMENTS ────────────────────────────────────────────────────────────
@@ -2048,32 +2369,97 @@ function crmBuildActHTML(d){
   <div style="margin-top:20px;padding-top:12px;border-top:1px solid #e3e3e3;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#b0b0b0;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#6a6a6a;font-family:sans-serif;font-weight:600">Залог возвращается после возврата и проверки изделий.</span></div>
 </div></div>`;
 }
+// ── ДОКУМЕНТЫ ────────────────────────────────────────────────────────────────
+// Документы строятся из той же модели заказа и того же расчёта, что и форма,
+// поэтому смета не может разойтись с тем, что видно на экране.
+
+/** Заказ и расчёт для документа: из открытой формы либо из сохранённого заказа. */
+function crmDocContext(withDiscount){
+  const order=crmCollectOrder();
+  const saved=order.id?crmOrders.find(o=>o.id===order.id):null;
+  const full=RadarStore.normalizeOrder({...(saved||{}),...order});
+  // Ручные суммы уважаем только в смете со скидкой (см. RadarPricing.calcEstimate).
+  full.itemsTotalManual=crmManual('crmItemsTotal');
+  full.orderAmountManual=crmManual('crmAmount');
+  const calc=RadarPricing.calcEstimate(full,crmPricing,withDiscount);
+  return{order:full,calc};
+}
+
+/** Растровый движок остаётся запасным: RadarConfig.documents.engine='legacy'. */
+function crmUseLegacyDocs(){
+  return RadarConfig.documents.engine==='legacy'||!RadarDocs.ready();
+}
+function crmWarnIfPdfNotReady(){
+  if(RadarConfig.documents.engine==='pdfmake'&&!RadarDocs.ready()){
+    showToast('pdfmake не загрузился — документ собран прежним способом','info');
+  }
+}
+
 function crmGenerateEstimatePDF(withDiscount){
-  const d=crmGetPdfOrderData();
-  showToast('Генерируем PDF…','info');
-  const fname=withDiscount?`Смета_профессионал_${d.orderId}.pdf`:`Смета_${d.orderId}.pdf`;
-  crmRenderAndSavePDF(crmBuildEstimateHTML(d,withDiscount),fname,crmApplyEstimatePdfLink);
+  crmWarnIfPdfNotReady();
+  try{
+    if(crmUseLegacyDocs()){
+      const d=crmGetPdfOrderData();
+      const fname=withDiscount?`Смета_профессионал_${d.orderId}.pdf`:`Смета_${d.orderId}.pdf`;
+      crmRenderAndSavePDF(crmBuildEstimateHTML(d,withDiscount),fname,crmApplyEstimatePdfLink);
+      return;
+    }
+    const{order,calc}=crmDocContext(withDiscount);
+    RadarDocs.download('estimate',order,calc,{withDiscount});
+    showToast('Смета сформирована','success');
+  }catch(e){showToast('Ошибка генерации PDF: '+(e?.message||e),'error')}
 }
 function crmGenerateActPDF(){
-  const d=crmGetPdfOrderData();
-  showToast('Генерируем акт…','info');
-  crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`);
+  crmWarnIfPdfNotReady();
+  try{
+    if(crmUseLegacyDocs()){
+      const d=crmGetPdfOrderData();
+      crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`);
+      return;
+    }
+    const{order,calc}=crmDocContext(false);
+    RadarDocs.download('act',order,calc);
+    showToast('Акт сформирован','success');
+  }catch(e){showToast('Ошибка генерации акта: '+(e?.message||e),'error')}
 }
 function crmDownloadAllPDF(){
-  const d=crmGetPdfOrderData();
-  showToast('Открываем 3 документа…','info');
-  crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,crmApplyEstimatePdfLink,true);
-  setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,crmApplyEstimatePdfLink,true),1200);
-  setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
+  crmWarnIfPdfNotReady();
+  try{
+    if(crmUseLegacyDocs()){
+      const d=crmGetPdfOrderData();
+      crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,crmApplyEstimatePdfLink,true);
+      setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,crmApplyEstimatePdfLink,true),1200);
+      setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
+      return;
+    }
+    const pro=crmDocContext(true),std=crmDocContext(false);
+    RadarDocs.open('estimate',pro.order,pro.calc,{withDiscount:true});
+    RadarDocs.open('estimate',std.order,std.calc,{withDiscount:false});
+    RadarDocs.open('act',std.order,std.calc);
+  }catch(e){showToast('Ошибка генерации документов: '+(e?.message||e),'error')}
 }
-function crmSharePDF(type){
+async function crmSharePDF(type){
+  crmWarnIfPdfNotReady();
+  showToast('Готовим документ…','info');
+  try{
+    const withDiscount=type==='pro';
+    if(crmUseLegacyDocs())return crmSharePDFLegacy(type);
+    const{order,calc}=crmDocContext(withDiscount);
+    const kind=type==='act'?'act':'estimate';
+    const res=await RadarDocs.share(kind,order,calc,{withDiscount});
+    showToast(res.shared?'Отправлено':'Скачано (отправка не поддерживается)',res.shared?'success':'info');
+  }catch(e){
+    if(e&&e.name==='AbortError')return; // пользователь закрыл системное окно «Поделиться»
+    showToast('Ошибка генерации PDF: '+(e?.message||e),'error');
+  }
+}
+function crmSharePDFLegacy(type){
   const d=crmGetPdfOrderData();
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   let html,fname;
   if(type==='pro'){html=crmBuildEstimateHTML(d,true);fname=`Смета_профессионал_${d.orderId}.pdf`}
   else if(type==='std'){html=crmBuildEstimateHTML(d,false);fname=`Смета_${d.orderId}.pdf`}
   else{html=crmBuildActHTML(d);fname=`Акт_${d.orderId}.pdf`}
-  showToast('Генерируем PDF…','info');
   const container=document.createElement('div');
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=html;
@@ -2085,10 +2471,8 @@ function crmSharePDF(type){
     const file=new File([blob],fname,{type:'application/pdf'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
       navigator.share({files:[file]}).then(()=>showToast('Отправлено','success')).catch(()=>{});
-    }else{
-      pdf.save(fname);showToast('Скачано (отправка не поддерживается)','info');
-    }
-  }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
+    }else{pdf.save(fname);showToast('Скачано (отправка не поддерживается)','info')}
+  }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container)});
 }
 // CRM Dashboard
 function crmRenderDash(){

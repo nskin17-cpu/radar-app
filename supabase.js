@@ -249,6 +249,17 @@
     }
   }
 
+  /**
+   * ВНИМАНИЕ. Функции prune* удаляют из Supabase всё, чего нет в Google Sheets.
+   * С июля 2026 они НАМЕРЕННО НИКЕМ НЕ ВЫЗЫВАЮТСЯ.
+   *
+   * Причина: Google-таблица сама теряла строки (проверено — два реальных заказа
+   * существовали только в Supabase). Prune «наводил порядок» по таблице как по
+   * эталону и добивал единственную уцелевшую копию заказа.
+   *
+   * Supabase теперь основной источник. Не подключайте эти функции обратно,
+   * не убедившись, что Sheets снова стал эталоном.
+   */
   async function pruneDeletedOrdersFromSupabase(apiFn, supabaseOpts) {
     var supabase = getSupabase(supabaseOpts);
     if (!supabase) return { success: false, error: 'Задайте SUPABASE_URL и SUPABASE_ANON_KEY' };
