@@ -59,6 +59,36 @@
 .crm-log-row strong{font-weight:600;color:var(--text,#1d1d1f)}
 .crm-log-user{opacity:.6}
 
+/* ── Сворачиваемый блок (комментарий в заказе) ────────────────────────────── */
+.crm-collapse{
+  margin-top:10px;
+  border:0.5px solid var(--border2,rgba(0,0,0,.12));
+  border-radius:10px;
+  background:var(--surface2,#f5f5f7);
+  padding:0 12px;
+}
+.crm-collapse>summary{
+  list-style:none;cursor:pointer;
+  display:flex;align-items:baseline;gap:10px;
+  padding:10px 0;
+}
+.crm-collapse>summary::-webkit-details-marker{display:none}
+.crm-collapse>summary::after{
+  content:'⌄';margin-left:auto;color:var(--text3,#aeaeb2);
+  font-size:15px;line-height:1;transition:transform .15s ease;
+}
+.crm-collapse[open]>summary::after{transform:rotate(180deg)}
+.crm-collapse-title{
+  font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+  font-weight:600;color:var(--text3,#aeaeb2);flex:0 0 auto;
+}
+.crm-collapse-hint{
+  font-size:12px;color:var(--text2,#86868b);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+.crm-collapse.is-filled .crm-collapse-hint{color:var(--text,#1d1d1f)}
+.crm-collapse .input-group{margin-bottom:12px}
+
 /* ── Блок состояния синхронизации в настройках ────────────────────────────── */
 .radar-sync-panel{
   display:grid;gap:8px;padding:12px 14px;border-radius:10px;
@@ -130,8 +160,17 @@
   #page-crm select{max-width:100%;width:100%;min-width:0}
   #crmOrdersTable select[data-crm-deposit]{min-width:0;width:100%}
 
-  /* Пальцем в мелкий селект не попасть */
-  .crm-om-grid select,.crm-om-line select{min-height:38px;font-size:12px!important}
+  /* Пальцем в мелкий селект не попасть, плюс 16px обязательны против зума iOS.
+     В styles.css эти же селекторы стоят с !important на 11px и 10px,
+     поэтому здесь нужна такая же специфичность — иначе не перебить. */
+  .crm-om-grid select,
+  .crm-om-line select,
+  #crmOrdersTable select[data-crm-status],
+  #crmOrdersTable select[data-crm-payment],
+  #crmOrdersTable select[data-crm-deposit]{
+    font-size:16px!important;
+    min-height:40px;
+  }
 
   /* ── Окно заказа: заполнение с телефона ─────────────────────────────────── */
   /* Пока открыто окно, страница под ним зафиксирована (см. lockBodyScroll) */
@@ -139,9 +178,19 @@
   .modal-overlay{overscroll-behavior:contain;touch-action:pan-y}
   #crmOrderModal .modal{overscroll-behavior-y:contain}
 
-  /* iOS увеличивает страницу при фокусе, если шрифт поля меньше 16 px */
+  /* ГЛАВНОЕ ПРАВИЛО МОБИЛЬНОЙ ВЁРСТКИ.
+     Safari на iOS увеличивает всю страницу, когда пользователь ставит курсор
+     в поле со шрифтом меньше 16 px. После этого страница остаётся увеличенной,
+     а окно с position:fixed рисуется по координатам исходного макета — визуально
+     оно съезжает вправо и обрезается. Ровно это и выглядело как «окно двигается».
+     Размеры шрифта у части полей заданы инлайново (12–15 px), поэтому здесь
+     нужен !important — обычное правило их не перебьёт. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea{
+    font-size:16px!important;
+  }
   #crmOrderModal input,#crmOrderModal select,#crmOrderModal textarea{
-    font-size:16px;
     min-height:42px;
   }
   #crmOrderModal textarea{min-height:64px}
@@ -159,6 +208,10 @@
   #crmOrderModal .input-group{margin-bottom:8px}
   /* Итоговая сумма — акцентом на всю ширину */
   #crmOrderModal .crm-grid-3 .input-group:first-child{grid-column:1 / -1}
+  /* Ссылка «+ Доп. услуга» прилипала к подписи следующего поля */
+  #crmExtraChargeToggle{display:inline-block;padding:6px 0;font-size:13px}
+  #crmExtraChargeToggle+*,
+  #crmOrderModal #crmExtraChargeFields+.crm-grid-3{margin-top:10px}
 
   /* Строка позиции: категория и изделие на всю ширину,
      ниже одной строкой — количество, сетап, цена и удаление */
@@ -183,11 +236,27 @@
     display:flex;align-items:center;justify-content:center;
   }
 
-  /* Кнопки документов и сохранения — в столбец, во всю ширину */
+  /* Кнопки документов — сеткой, во всю ширину */
   #crmOrderModal .crm-doc-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   #crmOrderModal .crm-doc-actions .btn{width:100%;min-height:42px;font-size:12px}
-  #crmOrderModal .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  #crmOrderModal .modal-actions .btn{width:100%;min-height:46px;font-size:14px}
+
+  /* «Отмена» и «Сохранить» — постоянная нижняя панель окна.
+     Раньше они были обычным блоком в потоке и оказывались там, докуда долистали. */
+  #crmOrderModal .modal-actions{
+    position:sticky;
+    bottom:0;
+    left:0;right:0;
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+    margin:14px -12px 0;
+    padding:12px 12px calc(12px + env(safe-area-inset-bottom))!important;
+    background:var(--surface,#fff);
+    border-top:0.5px solid var(--border2,rgba(0,0,0,.12));
+    box-shadow:0 -8px 20px rgba(0,0,0,.06);
+    z-index:5;
+  }
+  #crmOrderModal .modal-actions .btn{width:100%;min-height:48px;font-size:15px;font-weight:600}
+
+  .crm-collapse>summary{min-height:44px}
   .modal-title-row{gap:8px}
   .crm-order-meta-line{gap:8px;font-size:11px}
 

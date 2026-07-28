@@ -306,6 +306,7 @@ function crmBindDialogInputs(){
   document.getElementById('crmItemsTotal')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmCalcTotal()});
   document.getElementById('crmAmount')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmSyncPaidAndRemaining();crmScheduleAutosave()});
   document.getElementById('crmBudget')?.addEventListener('input',e=>{e.target.dataset.manual='1';crmScheduleAutosave()});
+  document.getElementById('crmComment')?.addEventListener('input',()=>crmSyncCommentBlock(false));
   document.getElementById('crmPaidAmount')?.addEventListener('input',()=>{crmSyncPaidAndRemaining();crmScheduleAutosave()});
   document.getElementById('crmPayment')?.addEventListener('change',()=>{crmSyncPaidAndRemaining();crmScheduleAutosave()});
   // Автосохранение на любое изменение формы, включая текстовые поля и селекты.
@@ -1722,9 +1723,26 @@ function crmOpenDialog(id){
   crmCloseClientDropdown();
   crmPositionClientDropdown();
   crmRenderOrderMeta(id?crmOrders.find(x=>x.id===id):null);
+  crmSyncCommentBlock(true);
   crmOrderDialogInit=false;
   crmAutosaveEnabled=true;
   openModal('crmOrderModal');
+}
+
+/**
+ * Свёрнутый комментарий.
+ * Раскрывается сам, если текст уже есть, — иначе его легко не заметить.
+ * В свёрнутом виде показывает начало текста, чтобы не открывать ради проверки.
+ */
+function crmSyncCommentBlock(openIfFilled){
+  const box=document.getElementById('crmCommentBlock');
+  const hint=document.getElementById('crmCommentHint');
+  const ta=document.getElementById('crmComment');
+  if(!box||!ta)return;
+  const text=String(ta.value||'').trim();
+  if(openIfFilled)box.open=!!text;
+  if(hint)hint.textContent=text?(text.length>34?text.slice(0,34)+'…':text):'не заполнен';
+  box.classList.toggle('is-filled',!!text);
 }
 
 /** Шапка окна заказа: номер, даты создания/изменения, история правок. */

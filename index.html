@@ -719,7 +719,12 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="input-group"><label class="input-label">Описание компенсации</label><input type="text" id="crmCompensationNote"></div>
       </div>
     </div>
-    <div class="input-group" style="margin-top:10px"><label class="input-label">Комментарий</label><textarea id="crmComment" rows="2"></textarea></div>
+    <!-- Комментарий свёрнут: нужен редко, а места занимал постоянно.
+         Разворачивается сам, если в заказе уже есть текст (см. crmOpenDialog). -->
+    <details class="crm-collapse" id="crmCommentBlock">
+      <summary><span class="crm-collapse-title">Комментарий</span><span class="crm-collapse-hint" id="crmCommentHint"></span></summary>
+      <div class="input-group" style="margin:8px 0 0"><textarea id="crmComment" rows="3" placeholder="Заметка по заказу"></textarea></div>
+    </details>
     <div class="crm-doc-actions" id="crmDocActions">
       <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой">Смета (со скидкой)</button>
