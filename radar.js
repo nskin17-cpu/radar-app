@@ -714,7 +714,7 @@ function unlockBodyScroll(){
  *    прокручиваться в направлении жеста; на границе — блокируем, чтобы жест
  *    не превратился в оттягивание всего окна.
  */
-let _touchStartY=0;
+let _touchStartY=0,_touchStartX=0;
 function radarModalTouchGuard(e){
   if(e.touches.length!==1)return;
   const overlay=document.querySelector('.modal-overlay.active');
@@ -724,7 +724,15 @@ function radarModalTouchGuard(e){
     if(e.cancelable)e.preventDefault();
     return;
   }
+  const dx=e.touches[0].clientX-_touchStartX;
   const dy=e.touches[0].clientY-_touchStartY;
+  // Горизонтальный жест: окну некуда прокручиваться вбок, поэтому блокируем —
+  // именно такие протяжки сдвигали окно в сторону. Исключение — поля ввода:
+  // там горизонтальное движение это курсор и прокрутка собственного текста.
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(!e.target.closest('input,textarea,select')&&e.cancelable)e.preventDefault();
+    return;
+  }
   const canScroll=(box)=>dy>0?box.scrollTop>0:Math.ceil(box.scrollTop+box.clientHeight)<box.scrollHeight;
   if(canScroll(scroller))return;
   // вложенный скролл упёрся в край — отдаём жест самому окну, если ему есть куда
@@ -732,7 +740,9 @@ function radarModalTouchGuard(e){
   if(scroller!==modal&&modal&&canScroll(modal))return;
   if(e.cancelable)e.preventDefault();
 }
-document.addEventListener('touchstart',e=>{if(e.touches.length===1)_touchStartY=e.touches[0].clientY},{passive:true});
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){_touchStartY=e.touches[0].clientY;_touchStartX=e.touches[0].clientX}
+},{passive:true});
 document.addEventListener('touchmove',e=>{
   if(document.body.classList.contains('modal-open'))radarModalTouchGuard(e);
 },{passive:false});

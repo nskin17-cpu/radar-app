@@ -22,13 +22,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260729-2">
-<link rel="stylesheet" href="radar-ui.css?v=20260729-2">
+<link rel="stylesheet" href="styles.css?v=20260729-3">
+<link rel="stylesheet" href="radar-ui.css?v=20260729-3">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260729-2';
+window.RADAR_BUILD='20260729-3';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -653,6 +653,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="modal-title-row">
       <div class="modal-title" id="crmDialogTitle">Новый заказ</div>
       <span class="crm-save-badge" id="crmSaveBadge"></span>
+      <button type="button" class="crm-modal-close" onclick="crmCancelOrderDialog()" aria-label="Закрыть" title="Закрыть (как «Отмена»)">✕</button>
     </div>
     <div class="crm-order-meta" id="crmOrderMeta" style="display:none"></div>
     <input type="hidden" id="crmOrderId">
@@ -744,7 +745,6 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <button class="btn btn-sm" id="crmShareActBtn" onclick="crmSharePDF('act')" style="display:none;background:#25D366;border-color:#25D366" title="Отправить акт">📤 Акт</button>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-secondary btn-sm" onclick="crmCancelOrderDialog()">Отмена</button>
       <button class="btn btn-sm" onclick="withSaveGuard(this,crmSaveOrder)">Сохранить</button>
     </div>
   </div>
@@ -753,15 +753,15 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260729-2"></script>
-<script src="radar-pricing.js?v=20260729-2"></script>
-<script src="radar-docs.js?v=20260729-2"></script>
-<script src="supabase.js?v=20260729-2"></script>
-<script src="radar-store.js?v=20260729-2"></script>
-<script src="radar-gateway.js?v=20260729-2"></script>
-<script src="radar.js?v=20260729-2"></script>
-<script src="crm.js?v=20260729-2"></script>
-<script src="radar-status.js?v=20260729-2"></script>
+<script src="radar-config.js?v=20260729-3"></script>
+<script src="radar-pricing.js?v=20260729-3"></script>
+<script src="radar-docs.js?v=20260729-3"></script>
+<script src="supabase.js?v=20260729-3"></script>
+<script src="radar-store.js?v=20260729-3"></script>
+<script src="radar-gateway.js?v=20260729-3"></script>
+<script src="radar.js?v=20260729-3"></script>
+<script src="crm.js?v=20260729-3"></script>
+<script src="radar-status.js?v=20260729-3"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
