@@ -146,7 +146,7 @@ function crmRefreshRowsForYearMode(){
   list.querySelectorAll('div').forEach(row=>{
     const catSel=row.querySelector('[data-cat]');
     const nameSel=row.querySelector('[data-name]');
-    const priceSpan=row.querySelector('[data-price]');
+    const priceSpan=row.querySelector('span[data-price]');
     if(!catSel||!nameSel)return;
     const selectedName=nameSel.value;
     const its=crmStock.filter(s=>s.category===catSel.value);
@@ -568,7 +568,7 @@ function crmRenderOrders(){
     prevMonthKey=monthKey;
     const remain=Number(o.remainingAmount||0);
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
-    const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':esc(o.deliveryAddress||'');
+    const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':(esc(o.deliveryAddress)||'Доставка, адрес не указан');
     const itemsList=(o.items||[]).length
       ? `<div class="crm-items-mobile-list" style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
       : '—';
@@ -1765,7 +1765,7 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const setupChecked=item.setup!==false?'checked':'';
   const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
   row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
-  const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('[data-price]'),qtyInp=row.querySelector('[data-qty]');
+  const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('span[data-price]'),qtyInp=row.querySelector('[data-qty]');
   catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r0=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r0>0?' '+r0+'₽':'';const setupCb0=row.querySelector('[data-setup]');if(setupCb0&&r0===0)setupCb0.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
   nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r>0?' '+r+'₽':'';const setupCb=row.querySelector('[data-setup]');if(setupCb&&r===0)setupCb.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
   // Любое изменение состава возвращает производные суммы в автоматический режим.
@@ -1905,7 +1905,7 @@ function crmCalcTotal(){
 function crmRenderItemLineTotals(calc){
   const rows=document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]')||[];
   rows.forEach((q,ix)=>{
-    const span=q.parentElement.querySelector('[data-price]');
+    const span=q.parentElement.querySelector('span[data-price]');
     const line=calc.items[ix];
     if(!span||!line)return;
     span.textContent=line.lineTotal?fN(line.lineTotal)+'₽':'';

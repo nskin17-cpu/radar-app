@@ -78,3 +78,164 @@
   .radar-save-status{bottom:12px;font-size:12px;padding:8px 12px}
   .radar-save-detail{display:none}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   МОБИЛЬНАЯ ВЁРСТКА
+
+   Главная проблема была в списке заказов: таблица занимала 401 px при экране
+   390 px, а обёртка стояла с overflow-x:hidden — правый край карточки просто
+   отрезало, и суммы с датами было не прочитать и не доскроллить.
+
+   Причина не в ширине как таковой, а в table-layout:auto: браузер растягивает
+   таблицу под минимальную ширину содержимого и игнорирует width:100%. Внутри
+   то же самое делали grid с колонкой 1fr и flex-элементы — по умолчанию они
+   не сжимаются меньше своего содержимого (min-width:auto).
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+
+  /* ── Общая страховка: горизонтального скролла быть не должно ────────────── */
+  html,body{overflow-x:hidden}
+  .main{max-width:100%}
+  .page{max-width:100%}
+
+  /* ── Список заказов ─────────────────────────────────────────────────────── */
+  /* На телефоне список перестаёт быть таблицей и становится набором карточек.
+     Пока это была таблица, браузер считал её ширину по содержимому и
+     раздвигал за экран — а обёртка с overflow-x:hidden отрезала правый край. */
+  #page-crm .table-wrap{overflow-x:visible}
+  #page-crm table,
+  #page-crm tbody,
+  #page-crm tr,
+  #page-crm td{
+    display:block;
+    width:100%;
+    max-width:100%;
+    box-sizing:border-box;
+  }
+  #page-crm thead{display:none}
+
+  .crm-om-head{align-items:flex-start}
+  .crm-om-client{min-width:0;flex:1 1 auto}
+  .crm-om-client strong,.crm-om-client span{overflow-wrap:anywhere}
+  .crm-om-actions{flex:0 0 auto}
+
+  .crm-om-line{align-items:baseline;gap:10px}
+  .crm-om-line>span{flex:0 0 auto;min-width:0}
+  .crm-om-line>strong{min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
+
+  /* Статусы: подпись сверху, поле на всю ширину — так не жмётся текст */
+  .crm-om-grid{grid-template-columns:minmax(0,1fr)}
+  .crm-om-line:has(select){flex-direction:column;align-items:stretch;gap:4px}
+  .crm-om-line:has(select)>span{margin-bottom:2px}
+  #page-crm select{max-width:100%;width:100%;min-width:0}
+  #crmOrdersTable select[data-crm-deposit]{min-width:0;width:100%}
+
+  /* Пальцем в мелкий селект не попасть */
+  .crm-om-grid select,.crm-om-line select{min-height:38px;font-size:12px!important}
+
+  /* ── Окно заказа: заполнение с телефона ─────────────────────────────────── */
+  /* iOS увеличивает страницу при фокусе, если шрифт поля меньше 16 px */
+  #crmOrderModal input,#crmOrderModal select,#crmOrderModal textarea{
+    font-size:16px;
+    min-height:42px;
+  }
+  #crmOrderModal textarea{min-height:64px}
+  #crmOrderModal .input-label{font-size:10px}
+
+  /* Строка позиции: категория и изделие на всю ширину,
+     ниже одной строкой — количество, сетап, цена и удаление */
+  #crmItemsList>div{
+    grid-template-columns:82px auto minmax(0,1fr) 28px!important;
+    gap:8px 10px!important;
+    align-items:center!important;
+    padding:10px 0!important;
+    border-bottom:0.5px dashed var(--border2,rgba(0,0,0,.12));
+  }
+  #crmItemsList>div>:nth-child(1),
+  #crmItemsList>div>:nth-child(2){grid-column:1 / -1!important}
+  #crmItemsList>div [data-qty]{text-align:center;font-size:16px!important}
+  #crmItemsList>div [data-price]{
+    font-size:13px!important;text-align:right;font-weight:600;
+    color:var(--text)!important;white-space:nowrap;
+  }
+  #crmItemsList>div label{font-size:12px!important;min-height:42px}
+  #crmItemsList>div label input[type="checkbox"]{width:20px!important;height:20px!important}
+  #crmItemsList>div>span:last-child{
+    font-size:20px;line-height:1;min-height:42px;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* Кнопки документов и сохранения — в столбец, во всю ширину */
+  #crmOrderModal .crm-doc-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #crmOrderModal .crm-doc-actions .btn{width:100%;min-height:42px;font-size:12px}
+  #crmOrderModal .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #crmOrderModal .modal-actions .btn{width:100%;min-height:46px;font-size:14px}
+  .modal-title-row{gap:8px}
+  .crm-order-meta-line{gap:8px;font-size:11px}
+
+  /* ── Широкие таблицы: скроллятся, а не обрезаются ───────────────────────── */
+  /* Первая колонка закреплена — при боковой прокрутке видно, чья это строка */
+  #page-clients .table-wrap,
+  #page-crmdash .table-wrap,
+  #page-crmstock .table-wrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+  }
+  #page-clients .table-wrap th:first-child,
+  #page-clients .table-wrap td:first-child,
+  #page-crmdash .table-wrap th:first-child,
+  #page-crmdash .table-wrap td:first-child{
+    position:sticky;left:0;z-index:2;
+    background:var(--surface,#fff);
+    box-shadow:1px 0 0 var(--border2,rgba(0,0,0,.08));
+  }
+  #page-clients .table-wrap thead th:first-child,
+  #page-crmdash .table-wrap thead th:first-child{
+    background:var(--surface2,#f5f5f7);z-index:3;
+  }
+  /* Подсказка, что таблицу можно листать вбок */
+  .table-scroll-hint{
+    display:block;font-size:10.5px;color:var(--text3,#aeaeb2);
+    margin:0 0 6px 2px;letter-spacing:.2px;
+  }
+
+  /* ── Фильтры и поиск ────────────────────────────────────────────────────── */
+  #page-crm .page-header .btn,
+  #page-clients .page-header .btn{min-height:42px}
+  /* В разметке у поля поиска стоит инлайновый width:auto — на телефоне
+     из-за него поле занимало 200 px вместо всей ширины */
+  input[type="search"],#crmSearchInput,#crmClientsSearch,#crmStockSearch{
+    font-size:16px;
+    min-height:42px;
+    width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box;
+  }
+  #crmSearchInput+*,#page-crm .page-header+div+div>*{max-width:100%}
+
+  /* Панель кнопок внизу окна прилипшая — отделяем её линией,
+     иначе она читается как наехавшая на поля */
+  #crmOrderModal .modal-actions{
+    border-top:0.5px solid var(--border2,rgba(0,0,0,.1));
+    box-shadow:0 -6px 14px rgba(255,255,255,.9);
+    padding-top:12px!important;
+  }
+
+  /* Текст выбранного изделия прижимался к правому краю.
+     Chrome для <select> ориентируется на text-align-last, а не только text-align. */
+  #crmItemsList select,
+  #crmItemsList option,
+  #crmOrderModal select{
+    text-align:left;
+    text-align-last:left;
+    direction:ltr;
+  }
+}
+
+/* Совсем узкие экраны (iPhone SE / mini) */
+@media(max-width:380px){
+  #crmItemsList>div{grid-template-columns:74px auto minmax(0,1fr) 26px!important;gap:6px 8px!important}
+  #crmOrderModal .crm-doc-actions{grid-template-columns:1fr}
+  .crm-om-line>strong{font-size:12px}
+}
