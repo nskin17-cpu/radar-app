@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260730-1">
-<link rel="stylesheet" href="radar-ui.css?v=20260730-1">
+<link rel="stylesheet" href="styles.css?v=20260730-2">
+<link rel="stylesheet" href="radar-ui.css?v=20260730-2">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260730-1';
+window.RADAR_BUILD='20260730-2';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -493,7 +493,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- ВЫДАЧА ЗАКАЗОВ (доска склада) -->
     <div id="page-warehouse" class="page">
       <div class="page-header">
-        <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат. В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты</div></div>
+        <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат → Завершение. В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты; залоги и компенсации закрывает менеджер</div></div>
         <button class="btn btn-sm btn-secondary" id="whRefreshBtn" onclick="whRefresh()">Обновить</button>
       </div>
       <div id="whMigrationWarn" style="display:none" class="wh-warn">В базе нет колонки «wh» — выполните sql/security-5-warehouse.sql, иначе состояние доски не сохранится.</div>
@@ -827,28 +827,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
   </div>
 </div>
 
-<!-- Склад: выдача заказа (фиксация залога) -->
-<div class="modal-overlay" id="whIssueModal">
-  <div class="modal" style="width:400px">
-    <div class="modal-title-row">
-      <div class="modal-title" style="font-size:17px" id="whIssueTitle"></div>
-      <button type="button" class="crm-modal-close" onclick="closeModal('whIssueModal',true)" aria-label="Закрыть">✕</button>
-    </div>
-    <input type="hidden" id="whIssueOrderId">
-    <div id="whIssuePlanned" style="font-size:12.5px;color:var(--text2);margin-bottom:12px"></div>
-    <div class="input-group"><label class="input-label">Залог получен, ₽</label><input type="number" id="whIssueDeposit" min="0" inputmode="numeric" placeholder="0"></div>
-    <div class="input-group"><label class="input-label">Способ</label><select id="whIssueMethod">
-      <option value="cash">Наличные</option><option value="transfer">Перевод</option>
-      <option value="card">Карта</option><option value="none">Без залога</option></select></div>
-    <div class="input-group"><label class="input-label">Комментарий (не обязательно)</label><input type="text" id="whIssueNote" placeholder="Например: паспорт сверен"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary btn-sm" onclick="closeModal('whIssueModal',true)">Отмена</button>
-      <button class="btn btn-sm" onclick="whConfirmIssue()">Выдать заказ</button>
-    </div>
-  </div>
-</div>
-
-<!-- Склад: приём возврата (чек-лист, компенсация, залог) -->
+<!-- Склад: приём возврата (чек-лист, компенсация; залог решает менеджер) -->
 <div class="modal-overlay" id="whReturnModal">
   <div class="modal" style="width:460px">
     <div class="modal-title-row">
@@ -864,11 +843,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="input-group"><label class="input-label">Компенсация, ₽</label><input type="number" id="whReturnComp" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="input-group"><label class="input-label">За что</label><input type="text" id="whReturnCompNote" placeholder="Причина компенсации"></div>
     </div>
-    <div id="whReturnDepositInfo" style="font-size:12.5px;color:var(--text2);margin:2px 0 8px"></div>
-    <div class="input-group"><label class="input-label">Залог</label><select id="whReturnDepositBack">
-      <option value="full">Вернули полностью</option>
-      <option value="withheld">Удержали (компенсация из залога)</option>
-      <option value="none">Залога не было</option></select></div>
+    <div style="font-size:11.5px;color:var(--text2);margin:2px 0 4px;line-height:1.4">Возврат или удержание залога отмечает менеджер в списке заказов — заказ будет ждать его в колонке «Залог / Компенсация».</div>
     <div class="modal-actions">
       <button class="btn btn-secondary btn-sm" onclick="closeModal('whReturnModal',true)">Отмена</button>
       <button class="btn btn-sm" onclick="whConfirmReturn()">Принять возврат</button>
@@ -879,16 +854,16 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260730-1"></script>
-<script src="radar-pricing.js?v=20260730-1"></script>
-<script src="radar-docs.js?v=20260730-1"></script>
-<script src="supabase.js?v=20260730-1"></script>
-<script src="radar-store.js?v=20260730-1"></script>
-<script src="radar-gateway.js?v=20260730-1"></script>
-<script src="radar.js?v=20260730-1"></script>
-<script src="crm.js?v=20260730-1"></script>
-<script src="radar-warehouse.js?v=20260730-1"></script>
-<script src="radar-status.js?v=20260730-1"></script>
+<script src="radar-config.js?v=20260730-2"></script>
+<script src="radar-pricing.js?v=20260730-2"></script>
+<script src="radar-docs.js?v=20260730-2"></script>
+<script src="supabase.js?v=20260730-2"></script>
+<script src="radar-store.js?v=20260730-2"></script>
+<script src="radar-gateway.js?v=20260730-2"></script>
+<script src="radar.js?v=20260730-2"></script>
+<script src="crm.js?v=20260730-2"></script>
+<script src="radar-warehouse.js?v=20260730-2"></script>
+<script src="radar-status.js?v=20260730-2"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();

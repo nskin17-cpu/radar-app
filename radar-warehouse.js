@@ -22,15 +22,27 @@
   var WH_PAY_OK = { prepaid: 1, paid: 1, paid_cash: 1 };
   var WH_PAY_LABEL = { prepaid: 'Предоплата', paid: 'Оплачен', paid_cash: 'Наличные' };
   var WH_METHODS = { cash: 'Наличные', transfer: 'Перевод', card: 'Карта', none: 'Без залога' };
-  var RETURN_WINDOW_DAYS = 14;   // сколько дней возвраты видны в последней колонке
+  var RETURN_WINDOW_DAYS = 14;   // сколько дней завершённые заказы видны в последней колонке
   var ASSEMBLY_HORIZON = 3;      // за сколько дней до выдачи заказ падает в «Сборку»
 
+  // Деньгами занимается менеджер: склад лишь фиксирует факт (компенсация, недостача),
+  // после чего карточка ждёт менеджера в колонке «Возврат залога / Компенсация» и
+  // уходит в «Заказ завершён», когда вопрос закрыт (или сразу, если вопросов нет).
   var COLS = [
-    { key: 'todo',      title: 'Сборка' },
-    { key: 'assembled', title: 'Собрано' },
-    { key: 'issued',    title: 'Выдан' },
-    { key: 'returned',  title: 'Вернули' }
+    { key: 'todo',       title: 'Сборка' },
+    { key: 'assembled',  title: 'Собрано' },
+    { key: 'issued',     title: 'Выдан' },
+    { key: 'resolution', title: 'Залог / Компенсация' },
+    { key: 'done',       title: 'Заказ завершён' }
   ];
+
+  /** Возврат принят, но остались денежные вопросы: залог у нас или компенсация не закрыта. */
+  function needsResolution(o, w) {
+    if (w.resolvedAt) return false;
+    if (o.depositStatus === 'deposited') return true;                       // залог надо вернуть или удержать
+    if (Number(o.compensationAmount) > 0 && o.depositStatus === 'pending') return true; // компенсация без залога
+    return false;
+  }
 
   function $(id) { return document.getElementById(id); }
   function whUser() { return (window.currentUser && window.currentUser.username) || 'user'; }
@@ -55,6 +67,7 @@
       issue: (w.issue && typeof w.issue === 'object') ? w.issue : null,
       returnedAt: w.returnedAt || null, returnedBy: w.returnedBy || null,
       ret: (w.ret && typeof w.ret === 'object') ? w.ret : null,
+      resolvedAt: w.resolvedAt || null, resolvedBy: w.resolvedBy || null,
       prevStatus: w.prevStatus || null
     };
   }
@@ -78,13 +91,15 @@
     var today = day0(new Date());
     var horizon = new Date(today); horizon.setDate(horizon.getDate() + ASSEMBLY_HORIZON);
     var retCutoff = new Date(today); retCutoff.setDate(retCutoff.getDate() - RETURN_WINDOW_DAYS);
-    var out = { todo: [], assembled: [], issued: [], returned: [] };
+    var out = { todo: [], assembled: [], issued: [], resolution: [], done: [] };
 
     orders().forEach(function (o) {
       var w = whGet(o);
       if (w.state === 'returned') {
+        // Открытые денежные вопросы не протухают — висят, пока менеджер не закроет
+        if (needsResolution(o, w)) { out.resolution.push(o); return; }
         var ra = w.returnedAt ? new Date(w.returnedAt) : null;
-        if (ra && !isNaN(ra) && ra >= retCutoff) out.returned.push(o);
+        if (ra && !isNaN(ra) && ra >= retCutoff) out.done.push(o);
         return;
       }
       // Менеджер закрыл заказ сам — с доски убираем, чтобы не собирали зря
@@ -102,7 +117,9 @@
     out.todo.sort(byStart);
     out.assembled.sort(byStart);
     out.issued.sort(function (a, b) { return (parseDay(a.endDate) || 0) - (parseDay(b.endDate) || 0); });
-    out.returned.sort(function (a, b) { return String(whGet(b).returnedAt || '').localeCompare(String(whGet(a).returnedAt || '')); });
+    // Старые открытые вопросы — сверху, чтобы не зависали
+    out.resolution.sort(function (a, b) { return String(whGet(a).returnedAt || '').localeCompare(String(whGet(b).returnedAt || '')); });
+    out.done.sort(function (a, b) { return String(whGet(b).returnedAt || '').localeCompare(String(whGet(a).returnedAt || '')); });
     return out;
   }
 
@@ -157,7 +174,8 @@
   function emptyText(key) {
     return { todo: 'Нечего собирать — оплаченных заказов на ближайшие ' + ASSEMBLY_HORIZON + ' дня нет',
              assembled: 'Собранных заказов нет', issued: 'На руках у клиентов ничего нет',
-             returned: 'Возвратов за ' + RETURN_WINDOW_DAYS + ' дней не было' }[key] || 'Пусто';
+             resolution: 'Открытых вопросов по залогам и компенсациям нет',
+             done: 'Завершённых заказов за ' + RETURN_WINDOW_DAYS + ' дней нет' }[key] || 'Пусто';
   }
 
   function cardHtml(o, colKey) {
@@ -172,16 +190,28 @@
     var actions = '';
     if (edit) {
       if (colKey === 'todo') actions = btn('whMarkAssembled', o.id, 'Собрано ✓');
-      else if (colKey === 'assembled') actions = btn('whOpenIssue', o.id, 'Выдать →') + btnSec('whPrintAct', o.id, 'Акт');
+      else if (colKey === 'assembled') actions = btn('whMarkIssued', o.id, 'Выдать →') + btnSec('whPrintAct', o.id, 'Акт');
       else if (colKey === 'issued') actions = btn('whOpenReturn', o.id, 'Принять возврат ←') + btnSec('whPrintAct', o.id, 'Акт');
     } else if (colKey === 'assembled' || colKey === 'issued') {
       actions = btnSec('whPrintAct', o.id, 'Акт');
     }
+    // Денежный вопрос закрывает менеджер (нужен допуск к заказам)
+    if (colKey === 'resolution' && typeof radarCanEdit === 'function' && radarCanEdit('orders')) {
+      actions = btn('whResolve', o.id, 'Вопрос закрыт ✓');
+    }
 
     var noteCount = w.notes.length;
     var flags = [];
-    if (w.ret && Number(w.ret.compensation) > 0) flags.push('<span class="wh-badge wh-b-red">компенсация</span>');
-    if (w.state === 'issued' && w.issue && Number(w.issue.deposit) > 0) flags.push('<span class="wh-badge wh-b-blue">залог у нас</span>');
+    // Ярлыки для менеджера: что именно требует внимания
+    if (w.state === 'returned' && Number(o.compensationAmount) > 0 && !w.resolvedAt) {
+      flags.push('<span class="wh-badge wh-b-red" title="' + esc(o.compensationNote || '') + '">компенсация ' + fN(o.compensationAmount) + ' ₽</span>');
+    }
+    if (w.state === 'returned' && o.depositStatus === 'deposited' && !w.resolvedAt) {
+      flags.push('<span class="wh-badge wh-b-blue">залог к возврату</span>');
+    }
+    if (w.ret && (w.ret.missing || []).length && colKey !== 'done') {
+      flags.push('<span class="wh-badge wh-b-amber">недостача</span>');
+    }
     if (noteCount) flags.push('<span class="wh-badge wh-b-grey">💬 ' + noteCount + '</span>');
 
     return '<div class="wh-card" draggable="' + (edit ? 'true' : 'false') + '" data-wh-card="' + esc(o.id) + '" onclick="whOpenCard(\'' + esc(o.id) + '\')">' +
@@ -223,15 +253,17 @@
   function whMoveTo(id, target) {
     var o = findOrder(id);
     if (!o) return;
-    var from = whGet(o).state;
+    var w = whGet(o);
+    var from = w.state === 'returned' ? (needsResolution(o, w) ? 'resolution' : 'done') : w.state;
     if (from === target) return;
     var route = from + '>' + target;
     if (route === 'todo>assembled') return whMarkAssembled(id);
-    if (route === 'assembled>issued') return whOpenIssue(id);
-    if (route === 'issued>returned') return whOpenReturn(id);
+    if (route === 'assembled>issued') return whMarkIssued(id);
+    if (route === 'issued>resolution' || route === 'issued>done') return whOpenReturn(id);
+    if (route === 'resolution>done') return whResolve(id);
     if (route === 'assembled>todo') return whReopen(id, 'todo');
     if (route === 'issued>assembled') return whReopen(id, 'assembled');
-    if (route === 'returned>issued') return whReopen(id, 'issued');
+    if (route === 'resolution>issued' || route === 'done>issued') return whReopen(id, 'issued');
     showToast('Так перенести нельзя: только в соседний столбец', 'error');
   }
 
@@ -302,60 +334,35 @@
     var nw = Object.assign({}, w, { state: target });
     if (w.state === 'issued' && target === 'assembled') {
       patchTop.status = w.prevStatus || 'preparing';
-      if (o.depositStatus === 'deposited' && w.issue && Number(w.issue.deposit) > 0) patchTop.depositStatus = 'pending';
-      nw.issuedAt = null; nw.issuedBy = null; nw.issue = null;
+      nw.issuedAt = null; nw.issuedBy = null;
     }
     if (w.state === 'returned' && target === 'issued') {
       patchTop.status = 'in_progress';
-      if (w.issue && Number(w.issue.deposit) > 0) patchTop.depositStatus = 'deposited';
-      nw.returnedAt = null; nw.returnedBy = null; nw.ret = null;
+      // Компенсацию, записанную этим возвратом, откатываем; правки менеджера не трогаем
+      if (w.ret && Number(w.ret.compensation) > 0 && Number(o.compensationAmount) === Number(w.ret.compensation)) {
+        patchTop.compensationAmount = 0; patchTop.compensationNote = '';
+      }
+      nw.returnedAt = null; nw.returnedBy = null; nw.ret = null; nw.resolvedAt = null; nw.resolvedBy = null;
     }
     if (w.state === 'assembled' && target === 'todo') { nw.assembledAt = null; nw.assembledBy = null; }
     whSave(Object.assign({}, o, patchTop, { wh: nw }), o, 'Склад: возврат карточки ' + (labels[target] || target));
     closeModal('whCardModal', true);
   };
 
-  // ── Выдача (модалка с залогом) ─────────────────────────────────────────────
+  // ── Выдача ─────────────────────────────────────────────────────────────────
+  // Залог, способ оплаты и прочие деньги отмечает менеджер в карточке заказа
+  // на странице «Заказы» — склад только фиксирует факт выдачи.
 
-  window.whOpenIssue = function (id) {
+  window.whMarkIssued = function (id) {
     if (!guardEdit()) return;
     var o = findOrder(id); if (!o) return;
-    $('whIssueOrderId').value = id;
-    $('whIssueTitle').textContent = 'Выдача ' + (o.orderNumber || '');
-    // Планового залога может не быть — тогда кладовщик вводит сумму сам
-    $('whIssueDeposit').value = Number(o.depositAmount) > 0 ? o.depositAmount : '';
-    $('whIssueMethod').value = 'cash';
-    $('whIssueNote').value = '';
-    $('whIssuePlanned').textContent = Number(o.depositAmount) > 0
-      ? 'Залог по заказу: ' + fN(o.depositAmount) + ' ₽'
-      : 'Менеджер залог не указывал — введите фактический, если берёте';
-    openModal('whIssueModal');
-  };
-
-  window.whConfirmIssue = function () {
-    var id = $('whIssueOrderId').value;
-    var o = findOrder(id); if (!o) return;
     var w = whGet(o);
-    var dep = Math.max(0, Number($('whIssueDeposit').value) || 0);
-    var method = $('whIssueMethod').value;
-    if (method === 'none') dep = 0;
-    if (dep === 0 && method !== 'none' &&
-        !confirm('Сумма залога 0 ₽ — выдать без залога?')) return;
-    var note = $('whIssueNote').value.trim();
-    var patchTop = { status: 'in_progress' };
-    if (dep > 0) {
-      patchTop.depositStatus = 'deposited';
-      if (!(Number(o.depositAmount) > 0)) patchTop.depositAmount = dep;  // менеджерскую сумму не трогаем
-    }
-    var label = 'Склад: заказ выдан, ' + (dep > 0 ? 'залог ' + fN(dep) + ' ₽ (' + WH_METHODS[method] + ')' : 'без залога');
-    if (note) label += '. ' + note;
-    whSave(Object.assign({}, o, patchTop, {
+    if (!confirm('Выдать заказ ' + (o.orderNumber || '') + ' клиенту?')) return;
+    whSave(Object.assign({}, o, { status: 'in_progress' }, {
       wh: Object.assign({}, w, {
-        state: 'issued', issuedAt: nowIso(), issuedBy: whUser(), prevStatus: o.status,
-        issue: { deposit: dep, method: dep > 0 ? method : 'none', note: note }
+        state: 'issued', issuedAt: nowIso(), issuedBy: whUser(), prevStatus: o.status
       })
-    }), o, label);
-    closeModal('whIssueModal', true);
+    }), o, 'Склад: заказ выдан');
     closeModal('whCardModal', true);
     showToast('Заказ выдан', 'success');
   };
@@ -372,11 +379,6 @@
       return '<label class="wh-check"><input type="checkbox" data-wh-ret="' + ix + '"> ' +
         esc(itemName(i)) + ' ×' + esc(i.qty) + '</label>';
     }).join('') || '<div class="wh-empty">Состав заказа пуст</div>';
-    var hasDeposit = (w.issue && Number(w.issue.deposit) > 0) || o.depositStatus === 'deposited';
-    $('whReturnDepositInfo').textContent = hasDeposit
-      ? 'Залог на руках: ' + fN(w.issue && w.issue.deposit > 0 ? w.issue.deposit : o.depositAmount) + ' ₽'
-      : 'Залог не вносился';
-    $('whReturnDepositBack').value = hasDeposit ? 'full' : 'none';
     $('whReturnDamage').value = '';
     $('whReturnComp').value = '';
     $('whReturnCompNote').value = '';
@@ -404,34 +406,50 @@
     var damage = $('whReturnDamage').value.trim();
     var comp = Math.max(0, Number($('whReturnComp').value) || 0);
     var compNote = $('whReturnCompNote').value.trim();
-    var depBack = $('whReturnDepositBack').value;   // full | withheld | none
     if (comp > 0 && !compNote && !damage &&
         !confirm('Компенсация ' + fN(comp) + ' ₽ без описания причины. Продолжить?')) return;
 
+    // Статус залога склад не трогает: вернуть или удержать решает менеджер.
+    // Карточка с компенсацией или невозвращённым залогом сама встанет в колонку
+    // «Залог / Компенсация» и уйдёт в «Заказ завершён», когда менеджер закроет вопрос.
     var patchTop = { status: 'completed' };
-    var hadDeposit = (w.issue && Number(w.issue.deposit) > 0) || o.depositStatus === 'deposited';
     if (comp > 0) {
       patchTop.compensationAmount = comp;
       patchTop.compensationNote = compNote || damage || 'Зафиксировано складом при возврате';
     }
-    if (hadDeposit) patchTop.depositStatus = (comp > 0 || depBack === 'withheld') ? 'returned_comp' : 'returned';
 
     var parts = ['Склад: возврат принят'];
     if (missing.length) parts.push('недостача: ' + missing.join(', '));
     if (damage) parts.push('повреждения: ' + damage);
     if (comp > 0) parts.push('компенсация ' + fN(comp) + ' ₽' + (compNote ? ' (' + compNote + ')' : ''));
-    if (hadDeposit) parts.push(depBack === 'withheld' ? 'залог удержан' : 'залог возвращён');
 
     whSave(Object.assign({}, o, patchTop, {
       wh: Object.assign({}, w, {
         state: 'returned', returnedAt: nowIso(), returnedBy: whUser(),
         ret: { checklist: retCheck, missing: missing, damage: damage,
-               compensation: comp, compensationNote: compNote, depositBack: depBack }
+               compensation: comp, compensationNote: compNote }
       })
     }), o, parts.join('; '));
     closeModal('whReturnModal', true);
     closeModal('whCardModal', true);
     showToast('Возврат принят', 'success');
+  };
+
+  /** Менеджер закрыл денежный вопрос: залог вернул/удержал, компенсацию решил. */
+  window.whResolve = function (id) {
+    if (!(typeof radarCanEdit === 'function' && radarCanEdit('orders'))) {
+      showToast('Вопрос по залогу и компенсации закрывает менеджер', 'error'); return;
+    }
+    var o = findOrder(id); if (!o) return;
+    var w = whGet(o);
+    var hints = [];
+    if (o.depositStatus === 'deposited') hints.push('залог всё ещё отмечен как «Внесён» — не забудьте проставить «Вернули» или «Компенс.» в списке заказов');
+    if (!confirm('Закрыть вопрос по заказу ' + (o.orderNumber || '') + '?' + (hints.length ? '\n\nВнимание: ' + hints.join('; ') : ''))) return;
+    whSave(Object.assign({}, o, {
+      wh: Object.assign({}, w, { resolvedAt: nowIso(), resolvedBy: whUser() })
+    }), o, 'Менеджер: вопрос по залогу/компенсации закрыт');
+    closeModal('whCardModal', true);
+    showToast('Заказ завершён', 'success');
   };
 
   // ── Карточка заказа (клик): состав, чек-лист, комментарии, история ─────────
@@ -440,7 +458,9 @@
     var o = findOrder(id); if (!o) return;
     var w = whGet(o);
     var edit = canEdit();
-    var stateLbl = { todo: 'Сборка', assembled: 'Собрано', issued: 'Выдан', returned: 'Вернули' }[w.state];
+    var stateLbl = w.state === 'returned'
+      ? (needsResolution(o, w) ? 'Залог / Компенсация' : 'Заказ завершён')
+      : { todo: 'Сборка', assembled: 'Собрано', issued: 'Выдан' }[w.state];
     $('whCardTitle').textContent = (o.orderNumber || o.id) + ' — ' + stateLbl;
 
     var deliv = o.deliveryType === 'pickup' ? 'Самовывоз' : 'Доставка';
@@ -469,8 +489,8 @@
     if (w.assembledAt) hist.push({ at: w.assembledAt, text: 'Собран — ' + esc(w.assembledBy || '') });
     if (w.issuedAt) {
       var it = 'Выдан — ' + esc(w.issuedBy || '');
+      // Старые записи (когда залог фиксировал склад) показываем как есть
       if (w.issue && Number(w.issue.deposit) > 0) it += ', залог ' + fN(w.issue.deposit) + ' ₽ (' + (WH_METHODS[w.issue.method] || '') + ')';
-      if (w.issue && w.issue.note) it += '. ' + esc(w.issue.note);
       hist.push({ at: w.issuedAt, text: it });
     }
     if (w.returnedAt) {
@@ -479,11 +499,10 @@
         if ((w.ret.missing || []).length) rt += '. Недостача: ' + esc(w.ret.missing.join(', '));
         if (w.ret.damage) rt += '. Повреждения: ' + esc(w.ret.damage);
         if (Number(w.ret.compensation) > 0) rt += '. Компенсация ' + fN(w.ret.compensation) + ' ₽' + (w.ret.compensationNote ? ' (' + esc(w.ret.compensationNote) + ')' : '');
-        if (w.ret.depositBack === 'withheld') rt += '. Залог удержан';
-        else if (w.ret.depositBack === 'full') rt += '. Залог возвращён';
       }
       hist.push({ at: w.returnedAt, text: rt });
     }
+    if (w.resolvedAt) hist.push({ at: w.resolvedAt, text: 'Вопрос по залогу/компенсации закрыт — ' + esc(w.resolvedBy || '') });
     $('whCardTimeline').innerHTML = hist.filter(function (h) { return h.at; }).map(function (h) {
       return '<div><span class="mono">' + fmtDT(h.at) + '</span> ' + h.text + '</div>';
     }).join('') || '<div class="wh-empty">Событий пока нет</div>';
@@ -502,9 +521,12 @@
     var acts = [];
     if (edit) {
       if (w.state === 'todo') acts.push(btn('whMarkAssembled', o.id, 'Собрано ✓'));
-      if (w.state === 'assembled') { acts.push(btn('whOpenIssue', o.id, 'Выдать →')); acts.push(reopenBtn('todo', '↩ В сборку')); }
+      if (w.state === 'assembled') { acts.push(btn('whMarkIssued', o.id, 'Выдать →')); acts.push(reopenBtn('todo', '↩ В сборку')); }
       if (w.state === 'issued') { acts.push(btn('whOpenReturn', o.id, 'Принять возврат')); acts.push(reopenBtn('assembled', '↩ Не выдан')); }
       if (w.state === 'returned') acts.push(reopenBtn('issued', '↩ Отменить возврат'));
+    }
+    if (w.state === 'returned' && needsResolution(o, w) && typeof radarCanEdit === 'function' && radarCanEdit('orders')) {
+      acts.push(btn('whResolve', o.id, 'Вопрос закрыт ✓'));
     }
     acts.push(btnSec('whPrintAct', o.id, 'Акт PDF'));
     $('whCardActions').innerHTML = acts.join('');

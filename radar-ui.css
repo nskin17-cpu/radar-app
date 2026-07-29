@@ -398,10 +398,11 @@
 }
 
 /* ── Выдача заказов: доска склада (Сборка → Собрано → Выдан → Вернули) ────── */
-.wh-board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;align-items:start}
+.wh-board{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:10px;align-items:start}
+@media(max-width:1280px) and (min-width:901px){.wh-board{grid-template-columns:repeat(3,1fr)}}
 .wh-col{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
 .wh-col.wh-drop{outline:2px dashed var(--blue);outline-offset:-2px;background:var(--blue-dim)}
-.wh-col-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);padding:2px 4px}
+.wh-col-head{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);padding:2px 4px;line-height:1.25}
 .wh-count{background:var(--surface3);border-radius:20px;padding:1px 8px;font-size:11px;color:var(--text2)}
 .wh-card{background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:10px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow var(--transition)}
 .wh-card:hover{box-shadow:var(--shadow-md)}
