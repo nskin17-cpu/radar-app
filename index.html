@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260730-2">
-<link rel="stylesheet" href="radar-ui.css?v=20260730-2">
+<link rel="stylesheet" href="styles.css?v=20260730-3">
+<link rel="stylesheet" href="radar-ui.css?v=20260730-3">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260730-2';
+window.RADAR_BUILD='20260730-3';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -851,19 +851,40 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
   </div>
 </div>
 
+<!-- Центр уведомлений -->
+<button id="notifBell" style="display:none" onclick="notifToggle()" aria-label="Уведомления">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+  <span id="notifBadge" style="display:none">0</span>
+</button>
+<div id="notifBackdrop" onclick="notifClose()"></div>
+<div id="notifPanel">
+  <div class="notif-head">
+    <div class="notif-tabs">
+      <button id="notifTab-feed" class="notif-tab active" onclick="notifSetTab('feed')">Лента</button>
+      <button id="notifTab-prefs" class="notif-tab" onclick="notifSetTab('prefs')">Настройки</button>
+      <button id="notifTab-admin" class="notif-tab" onclick="notifSetTab('admin')">Система</button>
+    </div>
+    <button class="crm-modal-close" onclick="notifClose()" aria-label="Закрыть">✕</button>
+  </div>
+  <div id="notifPane-feed" class="notif-pane"></div>
+  <div id="notifPane-prefs" class="notif-pane" style="display:none"></div>
+  <div id="notifPane-admin" class="notif-pane" style="display:none"></div>
+</div>
+
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260730-2"></script>
-<script src="radar-pricing.js?v=20260730-2"></script>
-<script src="radar-docs.js?v=20260730-2"></script>
-<script src="supabase.js?v=20260730-2"></script>
-<script src="radar-store.js?v=20260730-2"></script>
-<script src="radar-gateway.js?v=20260730-2"></script>
-<script src="radar.js?v=20260730-2"></script>
-<script src="crm.js?v=20260730-2"></script>
-<script src="radar-warehouse.js?v=20260730-2"></script>
-<script src="radar-status.js?v=20260730-2"></script>
+<script src="radar-config.js?v=20260730-3"></script>
+<script src="radar-pricing.js?v=20260730-3"></script>
+<script src="radar-docs.js?v=20260730-3"></script>
+<script src="supabase.js?v=20260730-3"></script>
+<script src="radar-store.js?v=20260730-3"></script>
+<script src="radar-gateway.js?v=20260730-3"></script>
+<script src="radar.js?v=20260730-3"></script>
+<script src="crm.js?v=20260730-3"></script>
+<script src="radar-warehouse.js?v=20260730-3"></script>
+<script src="radar-notify.js?v=20260730-3"></script>
+<script src="radar-status.js?v=20260730-3"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();

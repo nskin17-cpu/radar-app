@@ -1068,6 +1068,17 @@
       var known = await loadColumns('orders');
       return known ? known.has(col) : null;
     },
+    // Уведомления: тонкая обвязка над RPC (вся логика — в базе,
+    // см. sql/notifications-1-system.sql)
+    notifRpc: async function (fn, args) {
+      var s = sb();
+      if (!s) return { error: 'Supabase не настроен' };
+      try {
+        var r = await s.rpc(fn, args || {});
+        if (r.error) return { error: r.error.message, missing: rpcMissing(r.error) };
+        return r.data || {};
+      } catch (e) { return { error: e && e.message || String(e) }; }
+    },
     isSecured: async function () {
       var s = sb();
       if (!s) return false;
