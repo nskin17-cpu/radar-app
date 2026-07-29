@@ -840,6 +840,37 @@
     return !!err && /does not exist|not find the function|schema cache/i.test(err.message || '');
   }
 
+  /**
+   * Проверка и продление серверной сессии при запуске.
+   * Возвращает:
+   *   { alive: true, user }  — токен жив, продлён ещё на 14 дней, user — свежие права;
+   *   { alive: false }       — сервер токен не признал (истёк, смена пароля) — нужен вход;
+   *   { alive: null }        — неизвестно (офлайн, нет токена, миграция не применена) —
+   *                            работаем по сохранённой сессии, никого не выкидываем.
+   */
+  async function authRefresh() {
+    var s = sb();
+    if (!s || !getSessionToken()) return { alive: null };
+    try {
+      var rpc = await s.rpc('app_session_refresh');
+      if (rpc.error) return { alive: null };   // сеть или функции ещё нет — не выкидываем
+      if (rpc.data && rpc.data.ok) {
+        return {
+          alive: true,
+          user: {
+            username: rpc.data.username, role: rpc.data.role || 'user',
+            perms: rpc.data.perms || null, roleLabel: rpc.data.roleLabel || null
+          }
+        };
+      }
+      if (rpc.data && rpc.data.code === 'no-session') {
+        setSessionToken('');
+        return { alive: false };
+      }
+      return { alive: null };
+    } catch (e) { return { alive: null }; }
+  }
+
   async function listUsers() {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен', users: [] };
@@ -1005,7 +1036,7 @@
     onStatus: onStatus, getStatus: function () { return lastStatus; },
     clearOutbox: function () { writeOutbox([]); emit(); },
     // пользователи и вход
-    authLogin: authLogin, listUsers: listUsers, saveUser: saveUser,
+    authLogin: authLogin, authRefresh: authRefresh, listUsers: listUsers, saveUser: saveUser,
     getSessionToken: getSessionToken, setSessionToken: setSessionToken,
     authLogout: async function () {
       var s = sb();

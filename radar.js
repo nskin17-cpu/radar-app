@@ -241,11 +241,38 @@ function logout(){
   if(window.RadarStore?.authLogout)window.RadarStore.authLogout();
   document.getElementById('app').classList.remove('active');document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginError').textContent='';
 }
+// Сервер отверг токен (истёк, смена пароля, «разлогинить везде»). Без этого
+// приложение открылось бы по кэшу, а RLS молча вернула бы пустые данные —
+// выглядело бы как пропажа заказов. Честнее сразу показать вход.
+// confirm про несинхронизированные правки не нужен: outbox лежит в localStorage
+// и дольётся после следующего входа.
+function sessionExpired(){
+  const wasUser=currentUser?.username||'';
+  currentUser=null;window.currentUser=null;clearSession();
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginUser').value=wasUser;
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginError').textContent='Сессия истекла — войдите заново';
+}
 // Восстановление сессии: перезагрузка страницы больше не требует повторного входа,
 // а значит не создаёт окна, в котором несохранённые данные некуда положить.
+// Приложение открывается сразу по сохранённой сессии (работает и офлайн),
+// а в фоне сервер продлевает токен ещё на 14 дней и отдаёт свежие права.
+// Итог: пароль спрашивается только после «Выйти», смены пароля или 14 дней
+// полного бездействия — не при каждом открытии.
 document.addEventListener('DOMContentLoaded',()=>{
   const u=readSession();
-  if(u){currentUser=u;showApp()}
+  if(!u)return;
+  currentUser=u;showApp();
+  if(!window.RadarStore?.authRefresh)return;
+  window.RadarStore.authRefresh().then(r=>{
+    if(!r||r.alive===null)return;                  // офлайн или миграции нет — живём по кэшу
+    if(r.alive===false){sessionExpired();return}
+    currentUser=r.user;window.currentUser=r.user;
+    saveSession(r.user);                            // сдвигаем клиентский TTL при каждом открытии
+    radarApplyPerms();                              // допуски могли поменять — применяем сразу
+  }).catch(()=>{});
 });
 document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin()});
 document.getElementById('loginUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginPass').focus()});
