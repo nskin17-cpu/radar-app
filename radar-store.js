@@ -741,6 +741,89 @@
     };
   }
 
+  // ── Пользователи и вход ──────────────────────────────────────────────────────────────────
+  // Таблица users в Supabase. Пароли хранятся как SHA-256(логин:пароль).
+  // Это разграничение АВТОРСТВА (кто что менял), а не защита данных:
+  // публичный anon-ключ по-прежнему даёт полный доступ к базе — см. отчёт аудита.
+  async function sha256Hex(text) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  async function authLogin(username, password) {
+    var s = sb();
+    if (!s) return { success: false, reason: 'no-connection', error: 'Supabase не настроен' };
+    try {
+      var res = await s.from('users').select('*').eq('username', username).limit(1);
+      if (res.error) return { success: false, reason: 'no-connection', error: res.error.message };
+      if (!res.data || !res.data.length) {
+        var cnt = await s.from('users').select('id', { count: 'exact', head: true });
+        return { success: false, reason: (cnt.count || 0) === 0 ? 'no-users' : 'not-found' };
+      }
+      var row = res.data[0];
+      var hash = await sha256Hex(username + ':' + password);
+      if (hash !== row.password_hash) return { success: false, reason: 'bad-credentials', error: 'Неверный логин или пароль' };
+      return { success: true, user: { username: row.username, role: row.role || 'user' } };
+    } catch (e) {
+      return { success: false, reason: 'no-connection', error: e.message };
+    }
+  }
+
+  async function listUsers() {
+    var s = sb();
+    if (!s) return { error: 'Supabase не настроен', users: [] };
+    var res = await s.from('users').select('id,username,role,created_at').order('username');
+    if (res.error) return { error: res.error.message, users: [] };
+    return {
+      users: (res.data || []).map(function (u) {
+        return { id: str(u.id), username: str(u.username), role: str(u.role) || 'user', createdAt: str(u.created_at) || null };
+      })
+    };
+  }
+
+  async function saveUser(input) {
+    var s = sb();
+    if (!s) return { error: 'Supabase не настроен' };
+    var username = str(input.username).trim();
+    if (!username) return { error: 'Пустой логин' };
+    var row = {
+      username: username,
+      password_hash: await sha256Hex(username + ':' + str(input.password)),
+      role: input.role === 'admin' ? 'admin' : 'user'
+    };
+    var res = await s.from('users').upsert(row, { onConflict: 'username' }).select('id');
+    if (res.error) return { error: res.error.message };
+    if (!res.data || !res.data.length) return { error: 'Supabase не подтвердил запись' };
+    return { id: res.data[0].id };
+  }
+
+  async function setUserPassword(username, password) {
+    var s = sb();
+    if (!s) return { error: 'Supabase не настроен' };
+    var hash = await sha256Hex(str(username) + ':' + str(password));
+    var res = await s.from('users').update({ password_hash: hash }).eq('username', str(username)).select('id');
+    if (res.error) return { error: res.error.message };
+    if (!res.data || !res.data.length) return { error: 'Пользователь не найден' };
+    return { ok: true };
+  }
+
+  async function deleteUser(id) {
+    var s = sb();
+    if (!s) return { error: 'Supabase не настроен' };
+    var res = await s.from('users').delete().eq('id', str(id)).select('id');
+    if (res.error) return { error: res.error.message };
+    return { ok: true };
+  }
+
+  /**
+   * Зеркалирование аккаунта после успешного входа через Google Apps Script:
+   * со второго раза этот же логин работает напрямую через Supabase,
+   * и историю изменений он подписывает так же.
+   */
+  async function mirrorUser(username, password, role) {
+    try { await saveUser({ username: username, password: password, role: role }); } catch (e) { }
+  }
+
   // ── Автозапуск очереди ───────────────────────────────────────────────────────────────────
   window.addEventListener('online', function () { setStatus('saving'); flush({ force: true }); });
   window.addEventListener('offline', function () { setStatus('offline'); });
@@ -776,6 +859,9 @@
     flush: flush, pendingCount: pendingCount, readOutbox: readOutbox,
     onStatus: onStatus, getStatus: function () { return lastStatus; },
     clearOutbox: function () { writeOutbox([]); emit(); },
+    // пользователи и вход
+    authLogin: authLogin, listUsers: listUsers, saveUser: saveUser,
+    setUserPassword: setUserPassword, deleteUser: deleteUser, mirrorUser: mirrorUser,
     // обмен с Google Sheets
     exportToGoogleSheets: exportToGoogleSheets,
     importMissingOrdersFromGoogle: importMissingOrdersFromGoogle

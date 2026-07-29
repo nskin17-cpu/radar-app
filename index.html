@@ -22,13 +22,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260729-5">
-<link rel="stylesheet" href="radar-ui.css?v=20260729-5">
+<link rel="stylesheet" href="styles.css?v=20260729-6">
+<link rel="stylesheet" href="radar-ui.css?v=20260729-6">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260729-5';
+window.RADAR_BUILD='20260729-6';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -516,6 +516,23 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div id="syncExportStatus" style="margin-top:10px;font-size:12px"></div>
       </div>
 
+      <div class="form-card" id="usersCard" style="display:none">
+        <div class="modal-section">Пользователи</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
+          Каждый входит под своим логином — в истории изменений заказа видно, кто что менял.
+          Раздел доступен только администраторам.
+        </div>
+        <div class="table-wrap"><table style="width:100%"><thead><tr><th>Логин</th><th>Роль</th><th>Создан</th><th></th></tr></thead><tbody id="usersTable"></tbody></table></div>
+        <div class="modal-section">Новый пользователь</div>
+        <div class="crm-grid-3">
+          <div class="input-group"><label class="input-label">Логин</label><input type="text" id="newUserName" autocomplete="off" placeholder="например, maria"></div>
+          <div class="input-group"><label class="input-label">Пароль</label><input type="text" id="newUserPass" autocomplete="off"></div>
+          <div class="input-group"><label class="input-label">Роль</label><select id="newUserRole"><option value="user">Сотрудник</option><option value="admin">Администратор</option></select></div>
+        </div>
+        <button class="btn btn-sm" onclick="radarAddUser()" style="margin-top:8px">Добавить пользователя</button>
+        <div id="usersStatus" style="margin-top:10px;font-size:12px"></div>
+      </div>
+
       <div class="form-card">
         <div class="modal-section">Подключение к Supabase</div>
         <div id="settingsSbHint" style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
@@ -754,15 +771,15 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260729-5"></script>
-<script src="radar-pricing.js?v=20260729-5"></script>
-<script src="radar-docs.js?v=20260729-5"></script>
-<script src="supabase.js?v=20260729-5"></script>
-<script src="radar-store.js?v=20260729-5"></script>
-<script src="radar-gateway.js?v=20260729-5"></script>
-<script src="radar.js?v=20260729-5"></script>
-<script src="crm.js?v=20260729-5"></script>
-<script src="radar-status.js?v=20260729-5"></script>
+<script src="radar-config.js?v=20260729-6"></script>
+<script src="radar-pricing.js?v=20260729-6"></script>
+<script src="radar-docs.js?v=20260729-6"></script>
+<script src="supabase.js?v=20260729-6"></script>
+<script src="radar-store.js?v=20260729-6"></script>
+<script src="radar-gateway.js?v=20260729-6"></script>
+<script src="radar.js?v=20260729-6"></script>
+<script src="crm.js?v=20260729-6"></script>
+<script src="radar-status.js?v=20260729-6"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
@@ -818,8 +835,64 @@ switchPage=function(p){
     if(window.SUPABASE_URL){st.style.color='var(--green)';st.textContent='Supabase подключён — основное и единственное хранилище.'}
     else{st.style.color='var(--red)';st.textContent='Supabase не настроен — приложение не сможет сохранять данные.'}
     radarRefreshSyncPanel();
+    radarRefreshUsers();
   }
 };
+
+// ── Пользователи: история изменений подписывается тем, кто вошёл ─────────────
+async function radarRefreshUsers(){
+  const card=document.getElementById('usersCard');
+  if(!card)return;
+  const isAdmin=window.currentUser&&window.currentUser.role==='admin';
+  card.style.display=isAdmin?'':'none';
+  if(!isAdmin)return;
+  const tb=document.getElementById('usersTable');
+  const st=document.getElementById('usersStatus');
+  tb.innerHTML='<tr><td colspan="4" style="color:var(--text3);padding:8px">Загружаю…</td></tr>';
+  const r=await RadarStore.listUsers();
+  if(r.error){tb.innerHTML='';st.style.color='var(--red)';st.textContent='Не удалось загрузить список: '+r.error;return}
+  if(!r.users.length){
+    tb.innerHTML='<tr><td colspan="4" style="color:var(--text3);padding:10px;line-height:1.5">Пока пусто — вход идёт через прежний аккаунт Google. Добавьте пользователей ниже: после этого каждый входит под своим именем, и его правки подписываются в истории.</td></tr>';
+    return;
+  }
+  tb.innerHTML=r.users.map(u=>`<tr>
+    <td><strong>${esc(u.username)}</strong>${window.currentUser&&u.username===window.currentUser.username?' <span style="color:var(--text3);font-size:11px">(вы)</span>':''}</td>
+    <td>${u.role==='admin'?'Администратор':'Сотрудник'}</td>
+    <td style="font-size:11px;color:var(--text2)">${u.createdAt?new Date(u.createdAt).toLocaleDateString('ru-RU'):'—'}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-sm btn-secondary" onclick="radarChangeUserPass('${esc(u.username)}')" style="padding:4px 10px;font-size:11px">Пароль</button>
+      ${window.currentUser&&u.username!==window.currentUser.username?`<button class="btn btn-sm btn-secondary" onclick="radarDeleteUser('${esc(u.id)}','${esc(u.username)}')" style="padding:4px 10px;font-size:11px;color:var(--red)">Удалить</button>`:''}
+    </td>
+  </tr>`).join('');
+}
+async function radarAddUser(){
+  const name=document.getElementById('newUserName').value.trim();
+  const pass=document.getElementById('newUserPass').value;
+  const role=document.getElementById('newUserRole').value;
+  const st=document.getElementById('usersStatus');
+  if(!name||!pass){st.style.color='var(--red)';st.textContent='Укажите логин и пароль';return}
+  if(pass.length<4){st.style.color='var(--red)';st.textContent='Пароль короче 4 символов';return}
+  const r=await RadarStore.saveUser({username:name,password:pass,role});
+  if(r.error){st.style.color='var(--red)';st.textContent='Ошибка: '+r.error;return}
+  st.style.color='var(--green)';
+  st.textContent=`Пользователь «${name}» создан — можно входить с этим логином.`;
+  document.getElementById('newUserName').value='';
+  document.getElementById('newUserPass').value='';
+  radarRefreshUsers();
+}
+async function radarChangeUserPass(username){
+  const p=prompt(`Новый пароль для «${username}»:`);
+  if(p===null)return;
+  if(p.length<4){showToast('Пароль короче 4 символов','error');return}
+  const r=await RadarStore.setUserPassword(username,p);
+  showToast(r.error?('Ошибка: '+r.error):'Пароль обновлён',r.error?'error':'success');
+}
+async function radarDeleteUser(id,username){
+  if(!confirm(`Удалить пользователя «${username}»? Войти под этим логином больше не получится. Его подписи в истории заказов сохранятся.`))return;
+  const r=await RadarStore.deleteUser(id);
+  showToast(r.error?('Ошибка: '+r.error):'Удалено',r.error?'error':'success');
+  radarRefreshUsers();
+}
 
 // ── Панель состояния синхронизации ───────────────────────────────────────────
 function radarRefreshSyncPanel(){

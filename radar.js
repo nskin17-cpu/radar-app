@@ -128,6 +128,15 @@ function readSession(){
 }
 function clearSession(){try{localStorage.removeItem(window.RadarConfig.cache.sessionKey)}catch(e){}}
 
+/**
+ * Вход. Порядок проверки:
+ *  1. Supabase (таблица users) — основной путь: работает без Google
+ *     и позволяет заводить сотрудников прямо из настроек.
+ *  2. Неверный пароль существующего пользователя — отказ без фолбэка.
+ *  3. Логина нет в Supabase (или нет связи) — прежний вход через Apps Script;
+ *     удачный вход зеркалируется в Supabase, чтобы дальше работать без Google.
+ *  4. Совсем без связи — сохранённая сессия этого же пользователя.
+ */
 async function handleLogin(){
   if(isLoggingIn)return;
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPass').value;
@@ -137,17 +146,25 @@ async function handleLogin(){
   isLoggingIn=true;err.textContent='';
   if(btn){btn.disabled=true;btn.textContent='Вход...'}
   try{
+    const sbRes=await window.RadarStore.authLogin(u,p);
+    if(sbRes.success){
+      currentUser=sbRes.user;saveSession(sbRes.user);showApp();return;
+    }
+    if(sbRes.reason==='bad-credentials'){err.textContent='Неверный логин или пароль';return}
+
     const r=await api('login',{username:u,password:p});
-    if(r.success){currentUser=r.user;saveSession(r.user);showApp();return}
-    // Сервис авторизации недоступен, но сессия этого же пользователя ещё жива —
-    // пускаем в приложение, чтобы обрыв связи с Google не блокировал работу.
+    if(r.success){
+      currentUser=r.user;saveSession(r.user);
+      window.RadarStore.mirrorUser(u,p,r.user.role);
+      showApp();return;
+    }
     const cached=readSession();
-    if(!r.success&&r.error&&/связ|сет|Apps Script/i.test(r.error)&&cached&&cached.username===u){
+    if(r.error&&/связ|сет|Apps Script/i.test(r.error)&&cached&&cached.username===u){
       currentUser=cached;showApp();
       showToast('Вход по сохранённой сессии — сервер авторизации недоступен','info');
       return;
     }
-    err.textContent=r.error||'Ошибка';
+    err.textContent=r.error||'Неверный логин или пароль';
   }finally{
     isLoggingIn=false;
     if(btn){btn.disabled=false;btn.textContent='Войти'}
