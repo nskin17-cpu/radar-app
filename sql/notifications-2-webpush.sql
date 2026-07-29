@@ -43,12 +43,19 @@ alter table notif_queue add column if not exists link text;
 -- vapid_public/vapid_private генерируются кнопкой в админ-экране колокольчика.
 -- push_fn_secret защищает функцию от чужих вызовов (создаётся здесь).
 
+-- push_fn_apikey — публичный ключ проекта: шлюз Supabase требует его на любой
+-- вызов Edge Function, помимо нашего секрета. Ключ и так открыт в приложении.
 insert into notif_settings(key, value) values
   ('vapid_public',  ''),
   ('vapid_private', ''),
   ('push_fn_url',   'https://tqmzpktshlolqbydolpf.supabase.co/functions/v1/notif-push'),
+  ('push_fn_apikey','sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX'),
   ('push_fn_secret', upper(substr(md5(random()::text) || md5(random()::text), 1, 32)))
 on conflict (key) do nothing;
+
+-- Если файл выполняется повторно, а ключ ещё пустой — заполним
+update notif_settings set value = 'sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX'
+ where key = 'push_fn_apikey' and coalesce(value,'') = '';
 
 -- Пуш по умолчанию включаем там же, где Telegram (важные и сводки)
 update notif_types
@@ -99,15 +106,19 @@ end $$;
 create or replace function notif_push_wake()
 returns text language plpgsql security definer set search_path = public, extensions
 as $$
-declare url text; secret text;
+declare url text; secret text; apikey text;
 begin
   url := notif_setting('push_fn_url');
   secret := notif_setting('push_fn_secret');
+  apikey := notif_setting('push_fn_apikey');
   if coalesce(url,'') = '' or coalesce(secret,'') = '' then return 'skipped: функция не настроена'; end if;
   perform net.http_post(
     url := url,
     body := '{"drain":true}'::jsonb,
-    headers := jsonb_build_object('Content-Type','application/json','x-push-secret', secret));
+    -- apikey обязателен: шлюз Supabase отклоняет вызовы без ключа проекта
+    headers := jsonb_build_object('Content-Type','application/json',
+                                  'x-push-secret', secret,
+                                  'apikey', coalesce(apikey,'')));
   return null;
 exception when others then
   return 'error: ' || sqlerrm;
@@ -211,6 +222,7 @@ begin
   return json_build_object(
     'url', coalesce(notif_setting('push_fn_url'),''),
     'secret', coalesce(notif_setting('push_fn_secret'),''),
+    'apikey', coalesce(notif_setting('push_fn_apikey'),''),
     'keys_ready', coalesce(notif_setting('vapid_public'),'') <> '' and coalesce(notif_setting('vapid_private'),'') <> '',
     'subs_total', (select count(*) from notif_push_subs),
     'queued', (select count(*) from notif_queue where channel = 'webpush' and status = 'queued'));
@@ -249,7 +261,8 @@ begin
   if p_settings is not null then
     for k, v in select * from jsonb_each_text(p_settings) loop
       if k in ('timezone','digest_time','weekly_dow','clients_period','enabled',
-               'tg_bot_token','tg_bot_name','resend_key','email_from','push_fn_url') then
+               'tg_bot_token','tg_bot_name','resend_key','email_from',
+               'push_fn_url','push_fn_apikey') then
         if k in ('tg_bot_token','resend_key') and v = '••••••' then continue; end if;
         insert into notif_settings (key, value) values (k, v)
         on conflict (key) do update set value = excluded.value, updated_at = now();

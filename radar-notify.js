@@ -429,7 +429,7 @@
       '<div class="notif-contact"><b>Подписанных устройств</b><span>' + ((r.push && r.push.subs_total) || 0) + '</span></div>' +
       inp('push_fn_url', 'Адрес Edge Function', 'https://…/functions/v1/notif-push') +
       '<div class="notif-feed-actions"><button class="btn btn-sm btn-secondary" onclick="notifPushCheck()">Проверить функцию</button></div>' +
-      '<div class="notif-hint" style="display:block">Один раз: Supabase → Edge Functions → Deploy new function → имя <b>notif-push</b>, вставьте код из <b>supabase/functions/notif-push/index.ts</b> и выключите «Verify JWT» в её настройках.</div>' +
+      '<div class="notif-hint" style="display:block">Один раз: Supabase → Edge Functions → функция <b>notif-push</b> → вкладка Code → удалите шаблон, вставьте код из <b>supabase/functions/notif-push/index.ts</b> → Deploy; в Settings выключите «Verify JWT».</div>' +
       '<div class="notif-feed-actions">' +
       '<button class="btn btn-sm" onclick="notifAdminSave()">Сохранить</button>' +
       '<button class="btn btn-sm btn-secondary" onclick="notifRunNow()">Запустить проверки сейчас</button>' +
@@ -496,15 +496,22 @@
     try {
       var resp = await fetch(d.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-push-secret': d.secret },
+        // apikey требует шлюз Supabase, x-push-secret — наша функция
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': d.apikey || window.SUPABASE_ANON_KEY || '',
+          'x-push-secret': d.secret
+        },
         body: '{"drain":true}'
       });
       var j = {};
       try { j = await resp.json(); } catch (e) { }
       if (resp.ok && j.ok) {
         showToast('Функция работает: в очереди ' + (d.queued || 0) + ', обработано ' + (j.processed || 0) + ', отправлено ' + (j.sent || 0), 'success');
+      } else if (j.message && /Hello|undefined/.test(j.message)) {
+        showToast('В функции всё ещё шаблонный код Supabase — вставьте код notif-push и задеплойте заново', 'error');
       } else {
-        showToast('Функция ответила: ' + (j.error || ('HTTP ' + resp.status)), 'error');
+        showToast('Функция ответила: ' + (j.error || j.message || ('HTTP ' + resp.status)), 'error');
       }
     } catch (e) {
       showToast('Функция недоступна (не задеплоена?): ' + (e && e.message || e), 'error');
