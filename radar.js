@@ -115,14 +115,14 @@ function sbBackup(action,payload){
 // У пользователя без perms (создан до миграции) — полный доступ, кроме
 // раздела «Пользователи»: ровно прежнее поведение, никто не теряет работу.
 const RADAR_PAGE_AREA={
-  crm:'orders',clients:'clients',crmstock:'stock',crmdash:'dashboards',
+  crm:'orders',clients:'clients',crmstock:'stock',warehouse:'assembly',crmdash:'dashboards',
   dashboard:'competitors',mycompany:'competitors',competitors:'competitors',compare:'competitors'
 };
 const RADAR_AREA_LABELS={
-  orders:'Заказы',clients:'Клиенты',stock:'Склад',
+  orders:'Заказы',clients:'Клиенты',stock:'Склад',assembly:'Выдача заказов',
   dashboards:'CRM Дашборд',competitors:'Аналитика конкурентов'
 };
-const RADAR_FULL_PERMS={orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'};
+const RADAR_FULL_PERMS={orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',competitors:'edit'};
 function radarPermLevel(area){
   const u=window.currentUser;
   if(!u)return 'none';
@@ -154,6 +154,7 @@ function radarApplyPerms(){
 /** Первая страница, на которую пользователю можно. */
 function radarStartPage(){
   if(radarCanView('orders'))return 'crm';
+  if(radarCanView('assembly'))return 'warehouse';
   if(radarCanView('clients'))return 'clients';
   if(radarCanView('stock'))return 'crmstock';
   if(radarCanView('dashboards'))return 'crmdash';

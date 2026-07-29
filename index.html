@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260729-10">
-<link rel="stylesheet" href="radar-ui.css?v=20260729-10">
+<link rel="stylesheet" href="styles.css?v=20260730-1">
+<link rel="stylesheet" href="radar-ui.css?v=20260730-1">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260729-10';
+window.RADAR_BUILD='20260730-1';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -75,6 +75,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="nav-item active" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M5 5h4M5 8h4M5 11h2"/></svg></span> Заказы</div>
     <div class="nav-item" data-page="clients" onclick="switchPage('clients')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="2.2"/><path d="M1.5 11c.9-1.6 2.4-2.5 3.5-2.5s2.6.9 3.5 2.5"/><path d="M9 4h3M9 7h3M9 10h3"/></svg></span> Клиенты</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4l6-3 6 3v6l-6 3-6-3V4z"/><path d="M7 1v12M1 4l6 3 6-3"/></svg></span> Склад</div>
+    <div class="nav-item" data-page="warehouse" onclick="switchPage('warehouse')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="3.4" height="12" rx="0.8"/><rect x="5.3" y="1" width="3.4" height="8" rx="0.8"/><rect x="9.6" y="1" width="3.4" height="10" rx="0.8"/></svg></span> Выдача заказов</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 11l3-4 3 2 3-5 3 3"/></svg></span> CRM Дашборд</div>
     <div class="nav-section">Система</div>
     <div class="nav-item" data-page="settings" onclick="switchPage('settings')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.9 2.9l1.4 1.4M9.7 9.7l1.4 1.4M2.9 11.1l1.4-1.4M9.7 4.3l1.4-1.4"/></svg></span> Настройки</div>
@@ -489,6 +490,16 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       </div>
     </div>
 
+    <!-- ВЫДАЧА ЗАКАЗОВ (доска склада) -->
+    <div id="page-warehouse" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат. В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты</div></div>
+        <button class="btn btn-sm btn-secondary" id="whRefreshBtn" onclick="whRefresh()">Обновить</button>
+      </div>
+      <div id="whMigrationWarn" style="display:none" class="wh-warn">В базе нет колонки «wh» — выполните sql/security-5-warehouse.sql, иначе состояние доски не сохранится.</div>
+      <div class="wh-board" id="whBoard"></div>
+    </div>
+
     <!-- SETTINGS -->
     <div id="page-settings" class="page">
       <div class="page-header"><div><div class="page-title">Настройки</div><div class="page-desc">Источник данных, синхронизация и интеграции</div></div></div>
@@ -794,18 +805,90 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
   </div>
 </div>
 
+<!-- Склад: карточка заказа на доске -->
+<div class="modal-overlay" id="whCardModal">
+  <div class="modal" style="width:480px">
+    <div class="modal-title-row">
+      <div class="modal-title" style="font-size:17px" id="whCardTitle"></div>
+      <button type="button" class="crm-modal-close" onclick="closeModal('whCardModal',true)" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="whCardMeta"></div>
+    <div class="modal-section">Состав и сборка</div>
+    <div id="whCardItems" class="wh-checklist"></div>
+    <div class="modal-section">История</div>
+    <div id="whCardTimeline" class="wh-timeline"></div>
+    <div class="modal-section">Комментарии</div>
+    <div id="whCardNotes" class="wh-notes"></div>
+    <div id="whNoteForm" style="display:flex;gap:6px;margin-top:8px">
+      <input type="text" id="whNoteInput" placeholder="Комментарий: залог, повреждения, договорённости…" style="flex:1">
+      <button class="btn btn-sm" onclick="whAddNote()">Добавить</button>
+    </div>
+    <div class="modal-actions" id="whCardActions" style="flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<!-- Склад: выдача заказа (фиксация залога) -->
+<div class="modal-overlay" id="whIssueModal">
+  <div class="modal" style="width:400px">
+    <div class="modal-title-row">
+      <div class="modal-title" style="font-size:17px" id="whIssueTitle"></div>
+      <button type="button" class="crm-modal-close" onclick="closeModal('whIssueModal',true)" aria-label="Закрыть">✕</button>
+    </div>
+    <input type="hidden" id="whIssueOrderId">
+    <div id="whIssuePlanned" style="font-size:12.5px;color:var(--text2);margin-bottom:12px"></div>
+    <div class="input-group"><label class="input-label">Залог получен, ₽</label><input type="number" id="whIssueDeposit" min="0" inputmode="numeric" placeholder="0"></div>
+    <div class="input-group"><label class="input-label">Способ</label><select id="whIssueMethod">
+      <option value="cash">Наличные</option><option value="transfer">Перевод</option>
+      <option value="card">Карта</option><option value="none">Без залога</option></select></div>
+    <div class="input-group"><label class="input-label">Комментарий (не обязательно)</label><input type="text" id="whIssueNote" placeholder="Например: паспорт сверен"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('whIssueModal',true)">Отмена</button>
+      <button class="btn btn-sm" onclick="whConfirmIssue()">Выдать заказ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Склад: приём возврата (чек-лист, компенсация, залог) -->
+<div class="modal-overlay" id="whReturnModal">
+  <div class="modal" style="width:460px">
+    <div class="modal-title-row">
+      <div class="modal-title" style="font-size:17px" id="whReturnTitle"></div>
+      <button type="button" class="crm-modal-close" onclick="closeModal('whReturnModal',true)" aria-label="Закрыть">✕</button>
+    </div>
+    <input type="hidden" id="whReturnOrderId">
+    <div class="modal-section" style="display:flex;justify-content:space-between;align-items:center;gap:8px">Что вернулось
+      <button class="btn btn-sm btn-secondary" style="padding:3px 10px;font-size:11px" onclick="whReturnCheckAll()">Отметить всё</button></div>
+    <div id="whReturnChecklist" class="wh-checklist"></div>
+    <div class="input-group" style="margin-top:10px"><label class="input-label">Повреждения / недостача</label><textarea id="whReturnDamage" rows="2" placeholder="Что сломано, чего не хватает"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px">
+      <div class="input-group"><label class="input-label">Компенсация, ₽</label><input type="number" id="whReturnComp" min="0" inputmode="numeric" placeholder="0"></div>
+      <div class="input-group"><label class="input-label">За что</label><input type="text" id="whReturnCompNote" placeholder="Причина компенсации"></div>
+    </div>
+    <div id="whReturnDepositInfo" style="font-size:12.5px;color:var(--text2);margin:2px 0 8px"></div>
+    <div class="input-group"><label class="input-label">Залог</label><select id="whReturnDepositBack">
+      <option value="full">Вернули полностью</option>
+      <option value="withheld">Удержали (компенсация из залога)</option>
+      <option value="none">Залога не было</option></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('whReturnModal',true)">Отмена</button>
+      <button class="btn btn-sm" onclick="whConfirmReturn()">Принять возврат</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260729-10"></script>
-<script src="radar-pricing.js?v=20260729-10"></script>
-<script src="radar-docs.js?v=20260729-10"></script>
-<script src="supabase.js?v=20260729-10"></script>
-<script src="radar-store.js?v=20260729-10"></script>
-<script src="radar-gateway.js?v=20260729-10"></script>
-<script src="radar.js?v=20260729-10"></script>
-<script src="crm.js?v=20260729-10"></script>
-<script src="radar-status.js?v=20260729-10"></script>
+<script src="radar-config.js?v=20260730-1"></script>
+<script src="radar-pricing.js?v=20260730-1"></script>
+<script src="radar-docs.js?v=20260730-1"></script>
+<script src="supabase.js?v=20260730-1"></script>
+<script src="radar-store.js?v=20260730-1"></script>
+<script src="radar-gateway.js?v=20260730-1"></script>
+<script src="radar.js?v=20260730-1"></script>
+<script src="crm.js?v=20260730-1"></script>
+<script src="radar-warehouse.js?v=20260730-1"></script>
+<script src="radar-status.js?v=20260730-1"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
@@ -868,17 +951,18 @@ switchPage=function(p){
 // ── Пользователи: подпись правок + допуски по разделам (как в Эвентусе) ──────
 const RADAR_PRESETS={
   'Администратор':   {role:'admin',perms:null},
-  'Полный доступ':   {role:'user',perms:{orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'}},
-  'Менеджер заказов':{role:'user',perms:{orders:'edit',clients:'edit',stock:'view',dashboards:'view',competitors:'none'}},
-  'Склад':           {role:'user',perms:{orders:'view',clients:'none',stock:'edit',dashboards:'none',competitors:'none'}},
-  'Только просмотр': {role:'user',perms:{orders:'view',clients:'view',stock:'view',dashboards:'view',competitors:'view'}}
+  'Полный доступ':   {role:'user',perms:{orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',competitors:'edit'}},
+  'Менеджер заказов':{role:'user',perms:{orders:'edit',clients:'edit',stock:'view',assembly:'edit',dashboards:'view',competitors:'none'}},
+  'Склад':           {role:'user',perms:{orders:'view',clients:'none',stock:'edit',assembly:'edit',dashboards:'none',competitors:'none'}},
+  'Кладовщик (только выдача)':{role:'user',perms:{orders:'none',clients:'none',stock:'view',assembly:'edit',dashboards:'none',competitors:'none'}},
+  'Только просмотр': {role:'user',perms:{orders:'view',clients:'view',stock:'view',assembly:'view',dashboards:'view',competitors:'view'}}
 };
 let _radarUsers=[];
 function radarPermsSummary(u){
   if(u.role==='admin')return 'Администратор';
   if(u.roleLabel)return u.roleLabel;
   if(!u.perms)return 'Полный доступ';
-  const short={orders:'заказы',clients:'клиенты',stock:'склад',dashboards:'дашборд',competitors:'аналитика'};
+  const short={orders:'заказы',clients:'клиенты',stock:'склад',assembly:'выдача',dashboards:'дашборд',competitors:'аналитика'};
   const parts=Object.entries(short)
     .filter(([k])=>u.perms[k]&&u.perms[k]!=='none')
     .map(([k,l])=>l+(u.perms[k]==='view'?' (просмотр)':''));
@@ -935,6 +1019,7 @@ async function radarAddUser(){
 // ── Редактор допусков ────────────────────────────────────────────────────────
 const RADAR_PERM_AREAS=[
   ['orders','Заказы',true],['clients','Клиенты',true],['stock','Склад',true],
+  ['assembly','Выдача заказов (доска склада)',true],
   ['dashboards','CRM Дашборд',false],['competitors','Аналитика конкурентов',true]
 ];
 let _permUser=null;
@@ -964,9 +1049,9 @@ function radarApplyPresetToSelects(presetName,explicitPerms){
   let perms=explicitPerms||null;
   if(presetName&&RADAR_PRESETS[presetName]){
     const p=RADAR_PRESETS[presetName];
-    perms=p.role==='admin'?{orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'}:p.perms;
+    perms=p.role==='admin'?{orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',competitors:'edit'}:p.perms;
   }
-  if(!perms)perms={orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'};
+  if(!perms)perms={orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',competitors:'edit'};
   document.querySelectorAll('#permAreas [data-perm-area]').forEach(sel=>{
     sel.value=perms[sel.dataset.permArea]||'none';
   });

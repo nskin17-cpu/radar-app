@@ -396,3 +396,49 @@
   #crmOrderModal .crm-doc-actions{grid-template-columns:1fr}
   .crm-om-line>strong{font-size:12px}
 }
+
+/* ── Выдача заказов: доска склада (Сборка → Собрано → Выдан → Вернули) ────── */
+.wh-board{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;align-items:start}
+.wh-col{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.wh-col.wh-drop{outline:2px dashed var(--blue);outline-offset:-2px;background:var(--blue-dim)}
+.wh-col-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2);padding:2px 4px}
+.wh-count{background:var(--surface3);border-radius:20px;padding:1px 8px;font-size:11px;color:var(--text2)}
+.wh-card{background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:10px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow var(--transition)}
+.wh-card:hover{box-shadow:var(--shadow-md)}
+.wh-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.wh-num{font-weight:700;font-size:12.5px}
+.wh-deliv{font-size:10.5px;color:var(--text2);white-space:nowrap}
+.wh-badges{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 0}
+.wh-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.wh-b-red{background:var(--red-dim);color:var(--red)}
+.wh-b-amber{background:var(--amber-dim);color:var(--amber)}
+.wh-b-green{background:var(--green-dim);color:var(--green)}
+.wh-b-blue{background:var(--blue-dim);color:var(--blue)}
+.wh-b-grey{background:var(--surface3);color:var(--text2)}
+.wh-items{font-size:11.5px;color:var(--text2);display:flex;flex-direction:column;gap:2px;margin:7px 0 0;line-height:1.35}
+.wh-more{color:var(--text3);font-size:10.5px}
+.wh-progress-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:10.5px;color:var(--text2)}
+.wh-progress{flex:1;height:4px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.wh-progress i{display:block;height:100%;background:var(--green);border-radius:4px;transition:width .2s}
+.wh-actions{display:flex;gap:6px;margin-top:9px}
+.wh-actions .btn{flex:1;padding:8px 6px;font-size:12px}
+.wh-empty{color:var(--text3);font-size:12px;text-align:center;padding:16px 6px;line-height:1.4}
+.wh-warn{background:var(--amber-dim);color:var(--amber);border:0.5px solid rgba(255,149,0,.3);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;margin-bottom:12px}
+.wh-checklist{display:flex;flex-direction:column;gap:5px}
+.wh-check{display:flex;align-items:center;gap:9px;padding:7px 9px;background:var(--surface2);border-radius:7px;font-size:13px;cursor:pointer}
+.wh-check input{width:17px;height:17px;flex:none;accent-color:var(--green)}
+.wh-check-ro{cursor:default;color:var(--text)}
+.wh-meta-line{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--text2)}
+.wh-meta-line strong{color:var(--text)}
+.wh-timeline{font-size:11.5px;color:var(--text2);display:flex;flex-direction:column;gap:5px;line-height:1.4}
+.wh-timeline .mono{color:var(--text3);margin-right:4px}
+.wh-notes{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto}
+.wh-note{background:var(--surface2);border-radius:7px;padding:7px 9px;font-size:12.5px;line-height:1.4}
+.wh-note-head{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--text3);margin-bottom:2px}
+.wh-note-head strong{color:var(--text2)}
+/* Телефон: колонки листаются горизонтально, карточки крупные под палец */
+@media(max-width:900px){
+  .wh-board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin:0 -14px;padding:0 14px 8px;-webkit-overflow-scrolling:touch}
+  .wh-col{min-width:min(80vw,320px);scroll-snap-align:start;flex:none}
+  .wh-actions .btn{padding:10px 8px;font-size:13px}
+}

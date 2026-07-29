@@ -120,6 +120,11 @@
     if (typeof changeLog === 'string') { try { changeLog = JSON.parse(changeLog); } catch (e) { changeLog = []; } }
     if (!Array.isArray(changeLog)) changeLog = [];
 
+    // Складское состояние (доска «Сборка → Выдача → Возврат»)
+    var whState = o.wh;
+    if (typeof whState === 'string') { try { whState = JSON.parse(whState); } catch (e) { whState = null; } }
+    if (!whState || typeof whState !== 'object' || Array.isArray(whState)) whState = null;
+
     var order = {
       id: str(o.id),
       orderNumber: str(o.orderNumber || o.order_number),
@@ -166,7 +171,8 @@
       remainingAmount: Math.max(0, orderAmount - paid),
 
       comment: str(o.comment),
-      changeLog: changeLog
+      changeLog: changeLog,
+      wh: whState
     };
     if (!order.orderNumber) order.orderNumber = makeOrderNumber(order);
     return order;
@@ -207,7 +213,8 @@
     paidAmount: 'paid_amount',
     remainingAmount: 'remaining_amount',
     comment: 'comment',
-    changeLog: 'change_log'
+    changeLog: 'change_log',
+    wh: 'wh'
   };
 
   /** Пустые даты нельзя слать в колонку типа date — PostgREST ответит ошибкой 22007. */
@@ -360,6 +367,14 @@
       }
       await loadColumns('orders');
       var row = filterToExistingColumns('orders', orderToRow(entry.payload));
+      // Складской допуск: только UPDATE существующей строки (см. saveOrder)
+      if (entry.op === 'update') {
+        delete row.id;
+        var ures = await s.from('orders').update(row).eq('id', entry.entityId).select('id,updated_at');
+        if (ures.error) throw new Error(ures.error.message);
+        if (!ures.data || !ures.data.length) throw new Error('Supabase не подтвердил запись (заказ удалён или нет прав)');
+        return true;
+      }
       var res = await s.from('orders').upsert(row, { onConflict: 'id' }).select('id,updated_at');
       if (res.error) {
         // PGRST204 — колонки нет в схеме. Запоминаем и пробуем ещё раз без неё.
@@ -462,11 +477,15 @@
 
     var prev = opts.previous ? normalizeOrder(opts.previous) : null;
     var changes = buildChangeLog(prev, order, opts.user);
+    // Явные записи журнала (складские события: собрано, выдано, возврат, комментарий)
+    if (Array.isArray(opts.extraLog) && opts.extraLog.length) changes = changes.concat(opts.extraLog);
     if (changes.length) {
       order.changeLog = (prev && prev.changeLog ? prev.changeLog : (order.changeLog || [])).concat(changes).slice(-MAX_LOG);
     }
 
-    var stored = enqueue('order', 'upsert', order.id, order);
+    // updateOnly — для складского допуска: RLS разрешает ему только UPDATE,
+    // а upsert (INSERT … ON CONFLICT) сервер отклонил бы целиком.
+    var stored = enqueue('order', opts.updateOnly ? 'update' : 'upsert', order.id, order);
     updateOrdersCache(order);
     if (!stored) {
       setStatus('error', 'Не удалось записать в локальное хранилище (переполнен localStorage)');
@@ -1042,6 +1061,12 @@
       var s = sb();
       if (s && getSessionToken()) { try { await s.rpc('app_logout'); } catch (e) { } }
       setSessionToken('');
+    },
+    // Есть ли колонка у таблицы заказов (null — нет связи, неизвестно).
+    // Доска склада так проверяет, применена ли миграция security-5.
+    hasOrdersColumn: async function (col) {
+      var known = await loadColumns('orders');
+      return known ? known.has(col) : null;
     },
     isSecured: async function () {
       var s = sb();
