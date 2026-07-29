@@ -7,8 +7,11 @@
      включает env(safe-area-inset-*) для нижней панели кнопок. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Radar NR</title>
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 180 180%22%3E%3Crect width=%22180%22 height=%22180%22 rx=%2236%22 fill=%22%231a1a1f%22/%3E%3Ctext x=%2290%22 y=%22114%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2278%22 font-weight=%22700%22 fill=%22%23ffffff%22%3ENR%3C/text%3E%3C/svg%3E">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 180 180%22%3E%3Crect width=%22180%22 height=%22180%22 rx=%2236%22 fill=%22%231a1a1f%22/%3E%3Ctext x=%2290%22 y=%22114%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2278%22 font-weight=%22700%22 fill=%22%23ffffff%22%3ENR%3C/text%3E%3C/svg%3E">
+<!-- Иконка PWA: iOS принимает только PNG в apple-touch-icon (SVG молча игнорирует).
+     Исходник — icon.svg, PNG перегенерированы из него (qlmanage/sips). -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="NR">

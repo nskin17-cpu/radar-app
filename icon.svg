@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+<radialGradient id="bgd" gradientUnits="userSpaceOnUse" cx="360" cy="300" r="1000">
+<stop offset="0" stop-color="#2b95ff"/>
+<stop offset="1" stop-color="#0040dd"/>
+</radialGradient>
+</defs>
+<rect width="1024" height="1024" fill="url(#bgd)"/>
+<circle cx="512" cy="512" r="150" fill="none" stroke="#ffffff" stroke-opacity="0.20" stroke-width="6"/>
+<circle cx="512" cy="512" r="250" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="6"/>
+<circle cx="512" cy="512" r="350" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="6"/>
+<text x="512" y="640" text-anchor="middle" font-family="Helvetica" font-size="340" font-weight="bold" fill="#ffffff">NR</text>
+<circle cx="760" cy="290" r="24" fill="#ffffff"/>
+</svg>
