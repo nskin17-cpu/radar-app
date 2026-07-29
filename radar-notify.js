@@ -2,13 +2,15 @@
  * Radar NR — центр уведомлений (клиентская часть).
  *
  * Движок живёт в Postgres (sql/notifications-1-system.sql): триггеры ловят
- * мгновенные события, pg_cron гоняет правила и дайджесты, pg_net шлёт
- * Telegram/Email. Здесь — только окно в этот движок:
+ * мгновенные события, pg_cron гоняет правила и дайджесты. Здесь — только
+ * окно в этот движок:
  *   • колокольчик с числом непрочитанных (поллинг раз в 90 секунд);
  *   • лента уведомлений с переходом к заказу;
- *   • настройки пользователя: какие типы и в какие каналы получать,
- *     привязка Telegram по коду, e-mail;
- *   • экран администратора: глобальные тумблеры, токены, здоровье cron.
+ *   • сотруднику — один переключатель Push на это устройство;
+ *   • администратору — выбор типов и экран «Система» (ключи, здоровье cron).
+ *
+ * Каналы Telegram и Email движок поддерживает, но интерфейс их не показывает
+ * (см. sql/notifications-3-simplify.sql): на практике ими не пользуются.
  *
  * Если SQL-миграция ещё не применена, панель честно говорит об этом
  * и поллинг отключается — приложение работает как раньше.
@@ -262,65 +264,66 @@
       return;
     }
     state.prefs = r;
-    var c = r.contacts || {};
+    var isAdmin = typeof radarIsAdmin === 'function' && radarIsAdmin();
 
-    // Push на этом устройстве
+    // Главный переключатель: пуши на это устройство. Сотруднику этого достаточно —
+    // что именно ему приходит, определяют его допуски, а не ручные галочки.
     var ps = await pushState();
     var pinfo = await rpc('app_notif_push_info');
-    var pushCell;
-    if (ps === 'unsupported') {
-      pushCell = isIphoneBrowserTab()
-        ? '<span class="wh-badge wh-b-amber" title="На iPhone пуши работают только у приложения с экрана «Домой»">добавьте на экран «Домой»</span>'
-        : '<span class="wh-badge wh-b-grey">не поддерживается</span>';
+    var html = '<div class="notif-push-card">' +
+      '<div class="notif-push-title">Уведомления на это устройство</div>';
+    if (ps === 'on') {
+      html += '<div class="notif-push-state on">Включены</div>' +
+        '<div class="notif-push-descr">Важное придёт на экран, даже когда приложение закрыто.</div>' +
+        '<button class="btn btn-sm btn-secondary" onclick="notifPushDisable()">Выключить</button>';
+    } else if (ps === 'unsupported' && isIphoneBrowserTab()) {
+      html += '<div class="notif-push-state warn">Нужен ярлык на экране «Домой»</div>' +
+        '<div class="notif-push-descr">Нажмите «Поделиться» → «На экран „Домой“» и откройте Radar с иконки — тогда уведомления можно включить.</div>';
+    } else if (ps === 'unsupported') {
+      html += '<div class="notif-push-state off">Браузер не поддерживает</div>' +
+        '<div class="notif-push-descr">Откройте Radar в Safari на iPhone или в Chrome — там уведомления работают.</div>';
     } else if (ps === 'denied') {
-      pushCell = '<span class="wh-badge wh-b-red" title="Разрешите уведомления в настройках устройства">запрещены в системе</span>';
-    } else if (ps === 'on') {
-      pushCell = '<span style="display:flex;gap:6px;align-items:center"><span class="wh-badge wh-b-green">включены</span>' +
-        '<button class="btn btn-sm btn-secondary" onclick="notifPushDisable()">Выкл</button></span>';
+      html += '<div class="notif-push-state off">Запрещены на устройстве</div>' +
+        '<div class="notif-push-descr">Разрешите уведомления для Radar в настройках телефона, затем вернитесь сюда.</div>';
     } else if (pinfo && pinfo.configured === false) {
-      pushCell = '<span class="wh-badge wh-b-grey" title="Администратор ещё не создал ключи Push">не настроены</span>';
+      html += '<div class="notif-push-state off">Пока не настроены</div>' +
+        '<div class="notif-push-descr">Администратор ещё не включил уведомления в системе.</div>';
     } else {
-      pushCell = '<button class="btn btn-sm" onclick="notifPushEnable()">Включить</button>';
+      html += '<div class="notif-push-state off">Выключены</div>' +
+        '<div class="notif-push-descr">Включите, чтобы не пропускать срочное: неоплаченные выдачи, нехватку товара, сборку на сегодня.</div>' +
+        '<button class="btn btn-sm" onclick="notifPushEnable()">Включить</button>';
     }
-    var devices = pinfo && pinfo.my_devices > 0 ? ' <small style="color:var(--text3)">устройств: ' + pinfo.my_devices + '</small>' : '';
+    html += '</div>';
+    if (pinfo && pinfo.my_devices > 1) {
+      html += '<div class="notif-devices">Ваших устройств с уведомлениями: ' + pinfo.my_devices + '</div>';
+    }
+    html += '<div class="notif-feed-actions"><button class="btn btn-sm btn-secondary" onclick="notifTest()">Проверить</button></div>';
 
-    var html = '<div class="notif-section">Каналы</div>' +
-      '<div class="notif-contact"><b>Лента в приложении</b><span class="wh-badge wh-b-green">всегда включена</span></div>' +
-      '<div class="notif-contact"><b>Push на телефон' + devices + '</b>' + pushCell + '</div>' +
-      '<div class="notif-contact"><b>Telegram</b>' +
-      (c.tg_linked ? '<span class="wh-badge wh-b-green">подключён</span>' :
-        (r.tg_ready
-          ? '<button class="btn btn-sm btn-secondary" onclick="notifTgLink()">Привязать</button>'
-          : '<span class="wh-badge wh-b-grey" title="Администратор ещё не подключил бота">бот не настроен</span>')) +
-      '</div>' +
-      '<div id="notifTgHint" class="notif-hint" style="display:none"></div>' +
-      '<div class="notif-contact"><b>Email</b><span style="display:flex;gap:6px;flex:1;max-width:240px">' +
-      '<input type="email" id="notifEmail" placeholder="почта@пример.ру" value="' + esc(c.email || '') + '" style="flex:1">' +
-      '<button class="btn btn-sm btn-secondary" onclick="notifSaveEmail()">Ок</button></span></div>' +
-      '<div class="notif-feed-actions"><button class="btn btn-sm btn-secondary" onclick="notifTest()">Прислать пробное уведомление</button></div>';
-
-    var byCat = {};
-    (r.types || []).forEach(function (t) { (byCat[t.category] = byCat[t.category] || []).push(t); });
-    Object.keys(CAT_LABELS).forEach(function (cat) {
-      if (!byCat[cat]) return;
-      html += '<div class="notif-section">' + CAT_LABELS[cat] + '</div>';
-      byCat[cat].forEach(function (t) {
-        var ch = t.channels || [];
-        var tgOn = ch.indexOf('telegram') >= 0, emOn = ch.indexOf('email') >= 0, pushOn = ch.indexOf('webpush') >= 0;
-        html += '<div class="notif-type' + (t.global_enabled ? '' : ' notif-type-off') + '">' +
-          '<label class="notif-type-main"><input type="checkbox" ' + (t.enabled ? 'checked' : '') +
-          ' onchange="notifPrefToggle(\'' + t.key + '\',this.checked)"> <span><b>' + esc(t.title) + '</b>' +
-          '<small>' + esc(t.descr) + (t.global_enabled ? '' : ' — выключено администратором') + '</small></span></label>' +
-          '<span class="notif-type-ch">' +
-          '<label title="Push на телефон"><input type="checkbox" ' + (pushOn ? 'checked' : '') +
-          ' onchange="notifPrefChannel(\'' + t.key + '\',\'webpush\',this.checked)">Push</label>' +
-          '<label title="Telegram"><input type="checkbox" ' + (tgOn ? 'checked' : '') +
-          ' onchange="notifPrefChannel(\'' + t.key + '\',\'telegram\',this.checked)">TG</label>' +
-          '<label title="Email"><input type="checkbox" ' + (emOn ? 'checked' : '') +
-          ' onchange="notifPrefChannel(\'' + t.key + '\',\'email\',this.checked)">✉</label>' +
-          '</span></div>';
+    // Выбор конкретных типов — только администратору. Остальные получают то,
+    // что положено их роли: лишние тумблеры на телефоне только мешают.
+    if (isAdmin) {
+      var byCat = {};
+      (r.types || []).forEach(function (t) { (byCat[t.category] = byCat[t.category] || []).push(t); });
+      Object.keys(CAT_LABELS).forEach(function (cat) {
+        if (!byCat[cat]) return;
+        html += '<div class="notif-section">' + CAT_LABELS[cat] + '</div>';
+        byCat[cat].forEach(function (t) {
+          var pushOn = (t.channels || []).indexOf('webpush') >= 0;
+          html += '<div class="notif-type' + (t.global_enabled ? '' : ' notif-type-off') + '">' +
+            '<label class="notif-type-main"><input type="checkbox" ' + (t.enabled ? 'checked' : '') +
+            ' onchange="notifPrefToggle(\'' + t.key + '\',this.checked)"> <span><b>' + esc(t.title) + '</b>' +
+            '<small>' + esc(t.descr) + (t.global_enabled ? '' : ' — выключено в разделе «Система»') + '</small></span></label>' +
+            '<span class="notif-type-ch">' +
+            '<label title="Присылать пушем на телефон"><input type="checkbox" ' + (pushOn ? 'checked' : '') +
+            ' onchange="notifPrefChannel(\'' + t.key + '\',\'webpush\',this.checked)">Push</label>' +
+            '</span></div>';
+        });
       });
-    });
+    } else if ((r.types || []).length) {
+      html += '<div class="notif-section">Что вам приходит</div><div class="notif-what">' +
+        (r.types || []).map(function (t) { return '<div>• ' + esc(t.title) + '</div>'; }).join('') +
+        '</div><div class="notif-devices">Список зависит от ваших разделов — его настраивает администратор.</div>';
+    }
     box.innerHTML = html;
   }
 
@@ -339,23 +342,12 @@
     t.channels = ch;
     await rpc('app_notif_prefs_set', { p_type: key, p_enabled: t.enabled, p_channels: ch });
   };
-  window.notifSaveEmail = async function () {
-    var r = await rpc('app_notif_contacts_set', { p_email: $('notifEmail').value.trim() });
-    showToast(r.error ? 'Ошибка: ' + r.error : 'Email сохранён', r.error ? 'error' : 'success');
-  };
-  window.notifTgLink = async function () {
-    var r = await rpc('app_notif_tg_code');
-    var hint = $('notifTgHint');
-    if (r.error || !r.code) { showToast('Ошибка: ' + (r.error || 'нет кода'), 'error'); return; }
-    hint.style.display = '';
-    hint.innerHTML = 'Откройте бота <b>' + esc(r.bot || 'вашего бота') + '</b> в Telegram и отправьте ему:<br>' +
-      '<code style="font-size:15px">/start ' + esc(r.code) + '</code><br>' +
-      'Через минуту привязка подтвердится автоматически.';
-  };
   window.notifTest = async function () {
     var r = await rpc('app_notif_test');
     if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
-    showToast('Лента: есть. Push: ' + (r.push || '—') + '. Telegram: ' + (r.telegram || '—') + '. Email: ' + (r.email || '—'), 'success');
+    showToast(r.devices > 0
+      ? 'Отправлено — уведомление появится в ленте и на устройстве'
+      : 'В ленту добавлено. Push не включён на этом устройстве', 'success');
     poll(true);
   };
 
@@ -414,12 +406,6 @@
       inp('digest_time', 'Время сводки', '09:00') + inp('timezone', 'Часовой пояс', 'Europe/Moscow') +
       inp('weekly_dow', 'День отчёта (1=Пн)', '1') + inp('clients_period', 'Клиентский дайджест, дней', '3') +
       '</div>' +
-      '<div class="notif-section">Telegram-бот</div>' +
-      inp('tg_bot_name', 'Имя бота', '@nandrent_radar_bot') +
-      inp('tg_bot_token', 'Токен бота (из @BotFather)', 'оставьте •••••• чтобы не менять', 'password') +
-      '<div class="notif-section">Email (resend.com)</div>' +
-      inp('email_from', 'Адрес отправителя', 'radar@nandrent.ru') +
-      inp('resend_key', 'API-ключ Resend', 'оставьте •••••• чтобы не менять', 'password') +
       '<div class="notif-section">Push на телефоны</div>' +
       '<div class="notif-contact"><b>VAPID-ключи</b>' +
       ((r.push && r.push.keys_ready)
