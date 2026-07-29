@@ -785,7 +785,11 @@
     try {
       var rpc = await s.rpc('app_login', { p_username: username, p_password: password });
       if (!rpc.error && rpc.data) {
-        if (rpc.data.error) return { success: false, reason: 'bad-credentials', error: rpc.data.error };
+        if (rpc.data.error) {
+          // Логина нет в защищённой таблице — пробуем прежний путь входа
+          if (rpc.data.code === 'not-found') return legacyAuthLogin(username, password);
+          return { success: false, reason: 'bad-credentials', error: rpc.data.error };
+        }
         setSessionToken(rpc.data.token);
         return {
           success: true, secured: true,

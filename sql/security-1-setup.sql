@@ -1,27 +1,12 @@
 -- ============================================================================
--- Radar NR — ЗАКРЫТИЕ БАЗЫ (июль 2026)
+-- Radar NR — ШАГ 1 из 3: подготовка защиты
 --
--- ЧТО СЕЙЧАС НЕ ТАК
--- На всех таблицах стоит политика "Allow all for anon" — USING (true).
--- Публичный ключ лежит в коде на GitHub, репозиторий открыт. Проверено:
--- любой человек из интернета читает, меняет и удаляет любые строки,
--- включая все 476 заказов. Это не теория — вставка/правка/удаление прошли.
+-- ЧТО ДЕЛАЕТ: создаёт таблицу сессий, функции входа и проверки прав,
+--             колонки допусков. Доступ к данным НЕ меняет — после этого
+--             файла приложение работает ровно как сейчас.
+-- БЕЗОПАСНО:  ничего не удаляет, повторный запуск не вредит.
 --
--- ЧТО ДЕЛАЕТ ЭТА МИГРАЦИЯ
--- Переносит проверку прав из приложения в саму базу:
---   • пароли — bcrypt, таблица пользователей недоступна снаружи вообще;
---   • вход выдаёт токен сессии, он живёт в таблице, закрытой от чтения;
---   • каждый запрос предъявляет токен заголовком x-radar-token;
---   • политики RLS решают, что этому пользователю можно, по его допускам.
--- Без валидного токена анонимный ключ не даёт НИЧЕГО.
---
--- ПОРЯДОК ДЕЙСТВИЙ (важен!)
---   1. Сначала обновите приложение (оно уже умеет работать и до, и после).
---   2. Выполните ШАГ 1–4 этого файла.
---   3. Создайте первого администратора — ШАГ 5, впишите свой пароль.
---   4. Проверьте вход в приложении.
---   5. Только теперь выполните ШАГ 6 — он закрывает двери.
--- Если что-то пошло не так — sql/rollback-2026-07-security.sql вернёт как было.
+-- Выполните целиком, затем переходите к файлу security-2-admin.sql
 -- ============================================================================
 
 -- ── ШАГ 1. Расширения и таблицы ────────────────────────────────────────────
@@ -105,9 +90,13 @@ as $$
 declare u users; t uuid;
 begin
   select * into u from users where username = p_username;
-  if u.username is null or u.password_hash is null
-     or crypt(p_password, u.password_hash) <> u.password_hash then
-    return json_build_object('error','Неверный логин или пароль');
+  -- Логина ещё нет: это НЕ «неверный пароль». Приложение по такому ответу
+  -- уходит на прежний путь входа, поэтому между шагами 1 и 2 никто не заперт.
+  if u.username is null then
+    return json_build_object('error','Пользователь не найден', 'code', 'not-found');
+  end if;
+  if u.password_hash is null or crypt(p_password, u.password_hash) <> u.password_hash then
+    return json_build_object('error','Неверный логин или пароль', 'code', 'bad-password');
   end if;
   delete from app_sessions where expires_at < now();          -- чистим протухшие
   insert into app_sessions (username) values (u.username) returning token into t;
@@ -211,53 +200,8 @@ alter table app_sessions enable row level security;
 revoke all on table app_sessions from anon, authenticated;
 revoke all on table users        from anon, authenticated;
 
--- ============================================================================
--- ШАГ 5. ПЕРВЫЙ АДМИНИСТРАТОР — впишите свой логин и пароль (от 8 символов)
---        и раскомментируйте строку. Выполните ДО шага 6.
--- ============================================================================
--- select app_bootstrap_admin('admin', 'ПРИДУМАЙТЕ_ПАРОЛЬ');
-
--- ============================================================================
--- ШАГ 6. ЗАКРЫТЬ ДВЕРИ.
---        Выполнять только после того, как убедились, что вход в приложение
---        работает под новым администратором.
--- ============================================================================
-do $$
-declare t text; areas jsonb := '{
-  "orders":       {"read":"orders",      "write":"orders"},
-  "clients":      {"read":"clients",     "write":"clients"},
-  "stock":        {"read":"stock",       "write":"stock"},
-  "categories":   {"read":"stock",       "write":"stock"},
-  "pricing_config":{"read":"stock",      "write":"stock"},
-  "competitors":  {"read":"competitors", "write":"competitors"},
-  "my_company":   {"read":"competitors", "write":"competitors"},
-  "history":      {"read":"competitors", "write":"competitors"},
-  "history_log":  {"read":"competitors", "write":"competitors"}
-}'::jsonb;
-begin
-  for t in select jsonb_object_keys(areas) loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists "Allow all for anon" on %I', t);
-    execute format('drop policy if exists radar_read on %I', t);
-    execute format('drop policy if exists radar_write on %I', t);
-    -- Склад, категории, цены и клиентов должен читать и тот, кто ведёт заказы:
-    -- без справочников форма заказа не соберётся.
-    execute format(
-      'create policy radar_read on %I for select using (app_can(%L,''view'') or (%L and app_can(''orders'',''view'')))',
-      t, areas -> t ->> 'read',
-      (areas -> t ->> 'read') in ('stock','clients'));
-    execute format(
-      'create policy radar_write on %I for all using (app_can(%L,''edit'')) with check (app_can(%L,''edit''))',
-      t, areas -> t ->> 'write', areas -> t ->> 'write');
-  end loop;
-end $$;
-
--- ── Проверка ───────────────────────────────────────────────────────────────
-select tablename,
-       count(*) filter (where policyname = 'radar_read')  as политика_чтения,
-       count(*) filter (where policyname = 'radar_write') as политика_записи,
-       count(*) filter (where policyname = 'Allow all for anon') as осталось_открытых
-  from pg_policies
- where schemaname = 'public'
- group by tablename
- order by tablename;
+-- ── Проверка: должно вернуть 8 строк с именами функций app_* ───────────────
+select proname as создано_функций
+  from pg_proc
+ where proname like 'app\_%'
+ order by proname;
