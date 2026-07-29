@@ -10,7 +10,10 @@
 -- ============================================================================
 
 -- ── ШАГ 1. Расширения и таблицы ────────────────────────────────────────────
-create extension if not exists pgcrypto;
+-- В Supabase расширения ставятся в схему extensions, а не в public.
+-- Поэтому ниже у всех функций search_path = public, extensions —
+-- иначе crypt() и gen_salt() из pgcrypto не находятся.
+create extension if not exists pgcrypto with schema extensions;
 
 alter table users add column if not exists perms      jsonb;
 alter table users add column if not exists role_label text;
@@ -29,7 +32,7 @@ create index if not exists app_sessions_expires_idx  on app_sessions (expires_at
 -- Пользователь текущего запроса: по токену из заголовка. NULL — не вошёл.
 create or replace function app_session_user()
 returns users
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, extensions
 as $$
   select u.*
     from app_sessions s
@@ -41,7 +44,7 @@ $$;
 
 create or replace function app_is_admin()
 returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, extensions
 as $$ select coalesce((select role from app_session_user()) = 'admin', false); $$;
 
 -- Допуск на раздел: area = orders|clients|stock|dashboards|competitors,
@@ -49,7 +52,7 @@ as $$ select coalesce((select role from app_session_user()) = 'admin', false); $
 -- (учётка заведена до появления допусков; поведение прежнее).
 create or replace function app_can(area text, need text)
 returns boolean
-language plpgsql stable security definer set search_path = public
+language plpgsql stable security definer set search_path = public, extensions
 as $$
 declare u users; lvl text;
 begin
@@ -69,7 +72,7 @@ end $$;
 -- поэтому её нельзя использовать как чёрный ход.
 create or replace function app_bootstrap_admin(p_username text, p_password text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   if exists (select 1 from users) then
@@ -85,7 +88,7 @@ end $$;
 
 create or replace function app_login(p_username text, p_password text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 declare u users; t uuid;
 begin
@@ -106,7 +109,7 @@ end $$;
 
 create or replace function app_logout()
 returns void
-language sql security definer set search_path = public
+language sql security definer set search_path = public, extensions
 as $$
   delete from app_sessions
    where token = nullif(current_setting('request.headers', true)::json ->> 'x-radar-token','')::uuid;
@@ -114,7 +117,7 @@ $$;
 
 create or replace function app_list_users()
 returns table (id uuid, username text, role text, perms jsonb, role_label text, created_at timestamptz)
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, extensions
 as $$
   select u.id, u.username, u.role, u.perms, u.role_label, u.created_at
     from users u where app_is_admin() order by u.username;
@@ -123,7 +126,7 @@ $$;
 create or replace function app_create_user(p_username text, p_password text,
                                            p_role text, p_perms jsonb, p_role_label text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   if not app_is_admin() then return json_build_object('error','Только администратор'); end if;
@@ -141,7 +144,7 @@ end $$;
 
 create or replace function app_set_password(p_username text, p_password text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   -- свой пароль может менять каждый, чужой — только администратор
@@ -159,7 +162,7 @@ end $$;
 
 create or replace function app_set_perms(p_username text, p_role text, p_perms jsonb, p_role_label text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   if not app_is_admin() then return json_build_object('error','Только администратор'); end if;
@@ -172,7 +175,7 @@ end $$;
 
 create or replace function app_delete_user(p_username text)
 returns json
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, extensions
 as $$
 begin
   if not app_is_admin() then return json_build_object('error','Только администратор'); end if;
@@ -200,7 +203,7 @@ alter table app_sessions enable row level security;
 revoke all on table app_sessions from anon, authenticated;
 revoke all on table users        from anon, authenticated;
 
--- ── Проверка: должно вернуть 8 строк с именами функций app_* ───────────────
+-- ── Проверка: должно вернуть 11 строк с именами функций app_* ──────────────
 select proname as создано_функций
   from pg_proc
  where proname like 'app\_%'
