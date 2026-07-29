@@ -289,20 +289,31 @@
   #crmOrderModal .crm-doc-actions .btn{width:100%;min-height:42px;font-size:12px}
 
   /* «Отмена» и «Сохранить» — постоянная нижняя панель окна.
-     Раньше они были обычным блоком в потоке и оказывались там, докуда долистали. */
+     position:sticky внутри прокручиваемой модалки iOS не держит (баг WebKit,
+     на реальном iPhone панель ехала вместе с формой), поэтому крепим fixed —
+     прямо к экрану. Окно на телефоне и так во весь экран, наложений нет. */
   #crmOrderModal .modal-actions{
-    position:sticky;
-    bottom:0;
-    left:0;right:0;
+    position:fixed;
+    bottom:0;left:0;right:0;
     display:grid;grid-template-columns:1fr 1.4fr;gap:10px;
-    margin:14px -12px 0;
-    padding:12px 12px calc(12px + env(safe-area-inset-bottom))!important;
+    margin:0;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom))!important;
     background:var(--surface,#fff);
     border-top:0.5px solid var(--border2,rgba(0,0,0,.12));
     box-shadow:0 -8px 20px rgba(0,0,0,.06);
-    z-index:5;
+    z-index:60;
   }
   #crmOrderModal .modal-actions .btn{width:100%;min-height:48px;font-size:15px;font-weight:600}
+  /* Под панель — запас снизу, чтобы последние поля не прятались за ней.
+     backdrop-filter и animation у модалки создают containing block для
+     position:fixed — панель прилипала бы к прокручиваемому содержимому,
+     а не к экрану. На весь экран блюр всё равно не виден — отключаем. */
+  #crmOrderModal .modal{
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+    animation:none;
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
   .crm-modal-close{width:42px;height:42px;font-size:18px}
 
   .crm-collapse>summary{min-height:44px}
