@@ -19,12 +19,80 @@
   var POLL_MS = 90000;
   var state = {
     unread: 0, items: [], migrated: null, tab: 'feed',
-    prefs: null, admin: null, timer: null
+    prefs: null, admin: null, timer: null, pendingLink: null
   };
 
   function $(id) { return document.getElementById(id); }
   function me() { return window.currentUser || null; }
   function rpc(fn, args) { return window.RadarStore.notifRpc(fn, args); }
+
+  // ── Web Push: сервис-воркер и утилиты ──────────────────────────────────────
+
+  function b64url(buf) {
+    var a = new Uint8Array(buf), s = '';
+    for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlToU8(s) {
+    s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s), a = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return a;
+  }
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+  function isIphoneBrowserTab() {
+    // iOS поддерживает Web Push только у приложения, установленного на экран «Домой»
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    var standalone = navigator.standalone === true ||
+      (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    return ios && !standalone;
+  }
+  async function pushState() {
+    if (!pushSupported()) return 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    try {
+      var reg = await navigator.serviceWorker.getRegistration();
+      var sub = reg && await reg.pushManager.getSubscription();
+      return sub ? 'on' : 'off';
+    } catch (e) { return 'off'; }
+  }
+
+  // Переход по ссылке уведомления (из ленты, из пуша, из ?nl=)
+  function navLink(link) {
+    if (!link) return;
+    try {
+      if (link.indexOf('page:') === 0) { switchPage(link.slice(5)); return; }
+      if (link.indexOf('order:') === 0) {
+        var oid = link.slice(6);
+        if (typeof radarCanView === 'function' && radarCanView('orders')) {
+          switchPage('crm');
+          setTimeout(function () { try { if (typeof crmOpenDialog === 'function') crmOpenDialog(oid); } catch (e) { } }, 400);
+        } else if (typeof radarCanView === 'function' && radarCanView('assembly')) {
+          switchPage('warehouse');
+          setTimeout(function () { try { if (typeof whOpenCard === 'function') whOpenCard(oid); } catch (e) { } }, 400);
+        }
+      }
+    } catch (e) { }
+  }
+  function navOrDefer(link) {
+    if (me()) navLink(link); else state.pendingLink = link;
+  }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.radarNotifLink) navOrDefer(e.data.radarNotifLink);
+    });
+  }
+  // Пуш открыл новое окно: ссылка приезжает параметром ?nl=
+  (function () {
+    var m = /[?&]nl=([^&]+)/.exec(location.search);
+    if (m) {
+      state.pendingLink = decodeURIComponent(m[1]);
+      try { history.replaceState(null, '', location.pathname); } catch (e) { }
+    }
+  })();
 
   var SEV = { info: 'wh-b-blue', warn: 'wh-b-amber', critical: 'wh-b-red' };
   var CAT_LABELS = { finance: 'Финансы', orders: 'Заказы', warehouse: 'Склад', clients: 'Клиенты', team: 'Команда', digest: 'Сводки' };
@@ -71,6 +139,10 @@
     var bell = $('notifBell');
     if (bell) bell.style.display = '';
     startPolling();
+    if (state.pendingLink) {
+      var l = state.pendingLink; state.pendingLink = null;
+      setTimeout(function () { navLink(l); }, 600);
+    }
   };
   var origLogout = window.logout;
   window.logout = function () {
@@ -176,19 +248,7 @@
     }
     if (!n.link) return;
     closePanel();
-    try {
-      if (n.link.indexOf('page:') === 0) { switchPage(n.link.slice(5)); return; }
-      if (n.link.indexOf('order:') === 0) {
-        var oid = n.link.slice(6);
-        if (typeof radarCanView === 'function' && radarCanView('orders')) {
-          switchPage('crm');
-          setTimeout(function () { try { if (typeof crmOpenDialog === 'function') crmOpenDialog(oid); } catch (e) { } }, 400);
-        } else if (typeof radarCanView === 'function' && radarCanView('assembly')) {
-          switchPage('warehouse');
-          setTimeout(function () { try { if (typeof whOpenCard === 'function') whOpenCard(oid); } catch (e) { } }, 400);
-        }
-      }
-    } catch (e) { }
+    navLink(n.link);
   };
 
   // ── Настройки пользователя ─────────────────────────────────────────────────
@@ -203,8 +263,30 @@
     }
     state.prefs = r;
     var c = r.contacts || {};
+
+    // Push на этом устройстве
+    var ps = await pushState();
+    var pinfo = await rpc('app_notif_push_info');
+    var pushCell;
+    if (ps === 'unsupported') {
+      pushCell = isIphoneBrowserTab()
+        ? '<span class="wh-badge wh-b-amber" title="На iPhone пуши работают только у приложения с экрана «Домой»">добавьте на экран «Домой»</span>'
+        : '<span class="wh-badge wh-b-grey">не поддерживается</span>';
+    } else if (ps === 'denied') {
+      pushCell = '<span class="wh-badge wh-b-red" title="Разрешите уведомления в настройках устройства">запрещены в системе</span>';
+    } else if (ps === 'on') {
+      pushCell = '<span style="display:flex;gap:6px;align-items:center"><span class="wh-badge wh-b-green">включены</span>' +
+        '<button class="btn btn-sm btn-secondary" onclick="notifPushDisable()">Выкл</button></span>';
+    } else if (pinfo && pinfo.configured === false) {
+      pushCell = '<span class="wh-badge wh-b-grey" title="Администратор ещё не создал ключи Push">не настроены</span>';
+    } else {
+      pushCell = '<button class="btn btn-sm" onclick="notifPushEnable()">Включить</button>';
+    }
+    var devices = pinfo && pinfo.my_devices > 0 ? ' <small style="color:var(--text3)">устройств: ' + pinfo.my_devices + '</small>' : '';
+
     var html = '<div class="notif-section">Каналы</div>' +
       '<div class="notif-contact"><b>Лента в приложении</b><span class="wh-badge wh-b-green">всегда включена</span></div>' +
+      '<div class="notif-contact"><b>Push на телефон' + devices + '</b>' + pushCell + '</div>' +
       '<div class="notif-contact"><b>Telegram</b>' +
       (c.tg_linked ? '<span class="wh-badge wh-b-green">подключён</span>' :
         (r.tg_ready
@@ -224,12 +306,14 @@
       html += '<div class="notif-section">' + CAT_LABELS[cat] + '</div>';
       byCat[cat].forEach(function (t) {
         var ch = t.channels || [];
-        var tgOn = ch.indexOf('telegram') >= 0, emOn = ch.indexOf('email') >= 0;
+        var tgOn = ch.indexOf('telegram') >= 0, emOn = ch.indexOf('email') >= 0, pushOn = ch.indexOf('webpush') >= 0;
         html += '<div class="notif-type' + (t.global_enabled ? '' : ' notif-type-off') + '">' +
           '<label class="notif-type-main"><input type="checkbox" ' + (t.enabled ? 'checked' : '') +
           ' onchange="notifPrefToggle(\'' + t.key + '\',this.checked)"> <span><b>' + esc(t.title) + '</b>' +
           '<small>' + esc(t.descr) + (t.global_enabled ? '' : ' — выключено администратором') + '</small></span></label>' +
           '<span class="notif-type-ch">' +
+          '<label title="Push на телефон"><input type="checkbox" ' + (pushOn ? 'checked' : '') +
+          ' onchange="notifPrefChannel(\'' + t.key + '\',\'webpush\',this.checked)">Push</label>' +
           '<label title="Telegram"><input type="checkbox" ' + (tgOn ? 'checked' : '') +
           ' onchange="notifPrefChannel(\'' + t.key + '\',\'telegram\',this.checked)">TG</label>' +
           '<label title="Email"><input type="checkbox" ' + (emOn ? 'checked' : '') +
@@ -271,8 +355,41 @@
   window.notifTest = async function () {
     var r = await rpc('app_notif_test');
     if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
-    showToast('Лента: есть. Telegram: ' + (r.telegram || '—') + '. Email: ' + (r.email || '—'), 'success');
+    showToast('Лента: есть. Push: ' + (r.push || '—') + '. Telegram: ' + (r.telegram || '—') + '. Email: ' + (r.email || '—'), 'success');
     poll(true);
+  };
+
+  window.notifPushEnable = async function () {
+    var info = await rpc('app_notif_push_info');
+    if (info.error) { showToast('Ошибка: ' + info.error, 'error'); return; }
+    if (!info.configured) { showToast('Администратор ещё не создал ключи Push (колокольчик → Система)', 'error'); return; }
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm !== 'granted') { showToast('Разрешение на уведомления не дано', 'error'); loadPrefs(); return; }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64urlToU8(info.vapid_public)
+      });
+      var r = await rpc('app_notif_push_subscribe', { p_sub: sub.toJSON() });
+      if (r.error) { showToast('Ошибка: ' + r.error, 'error'); return; }
+      showToast('Push включён на этом устройстве', 'success');
+    } catch (e) {
+      showToast('Не удалось включить Push: ' + (e && e.message || e), 'error');
+    }
+    loadPrefs();
+  };
+  window.notifPushDisable = async function () {
+    try {
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await rpc('app_notif_push_unsubscribe', { p_endpoint: sub.endpoint });
+        await sub.unsubscribe();
+      }
+      showToast('Push выключен на этом устройстве', 'success');
+    } catch (e) { }
+    loadPrefs();
   };
 
   // ── Администратор ──────────────────────────────────────────────────────────
@@ -303,6 +420,16 @@
       '<div class="notif-section">Email (resend.com)</div>' +
       inp('email_from', 'Адрес отправителя', 'radar@nandrent.ru') +
       inp('resend_key', 'API-ключ Resend', 'оставьте •••••• чтобы не менять', 'password') +
+      '<div class="notif-section">Push на телефоны</div>' +
+      '<div class="notif-contact"><b>VAPID-ключи</b>' +
+      ((r.push && r.push.keys_ready)
+        ? '<span class="wh-badge wh-b-green">созданы</span>'
+        : '<button class="btn btn-sm" onclick="notifPushGenKeys()">Сгенерировать</button>') +
+      '</div>' +
+      '<div class="notif-contact"><b>Подписанных устройств</b><span>' + ((r.push && r.push.subs_total) || 0) + '</span></div>' +
+      inp('push_fn_url', 'Адрес Edge Function', 'https://…/functions/v1/notif-push') +
+      '<div class="notif-feed-actions"><button class="btn btn-sm btn-secondary" onclick="notifPushCheck()">Проверить функцию</button></div>' +
+      '<div class="notif-hint" style="display:block">Один раз: Supabase → Edge Functions → Deploy new function → имя <b>notif-push</b>, вставьте код из <b>supabase/functions/notif-push/index.ts</b> и выключите «Verify JWT» в её настройках.</div>' +
       '<div class="notif-feed-actions">' +
       '<button class="btn btn-sm" onclick="notifAdminSave()">Сохранить</button>' +
       '<button class="btn btn-sm btn-secondary" onclick="notifRunNow()">Запустить проверки сейчас</button>' +
@@ -347,9 +474,51 @@
     loadAdmin(); poll(true);
   };
 
+  window.notifPushGenKeys = async function () {
+    if (!confirm('Сгенерировать VAPID-ключи для Push?\n\nЕсли ключи уже существовали, все подписанные устройства придётся подключить заново.')) return;
+    try {
+      var kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      var raw = await crypto.subtle.exportKey('raw', kp.publicKey);
+      var jwk = await crypto.subtle.exportKey('jwk', kp.privateKey);
+      var r = await rpc('app_notif_push_setkeys', { p_public: b64url(raw), p_private: jwk.d });
+      showToast(r.error ? 'Ошибка: ' + r.error : 'Ключи Push созданы', r.error ? 'error' : 'success');
+    } catch (e) {
+      showToast('Не удалось создать ключи: ' + (e && e.message || e), 'error');
+    }
+    loadAdmin();
+  };
+
+  window.notifPushCheck = async function () {
+    var d = await rpc('app_notif_push_diag');
+    if (d.error) { showToast('Ошибка: ' + d.error, 'error'); return; }
+    if (!d.keys_ready) { showToast('Сначала сгенерируйте VAPID-ключи', 'error'); return; }
+    if (!d.url) { showToast('Не указан адрес Edge Function', 'error'); return; }
+    try {
+      var resp = await fetch(d.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-push-secret': d.secret },
+        body: '{"drain":true}'
+      });
+      var j = {};
+      try { j = await resp.json(); } catch (e) { }
+      if (resp.ok && j.ok) {
+        showToast('Функция работает: в очереди ' + (d.queued || 0) + ', обработано ' + (j.processed || 0) + ', отправлено ' + (j.sent || 0), 'success');
+      } else {
+        showToast('Функция ответила: ' + (j.error || ('HTTP ' + resp.status)), 'error');
+      }
+    } catch (e) {
+      showToast('Функция недоступна (не задеплоена?): ' + (e && e.message || e), 'error');
+    }
+  };
+
   document.addEventListener('DOMContentLoaded', function () {
     var t = $('notifTab-admin');
     if (t) t.style.display = 'none';
+    // Сервис-воркер только показывает пуши — кэшированием не занимается,
+    // поэтому регистрируем всегда: обновлениям приложения он не мешает.
+    if ('serviceWorker' in navigator) {
+      try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
+    }
     if (me()) { var b = $('notifBell'); if (b) b.style.display = ''; startPolling(); }
   });
 })();
