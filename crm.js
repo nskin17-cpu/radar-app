@@ -605,6 +605,7 @@ function crmRenderOrders(){
   // Раньше здесь уходил частичный объект ({id, status}) — и на сервере рисковал
   // затереть остальные поля. Теперь патч всегда накладывается на полный заказ.
   const quickPatch=async(id,patch,message)=>{
+    if(!radarCanEdit('orders')){showToast('Нет прав на изменение заказов','error');crmRenderOrders();return}
     const o=crmOrders.find(x=>x.id===id);
     if(!o)return;
     const next={...o,...patch};
@@ -615,6 +616,8 @@ function crmRenderOrders(){
     await RadarStore.flush({force:true});
     if(message)showToast(RadarStore.getStatus().pending>0?message+' (отправка продолжается)':message,'success');
   };
+  // Допуск view: статусы в списке видны, но менять их нельзя
+  if(!radarCanEdit('orders'))t.querySelectorAll('select').forEach(s=>s.disabled=true);
   t.querySelectorAll('[data-crm-status]').forEach(sel=>sel.addEventListener('change',e=>{
     quickPatch(sel.dataset.crmStatus,{status:e.target.value},'Статус обновлён');
   }));
@@ -1125,6 +1128,7 @@ function crmOpenClientModal(id=''){
 }
 var _crmSavingClient=false;
 async function crmSaveClient(){
+  if(!radarCanEdit('clients')){showToast('Нет прав на изменение клиентов','error');return}
   if(_crmSavingClient)return;
   const saveBtn=document.querySelector('#crmClientModal .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('crmClientId').value;
@@ -1160,6 +1164,7 @@ async function crmSaveClient(){
   finally{_crmSavingClient=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function crmDeleteClient(){
+  if(!radarCanEdit('clients')){showToast('Нет прав на изменение клиентов','error');return}
   const id=document.getElementById('crmClientId').value;
   if(!id||!confirm('Удалить клиента?'))return;
   const r=await api('deleteClient',{id});
@@ -1172,6 +1177,7 @@ async function crmDeleteClient(){
   }else showToast('Не удалось удалить','error');
 }
 async function crmSyncPresetClients(){
+  if(!radarCanEdit('clients')){showToast('Нет прав на изменение клиентов','error');return}
   const preset=crmPresetClients();
   const currentByName=new Set(crmClients.map(c=>String(c.name||'').trim().toLowerCase()));
   const missing=preset.filter(c=>!currentByName.has(c.name.toLowerCase()));
@@ -1531,6 +1537,7 @@ function crmOpenCatRateModal(id){
 }
 var _crmSavingCatRate=false;
 async function crmSaveCatRate(){
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
   if(_crmSavingCatRate)return;
   const saveBtn=document.querySelector('#crmCatRateModal .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('crmCatRateId').value;
@@ -1585,6 +1592,7 @@ function crmOpenStockModal(id){
 }
 var _crmSavingStock=false;
 async function crmSaveStockItem(){
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
   if(_crmSavingStock)return;
   const saveBtn=document.querySelector('#crmStockModal .btn-primary');
   const id=document.getElementById('crmStockId').value;
@@ -1624,6 +1632,7 @@ async function crmSaveStockItem(){
   finally{_crmSavingStock=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function crmDeleteStockItem(){
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
   const id=document.getElementById('crmStockId').value;
   const item=crmStock.find(s=>s.id===id);
   if(!id||!confirm('Удалить позицию?'))return;
@@ -1726,7 +1735,36 @@ function crmOpenDialog(id){
   crmSyncCommentBlock(true);
   crmOrderDialogInit=false;
   crmAutosaveEnabled=true;
+  crmApplyOrderDialogPerms();
   openModal('crmOrderModal');
+}
+
+/**
+ * Режим «только просмотр» для окна заказа (допуск orders=view):
+ * поля заблокированы, сохранить/удалить/добавить нельзя, документы — можно.
+ */
+function crmApplyOrderDialogPerms(){
+  const ro=!radarCanEdit('orders');
+  const m=document.getElementById('crmOrderModal');
+  if(!m)return;
+  m.classList.toggle('is-readonly',ro);
+  m.querySelectorAll('input,select,textarea').forEach(el=>{
+    if(el.type==='hidden')return;
+    el.disabled=ro;
+  });
+  const hideIf=(id,cond)=>{const el=document.getElementById(id);if(el&&cond)el.style.display='none'};
+  if(ro){
+    hideIf('crmDeleteBtn',true);
+    hideIf('crmAddItemBtn',true);
+    m.querySelectorAll('.modal-actions .btn').forEach(b=>{
+      if(b.textContent.includes('Сохранить'))b.style.display='none';
+    });
+  }else{
+    const add=document.getElementById('crmAddItemBtn');
+    if(add)add.style.display='';
+    m.querySelectorAll('.modal-actions .btn').forEach(b=>{b.style.display=''});
+  }
+  if(ro)crmAutosaveEnabled=false;
 }
 
 /**
@@ -1988,6 +2026,7 @@ let crmAutosaveEnabled=false;
  * silent=true — фоновое автосохранение, без тостов и закрытия окна.
  */
 function crmPersistOrder(opts={}){
+  if(!radarCanEdit('orders'))return null;
   const order=crmCollectOrder();
   if(!order.clientName)return null;
   const isNew=!order.id;
@@ -2019,6 +2058,7 @@ function crmPersistOrder(opts={}){
 /** Автосохранение: любое изменение формы попадает в очередь через паузу. */
 function crmScheduleAutosave(){
   if(!crmAutosaveEnabled)return;
+  if(!radarCanEdit('orders'))return;
   if(!RadarConfig.autosave.enabled)return;
   if(crmOrderDialogInit)return;
   crmSaveDraft();
@@ -2059,6 +2099,7 @@ function crmReadDraft(){
 
 var _crmSaving=false;
 async function crmSaveOrder(){
+  if(!radarCanEdit('orders')){showToast('Нет прав на изменение заказов','error');return}
   if(_crmSaving)return;
   const form=crmReadForm();
   if(!form.clientName){showToast('Укажите клиента','error');return}
@@ -2096,6 +2137,7 @@ async function crmSaveOrder(){
 }
 
 async function crmDeleteOrder(){
+  if(!radarCanEdit('orders')){showToast('Нет прав на изменение заказов','error');return}
   const id=document.getElementById('crmOrderId').value;
   if(!id||!confirm('Удалить заказ?'))return;
   RadarStore.deleteOrder(id);

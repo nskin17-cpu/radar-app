@@ -22,13 +22,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260729-6">
-<link rel="stylesheet" href="radar-ui.css?v=20260729-6">
+<link rel="stylesheet" href="styles.css?v=20260729-7">
+<link rel="stylesheet" href="radar-ui.css?v=20260729-7">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260729-6';
+window.RADAR_BUILD='20260729-7';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -139,7 +139,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- MY COMPANY -->
     <div id="page-mycompany" class="page">
       <div class="page-header"><div><div class="page-title">Моя компания</div><div class="page-desc">Данные моей компании</div></div>
-        <button class="btn btn-sm" onclick="withSaveGuard(this,saveMyCompany)">💾 Сохранить</button></div>
+        <button class="btn btn-sm" id="myCompanySaveBtn" onclick="withSaveGuard(this,saveMyCompany)">💾 Сохранить</button></div>
       <div class="form-card">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="input-group"><label class="input-label">Название</label><input type="text" id="myName" placeholder="Моя компания"></div>
@@ -200,7 +200,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- COMPETITORS -->
     <div id="page-competitors" class="page">
       <div class="page-header"><div><div class="page-title">Конкуренты</div><div class="page-desc">База данных по рынку</div></div>
-        <button class="btn btn-sm" onclick="openAddComp()">+ Добавить</button></div>
+        <button class="btn btn-sm" id="compAddBtn" onclick="openAddComp()">+ Добавить</button></div>
       <div class="table-wrap"><table><thead><tr>
         <th>Название</th><th>Город</th><th>Непал</th><th>Лорен</th><th>Модерн</th><th>Бокал вино</th><th>Тарелка обед</th><th>Доставка</th><th>Сетап бокалы</th><th>Телефон</th><th></th>
       </tr></thead><tbody id="compTable"><tr><td colspan="11" class="loading"><div class="spinner"></div>Загрузка...</td></tr></tbody></table></div>
@@ -220,7 +220,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
-        <button class="btn btn-sm" onclick="crmOpenDialog()">+ Новый заказ</button></div>
+        <button class="btn btn-sm" id="crmNewOrderBtn" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div class="stat-card" id="crmMonthOrders" onclick="crmSetQuickFilter('month')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">В месяце</div><div class="stat-value dark" id="crmTotalOrders" style="font-size:18px">0</div></div>
         <div class="stat-card" id="crmNotCompleted" onclick="crmSetQuickFilter('not_completed')" style="padding:10px 14px;min-width:0;flex:1"><div class="stat-label" style="font-size:9px">Невыполн.</div><div class="stat-value amber" id="crmActiveOrders" style="font-size:18px">0</div></div>
@@ -242,8 +242,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="page-header">
         <div><div class="page-title">Клиенты</div><div class="page-desc">База клиентов и финансовые показатели</div></div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-sm btn-secondary" onclick="crmSyncPresetClients()">↻ Залить список</button>
-          <button class="btn btn-sm" onclick="crmOpenClientModal()">+ Добавить клиента</button>
+          <button class="btn btn-sm btn-secondary" id="crmSyncClientsBtn" onclick="crmSyncPresetClients()">↻ Залить список</button>
+          <button class="btn btn-sm" id="crmAddClientBtn" onclick="crmOpenClientModal()">+ Добавить клиента</button>
         </div>
       </div>
       <div id="crmClientsListFilterRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-start">
@@ -353,7 +353,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div id="page-crmstock" class="page">
       <div class="page-header">
         <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
-        <button class="btn btn-sm" onclick="crmOpenStockModal()">+ Добавить</button>
+        <button class="btn btn-sm" id="crmAddStockBtn" onclick="crmOpenStockModal()">+ Добавить</button>
       </div>
       <div class="form-card" id="crmStockTopCard" style="margin-bottom:12px">
         <div class="page-header" style="margin-bottom:10px">
@@ -527,7 +527,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="crm-grid-3">
           <div class="input-group"><label class="input-label">Логин</label><input type="text" id="newUserName" autocomplete="off" placeholder="например, maria"></div>
           <div class="input-group"><label class="input-label">Пароль</label><input type="text" id="newUserPass" autocomplete="off"></div>
-          <div class="input-group"><label class="input-label">Роль</label><select id="newUserRole"><option value="user">Сотрудник</option><option value="admin">Администратор</option></select></div>
+          <div class="input-group"><label class="input-label">Допуск</label><select id="newUserPreset"></select></div>
         </div>
         <button class="btn btn-sm" onclick="radarAddUser()" style="margin-top:8px">Добавить пользователя</button>
         <div id="usersStatus" style="margin-top:10px;font-size:12px"></div>
@@ -713,7 +713,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
     <div class="modal-section">Изделия в заказе</div>
     <div id="crmItemsList"></div>
-    <button class="btn btn-sm btn-secondary" onclick="crmAddItemRow()" style="margin-top:8px">+ Добавить изделие</button>
+    <button class="btn btn-sm btn-secondary" id="crmAddItemBtn" onclick="crmAddItemRow()" style="margin-top:8px">+ Добавить изделие</button>
     <div class="modal-section">Стоимость услуг</div>
     <div class="crm-grid-2">
       <div class="input-group"><label class="input-label">Доставка ₽</label><input type="number" id="crmDeliveryCost" min="0" value="0" style="font-weight:600" inputmode="numeric"></div>
@@ -768,18 +768,40 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
   </div>
 </div>
 
+<!-- Редактор допусков пользователя -->
+<div class="modal-overlay" id="permModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-title-row">
+      <div class="modal-title" style="font-size:18px">Допуски: <span id="permUserTitle"></span></div>
+      <button type="button" class="crm-modal-close" onclick="closeModal('permModal',true)" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="input-group"><label class="input-label">Готовый набор</label><select id="permPreset" onchange="radarApplyPresetToSelects(this.value)"></select></div>
+    <div class="modal-section">По разделам</div>
+    <div id="permAreas"></div>
+    <div style="font-size:11.5px;color:var(--text2);margin-top:10px;line-height:1.5">
+      «Просмотр» — видит раздел, но ничего не меняет. «Нет» — раздел скрыт из меню.
+      Настройки и управление пользователями доступны только допуску «Администратор».
+      Изменения вступают в силу при следующем входе пользователя.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('permModal',true)">Отмена</button>
+      <button class="btn btn-sm" onclick="radarSavePerms()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260729-6"></script>
-<script src="radar-pricing.js?v=20260729-6"></script>
-<script src="radar-docs.js?v=20260729-6"></script>
-<script src="supabase.js?v=20260729-6"></script>
-<script src="radar-store.js?v=20260729-6"></script>
-<script src="radar-gateway.js?v=20260729-6"></script>
-<script src="radar.js?v=20260729-6"></script>
-<script src="crm.js?v=20260729-6"></script>
-<script src="radar-status.js?v=20260729-6"></script>
+<script src="radar-config.js?v=20260729-7"></script>
+<script src="radar-pricing.js?v=20260729-7"></script>
+<script src="radar-docs.js?v=20260729-7"></script>
+<script src="supabase.js?v=20260729-7"></script>
+<script src="radar-store.js?v=20260729-7"></script>
+<script src="radar-gateway.js?v=20260729-7"></script>
+<script src="radar.js?v=20260729-7"></script>
+<script src="crm.js?v=20260729-7"></script>
+<script src="radar-status.js?v=20260729-7"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
@@ -839,27 +861,51 @@ switchPage=function(p){
   }
 };
 
-// ── Пользователи: история изменений подписывается тем, кто вошёл ─────────────
+// ── Пользователи: подпись правок + допуски по разделам (как в Эвентусе) ──────
+const RADAR_PRESETS={
+  'Администратор':   {role:'admin',perms:null},
+  'Полный доступ':   {role:'user',perms:{orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'}},
+  'Менеджер заказов':{role:'user',perms:{orders:'edit',clients:'edit',stock:'view',dashboards:'view',competitors:'none'}},
+  'Склад':           {role:'user',perms:{orders:'view',clients:'none',stock:'edit',dashboards:'none',competitors:'none'}},
+  'Только просмотр': {role:'user',perms:{orders:'view',clients:'view',stock:'view',dashboards:'view',competitors:'view'}}
+};
+let _radarUsers=[];
+function radarPermsSummary(u){
+  if(u.role==='admin')return 'Администратор';
+  if(u.roleLabel)return u.roleLabel;
+  if(!u.perms)return 'Полный доступ';
+  const short={orders:'заказы',clients:'клиенты',stock:'склад',dashboards:'дашборд',competitors:'аналитика'};
+  const parts=Object.entries(short)
+    .filter(([k])=>u.perms[k]&&u.perms[k]!=='none')
+    .map(([k,l])=>l+(u.perms[k]==='view'?' (просмотр)':''));
+  return parts.length?parts.join(', '):'нет доступа';
+}
 async function radarRefreshUsers(){
   const card=document.getElementById('usersCard');
   if(!card)return;
   const isAdmin=window.currentUser&&window.currentUser.role==='admin';
   card.style.display=isAdmin?'':'none';
   if(!isAdmin)return;
+  const presetSel=document.getElementById('newUserPreset');
+  if(presetSel&&!presetSel.options.length){
+    presetSel.innerHTML=Object.keys(RADAR_PRESETS).map(k=>`<option value="${esc(k)}" ${k==='Менеджер заказов'?'selected':''}>${esc(k)}</option>`).join('');
+  }
   const tb=document.getElementById('usersTable');
   const st=document.getElementById('usersStatus');
   tb.innerHTML='<tr><td colspan="4" style="color:var(--text3);padding:8px">Загружаю…</td></tr>';
   const r=await RadarStore.listUsers();
   if(r.error){tb.innerHTML='';st.style.color='var(--red)';st.textContent='Не удалось загрузить список: '+r.error;return}
+  _radarUsers=r.users;
   if(!r.users.length){
-    tb.innerHTML='<tr><td colspan="4" style="color:var(--text3);padding:10px;line-height:1.5">Пока пусто — вход идёт через прежний аккаунт Google. Добавьте пользователей ниже: после этого каждый входит под своим именем, и его правки подписываются в истории.</td></tr>';
+    tb.innerHTML='<tr><td colspan="4" style="color:var(--text3);padding:10px;line-height:1.5">Пока пусто — вход идёт через прежний аккаунт Google. Добавьте пользователей ниже: каждый входит под своим именем, его правки подписываются в истории, а допуски настраиваются по разделам.</td></tr>';
     return;
   }
   tb.innerHTML=r.users.map(u=>`<tr>
     <td><strong>${esc(u.username)}</strong>${window.currentUser&&u.username===window.currentUser.username?' <span style="color:var(--text3);font-size:11px">(вы)</span>':''}</td>
-    <td>${u.role==='admin'?'Администратор':'Сотрудник'}</td>
+    <td style="font-size:11.5px">${esc(radarPermsSummary(u))}</td>
     <td style="font-size:11px;color:var(--text2)">${u.createdAt?new Date(u.createdAt).toLocaleDateString('ru-RU'):'—'}</td>
     <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-sm btn-secondary" onclick="radarOpenPerms('${esc(u.username)}')" style="padding:4px 10px;font-size:11px">Допуски</button>
       <button class="btn btn-sm btn-secondary" onclick="radarChangeUserPass('${esc(u.username)}')" style="padding:4px 10px;font-size:11px">Пароль</button>
       ${window.currentUser&&u.username!==window.currentUser.username?`<button class="btn btn-sm btn-secondary" onclick="radarDeleteUser('${esc(u.id)}','${esc(u.username)}')" style="padding:4px 10px;font-size:11px;color:var(--red)">Удалить</button>`:''}
     </td>
@@ -868,16 +914,80 @@ async function radarRefreshUsers(){
 async function radarAddUser(){
   const name=document.getElementById('newUserName').value.trim();
   const pass=document.getElementById('newUserPass').value;
-  const role=document.getElementById('newUserRole').value;
+  const presetName=document.getElementById('newUserPreset').value;
+  const preset=RADAR_PRESETS[presetName]||RADAR_PRESETS['Полный доступ'];
   const st=document.getElementById('usersStatus');
   if(!name||!pass){st.style.color='var(--red)';st.textContent='Укажите логин и пароль';return}
   if(pass.length<4){st.style.color='var(--red)';st.textContent='Пароль короче 4 символов';return}
-  const r=await RadarStore.saveUser({username:name,password:pass,role});
+  const r=await RadarStore.saveUser({username:name,password:pass,role:preset.role,perms:preset.perms,roleLabel:presetName});
   if(r.error){st.style.color='var(--red)';st.textContent='Ошибка: '+r.error;return}
-  st.style.color='var(--green)';
-  st.textContent=`Пользователь «${name}» создан — можно входить с этим логином.`;
+  if(r.warning){st.style.color='var(--red)';st.textContent=r.warning}
+  else{st.style.color='var(--green)';st.textContent=`Пользователь «${name}» создан: ${presetName.toLowerCase()}. Можно входить.`}
   document.getElementById('newUserName').value='';
   document.getElementById('newUserPass').value='';
+  radarRefreshUsers();
+}
+
+// ── Редактор допусков ────────────────────────────────────────────────────────
+const RADAR_PERM_AREAS=[
+  ['orders','Заказы',true],['clients','Клиенты',true],['stock','Склад',true],
+  ['dashboards','CRM Дашборд',false],['competitors','Аналитика конкурентов',true]
+];
+let _permUser=null;
+function radarOpenPerms(username){
+  const u=_radarUsers.find(x=>x.username===username);
+  if(!u)return;
+  _permUser=u;
+  document.getElementById('permUserTitle').textContent=username;
+  const presetSel=document.getElementById('permPreset');
+  presetSel.innerHTML=Object.keys(RADAR_PRESETS).map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('')+'<option value="_custom">Свои настройки</option>';
+  document.getElementById('permAreas').innerHTML=RADAR_PERM_AREAS.map(([key,label,hasEdit])=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:13px">${label}</span>
+      <select data-perm-area="${key}" onchange="document.getElementById('permPreset').value='_custom'" style="min-width:150px">
+        <option value="none">Нет</option>
+        <option value="view">Просмотр</option>
+        ${hasEdit?'<option value="edit">Редактирование</option>':''}
+      </select>
+    </div>`).join('');
+  // выставляем текущее состояние
+  const current=u.role==='admin'?'Администратор':(u.roleLabel&&RADAR_PRESETS[u.roleLabel]?u.roleLabel:(u.perms?'_custom':'Полный доступ'));
+  presetSel.value=current;
+  radarApplyPresetToSelects(current==='_custom'?null:current,u.perms);
+  openModal('permModal');
+}
+function radarApplyPresetToSelects(presetName,explicitPerms){
+  let perms=explicitPerms||null;
+  if(presetName&&RADAR_PRESETS[presetName]){
+    const p=RADAR_PRESETS[presetName];
+    perms=p.role==='admin'?{orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'}:p.perms;
+  }
+  if(!perms)perms={orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'};
+  document.querySelectorAll('#permAreas [data-perm-area]').forEach(sel=>{
+    sel.value=perms[sel.dataset.permArea]||'none';
+  });
+  // администратору селекты не нужны — у него всё всегда
+  const isAdmin=presetName==='Администратор';
+  document.querySelectorAll('#permAreas [data-perm-area]').forEach(sel=>sel.disabled=isAdmin);
+}
+async function radarSavePerms(){
+  if(!_permUser)return;
+  const presetName=document.getElementById('permPreset').value;
+  let role,perms,roleLabel;
+  if(presetName==='Администратор'){role='admin';perms=null;roleLabel='Администратор'}
+  else{
+    role='user';
+    perms={};
+    document.querySelectorAll('#permAreas [data-perm-area]').forEach(sel=>{perms[sel.dataset.permArea]=sel.value});
+    roleLabel=presetName==='_custom'?'Свои настройки':presetName;
+  }
+  if(_permUser.username===window.currentUser?.username&&role!=='admin'){
+    if(!confirm('Вы снимаете права администратора С СЕБЯ. Вернуть их сможет только другой администратор. Продолжить?'))return;
+  }
+  const r=await RadarStore.setUserPerms(_permUser.username,{role,perms,roleLabel});
+  if(r.error){showToast('Ошибка: '+r.error,'error');return}
+  showToast('Допуски сохранены — вступят в силу при следующем входе','success');
+  closeModal('permModal',true);
   radarRefreshUsers();
 }
 async function radarChangeUserPass(username){

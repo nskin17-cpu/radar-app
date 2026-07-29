@@ -108,6 +108,59 @@ function sbBackup(action,payload){
   }
 }
 
+// ── ПРАВА ДОСТУПА ────────────────────────────────────────────────────────────
+// Модель как в Эвентусе: на каждый раздел — уровень none / view / edit.
+// Разделы: orders, clients, stock, dashboards (только view), competitors.
+// admin всегда имеет всё + управление пользователями.
+// У пользователя без perms (создан до миграции) — полный доступ, кроме
+// раздела «Пользователи»: ровно прежнее поведение, никто не теряет работу.
+const RADAR_PAGE_AREA={
+  crm:'orders',clients:'clients',crmstock:'stock',crmdash:'dashboards',
+  dashboard:'competitors',mycompany:'competitors',competitors:'competitors',compare:'competitors'
+};
+const RADAR_AREA_LABELS={
+  orders:'Заказы',clients:'Клиенты',stock:'Склад',
+  dashboards:'CRM Дашборд',competitors:'Аналитика конкурентов'
+};
+const RADAR_FULL_PERMS={orders:'edit',clients:'edit',stock:'edit',dashboards:'view',competitors:'edit'};
+function radarPermLevel(area){
+  const u=window.currentUser;
+  if(!u)return 'none';
+  if(u.role==='admin')return RADAR_FULL_PERMS[area]||'none';
+  const p=u.perms&&typeof u.perms==='object'?u.perms:RADAR_FULL_PERMS;
+  const lvl=p[area];
+  if(lvl==='edit'&&area==='dashboards')return 'view';
+  return lvl==='edit'||lvl==='view'?lvl:'none';
+}
+function radarCanView(area){const l=radarPermLevel(area);return l==='view'||l==='edit'}
+function radarCanEdit(area){return radarPermLevel(area)==='edit'}
+function radarIsAdmin(){return window.currentUser?.role==='admin'}
+
+/** Прячет недоступные разделы в меню и кнопки редактирования на страницах. */
+function radarApplyPerms(){
+  document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
+    const p=item.dataset.page;
+    const visible=p==='settings'?radarIsAdmin():radarCanView(RADAR_PAGE_AREA[p]||'');
+    item.style.display=visible?'':'none';
+  });
+  // Кнопки «добавить/изменить» в шапках страниц
+  const editable={crmNewOrderBtn:'orders',crmAddClientBtn:'clients',crmSyncClientsBtn:'clients',
+                  crmAddStockBtn:'stock',compAddBtn:'competitors',myCompanySaveBtn:'competitors'};
+  Object.entries(editable).forEach(([id,area])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=radarCanEdit(area)?'':'none';
+  });
+}
+/** Первая страница, на которую пользователю можно. */
+function radarStartPage(){
+  if(radarCanView('orders'))return 'crm';
+  if(radarCanView('clients'))return 'clients';
+  if(radarCanView('stock'))return 'crmstock';
+  if(radarCanView('dashboards'))return 'crmdash';
+  if(radarCanView('competitors'))return 'dashboard';
+  return 'settings';
+}
+
 // AUTH
 // Проверка логина остаётся в Apps Script: в Supabase таблица users пуста,
 // своего бэкенда для хэшей паролей нет. Данные при этом читаются из Supabase,
@@ -170,7 +223,18 @@ async function handleLogin(){
     if(btn){btn.disabled=false;btn.textContent='Войти'}
   }
 }
-function showApp(){document.getElementById('loginScreen').style.display='none';document.getElementById('app').classList.add('active');document.getElementById('userName').textContent=currentUser.username;document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':'Сотрудник';document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();window.currentUser=currentUser;switchPage('crm');loadAll()}
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('userName').textContent=currentUser.username;
+  document.getElementById('userRole').textContent=currentUser.role==='admin'?'Администратор':(currentUser.roleLabel||'Сотрудник');
+  document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();
+  window.currentUser=currentUser;
+  radarApplyPerms();
+  switchPage(radarStartPage());
+  // Аналитику конкурентов грузим только тем, кому она видна
+  if(radarCanView('competitors'))loadAll();
+}
 function logout(){
   if(window.RadarStore&&window.RadarStore.pendingCount()>0&&!confirm('Есть изменения, которые ещё не отправлены на сервер. Выйти всё равно?'))return;
   currentUser=null;window.currentUser=null;clearSession();
@@ -242,7 +306,14 @@ async function syncAllToSupabase(){
 }
 
 // NAV
-function switchPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item[data-page]').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');const n=document.querySelector(`.nav-item[data-page="${p}"]`);if(n)n.classList.add('active');if(window.innerWidth<=768)toggleSidebar(false);if(p==='dashboard')loadDashboard();if(p==='compare'){loadCompareSelects();runCompare()}if(p==='mycompany')fillMyForm()}
+function switchPage(p){
+  // Допуск: страницы без view закрыты, настройки — только администратору
+  if(window.currentUser){
+    if(p==='settings'&&!radarIsAdmin()){showToast('Раздел доступен только администратору','error');return}
+    const area=RADAR_PAGE_AREA[p];
+    if(area&&!radarCanView(area)){showToast('Нет доступа к разделу «'+(RADAR_AREA_LABELS[area]||p)+'»','error');return}
+  }
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-item[data-page]').forEach(x=>x.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');const n=document.querySelector(`.nav-item[data-page="${p}"]`);if(n)n.classList.add('active');if(window.innerWidth<=768)toggleSidebar(false);if(p==='dashboard')loadDashboard();if(p==='compare'){loadCompareSelects();runCompare()}if(p==='mycompany')fillMyForm()}
 function toggleSidebar(forceState){
   const s=document.getElementById('sidebar');
   const o=document.getElementById('mobileOverlay');
@@ -347,6 +418,7 @@ async function deleteHistoryLogEntry(id){
 }
 var _savingComp=false;
 async function saveComp(){
+  if(!radarCanEdit('competitors')){showToast('Нет прав на изменение аналитики','error');return}
   if(_savingComp)return;
   const saveBtn=document.querySelector('#modalComp .modal-actions .btn:not(.btn-secondary)');
   const id=document.getElementById('cId').value;
@@ -378,6 +450,7 @@ async function saveComp(){
   finally{_savingComp=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
 }
 async function deleteComp(id){
+  if(!radarCanEdit('competitors')){showToast('Нет прав на изменение аналитики','error');return}
   if(!confirm('Удалить?'))return;
   try{
     const r=await api('deleteCompetitor',{id});
@@ -402,6 +475,7 @@ async function loadMyCompanyData(){
 function fillMyForm(){if(!myCompany)return;ALL.forEach(f=>{const el=document.getElementById('my'+cap(f));if(el)el.value=myCompany[f]||''})}
 var _savingMyCompany=false;
 async function saveMyCompany(){
+  if(!radarCanEdit('competitors')){showToast('Нет прав на изменение аналитики','error');return}
   if(_savingMyCompany)return;
   const saveBtn=document.querySelector('#page-mycompany .page-header .btn');
   const prev=myCompany?{...myCompany}:null;

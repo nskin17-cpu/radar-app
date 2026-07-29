@@ -763,7 +763,15 @@
       var row = res.data[0];
       var hash = await sha256Hex(username + ':' + password);
       if (hash !== row.password_hash) return { success: false, reason: 'bad-credentials', error: 'Неверный логин или пароль' };
-      return { success: true, user: { username: row.username, role: row.role || 'user' } };
+      return {
+        success: true,
+        user: {
+          username: row.username,
+          role: row.role || 'user',
+          perms: row.perms && typeof row.perms === 'object' ? row.perms : null,
+          roleLabel: row.role_label || null
+        }
+      };
     } catch (e) {
       return { success: false, reason: 'no-connection', error: e.message };
     }
@@ -772,13 +780,41 @@
   async function listUsers() {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен', users: [] };
-    var res = await s.from('users').select('id,username,role,created_at').order('username');
+    var res = await s.from('users').select('*').order('username');
     if (res.error) return { error: res.error.message, users: [] };
     return {
       users: (res.data || []).map(function (u) {
-        return { id: str(u.id), username: str(u.username), role: str(u.role) || 'user', createdAt: str(u.created_at) || null };
+        return {
+          id: str(u.id), username: str(u.username), role: str(u.role) || 'user',
+          createdAt: str(u.created_at) || null,
+          perms: u.perms && typeof u.perms === 'object' ? u.perms : null,
+          roleLabel: str(u.role_label) || null
+        };
       })
     };
+  }
+
+  /**
+   * Права и роль пользователя. Если колонок perms/role_label ещё нет
+   * (SQL-миграция не применена) — говорим об этом прямо, а не молча глотаем.
+   */
+  async function setUserPerms(username, opts) {
+    var s = sb();
+    if (!s) return { error: 'Supabase не настроен' };
+    var patch = {
+      role: opts.role === 'admin' ? 'admin' : 'user',
+      perms: opts.perms || null,
+      role_label: opts.roleLabel || null
+    };
+    var res = await s.from('users').update(patch).eq('username', str(username)).select('id');
+    if (res.error) {
+      if (/perms|role_label/i.test(res.error.message)) {
+        return { error: 'Примените sql/migration-2026-07-users-perms.sql в Supabase — колонок прав ещё нет' };
+      }
+      return { error: res.error.message };
+    }
+    if (!res.data || !res.data.length) return { error: 'Пользователь не найден' };
+    return { ok: true };
   }
 
   async function saveUser(input) {
@@ -791,7 +827,17 @@
       password_hash: await sha256Hex(username + ':' + str(input.password)),
       role: input.role === 'admin' ? 'admin' : 'user'
     };
+    if (input.perms !== undefined) row.perms = input.perms;
+    if (input.roleLabel !== undefined) row.role_label = input.roleLabel;
     var res = await s.from('users').upsert(row, { onConflict: 'username' }).select('id');
+    if (res.error && /perms|role_label/i.test(res.error.message)) {
+      // Миграция прав ещё не применена — создаём без допусков, но предупреждаем.
+      delete row.perms; delete row.role_label;
+      res = await s.from('users').upsert(row, { onConflict: 'username' }).select('id');
+      if (!res.error && res.data && res.data.length) {
+        return { id: res.data[0].id, warning: 'Пользователь создан, но допуски не сохранены: примените sql/migration-2026-07-users-perms.sql' };
+      }
+    }
     if (res.error) return { error: res.error.message };
     if (!res.data || !res.data.length) return { error: 'Supabase не подтвердил запись' };
     return { id: res.data[0].id };
@@ -862,6 +908,7 @@
     // пользователи и вход
     authLogin: authLogin, listUsers: listUsers, saveUser: saveUser,
     setUserPassword: setUserPassword, deleteUser: deleteUser, mirrorUser: mirrorUser,
+    setUserPerms: setUserPerms,
     // обмен с Google Sheets
     exportToGoogleSheets: exportToGoogleSheets,
     importMissingOrdersFromGoogle: importMissingOrdersFromGoogle
