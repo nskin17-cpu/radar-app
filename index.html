@@ -22,13 +22,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260729-7">
-<link rel="stylesheet" href="radar-ui.css?v=20260729-7">
+<link rel="stylesheet" href="styles.css?v=20260729-8">
+<link rel="stylesheet" href="radar-ui.css?v=20260729-8">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260729-7';
+window.RADAR_BUILD='20260729-8';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -499,6 +499,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           <div class="radar-sync-row"><span>Ждут отправки</span><strong id="syncPending">0</strong></div>
           <div class="radar-sync-row"><span>Локальная копия заказов</span><strong id="syncCache">0</strong></div>
           <div class="radar-sync-row"><span>Версия приложения</span><strong id="syncBuild">—</strong></div>
+          <div class="radar-sync-row"><span>Защита базы</span><span id="syncSecured" class="radar-sync-pill off">проверяю…</span></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           <button class="btn btn-sm btn-secondary" onclick="radarRefreshSyncPanel()">Обновить</button>
@@ -793,15 +794,15 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260729-7"></script>
-<script src="radar-pricing.js?v=20260729-7"></script>
-<script src="radar-docs.js?v=20260729-7"></script>
-<script src="supabase.js?v=20260729-7"></script>
-<script src="radar-store.js?v=20260729-7"></script>
-<script src="radar-gateway.js?v=20260729-7"></script>
-<script src="radar.js?v=20260729-7"></script>
-<script src="crm.js?v=20260729-7"></script>
-<script src="radar-status.js?v=20260729-7"></script>
+<script src="radar-config.js?v=20260729-8"></script>
+<script src="radar-pricing.js?v=20260729-8"></script>
+<script src="radar-docs.js?v=20260729-8"></script>
+<script src="supabase.js?v=20260729-8"></script>
+<script src="radar-store.js?v=20260729-8"></script>
+<script src="radar-gateway.js?v=20260729-8"></script>
+<script src="radar.js?v=20260729-8"></script>
+<script src="crm.js?v=20260729-8"></script>
+<script src="radar-status.js?v=20260729-8"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
@@ -999,7 +1000,7 @@ async function radarChangeUserPass(username){
 }
 async function radarDeleteUser(id,username){
   if(!confirm(`Удалить пользователя «${username}»? Войти под этим логином больше не получится. Его подписи в истории заказов сохранятся.`))return;
-  const r=await RadarStore.deleteUser(id);
+  const r=await RadarStore.deleteUser(id,username);
   showToast(r.error?('Ошибка: '+r.error):'Удалено',r.error?'error':'success');
   radarRefreshUsers();
 }
@@ -1017,6 +1018,16 @@ function radarRefreshSyncPanel(){
   document.getElementById('syncPending').textContent=store.pendingCount();
   document.getElementById('syncCache').textContent=store.getOrdersCache().length;
   document.getElementById('syncBuild').textContent=window.RADAR_BUILD||'—';
+  // Закрыта ли база: наличие серверных функций проверки прав
+  store.isSecured().then(secured=>{
+    const el=document.getElementById('syncSecured');
+    if(!el)return;
+    el.textContent=secured?'включена':'ОТКРЫТА ВСЕМ';
+    el.className='radar-sync-pill '+(secured?'on':'off');
+    el.title=secured
+      ? 'Доступ к данным проверяется в самой базе по токену сессии'
+      : 'Применён только публичный ключ — выполните sql/migration-2026-07-security.sql';
+  }).catch(()=>{});
   document.getElementById('syncToggleBtn').textContent=google?'Выключить Google Sheets':'Включить Google Sheets';
 }
 async function radarFlushOutbox(){
@@ -1061,9 +1072,9 @@ async function radarImportMissingOrders(){
     if(r.error){st.style.color='var(--red)';st.textContent='Ошибка: '+r.error;return}
     st.style.color=r.failed.length?'var(--red)':'var(--green)';
     st.innerHTML=`В Google Sheets: ${r.inSheets}, в Supabase было: ${r.inSupabase}. Перенесено: ${r.imported.length}`+
-      (r.imported.length?'<br>'+r.imported.map(o=>`• ${o.client} — ${o.amount}₽ (позиций: ${o.items})`).join('<br>'):'')+
+      (r.imported.length?'<br>'+r.imported.map(o=>`• ${esc(o.client)} — ${Number(o.amount)}₽ (позиций: ${Number(o.items)})`).join('<br>'):'')+
       (r.skippedEmpty.length?`<br>Пропущено пустых строк без клиента: ${r.skippedEmpty.length}`:'')+
-      (r.failed.length?`<br>Не удалось: ${r.failed.map(f=>f.id+' — '+f.error).join('; ')}`:'');
+      (r.failed.length?`<br>Не удалось: ${esc(r.failed.map(f=>f.id+' — '+f.error).join('; '))}`:'');
     if(r.imported.length&&typeof crmInit==='function'){crmOrders=[];await crmInit()}
     radarRefreshSyncPanel();
   }catch(e){st.style.color='var(--red)';st.textContent='Ошибка: '+(e?.message||e)}

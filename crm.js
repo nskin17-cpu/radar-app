@@ -2250,7 +2250,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const grandTotal=(withDiscount&&manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost+extraCharge);
   const prepay=Math.round(grandTotal*0.5);
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
+  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+esc(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
   const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
   const docSubtitle=withDiscount?'Для профессионала':'Стандарт';
@@ -2264,7 +2264,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const iRow=`padding:${isMobile?'3px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
   const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
   const setupRow=setupCost>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">Сетап</div><div style="${iDetail}">Сумма: ${crmFmtN(setupCost)} ₽</div></div>`:'';
-  const extraChargeRow=extraCharge>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">${extraChargeNote||'Доп. услуга'}</div><div style="${iDetail}">Сумма: ${crmFmtN(extraCharge)} ₽</div></div>`:'';
+  const extraChargeRow=extraCharge>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">${esc(extraChargeNote||'Доп. услуга')}</div><div style="${iDetail}">Сумма: ${crmFmtN(extraCharge)} ₽</div></div>`:'';
 
   const totRow=(label,val,color='#888',size='12px',weight='400')=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-family:sans-serif;font-size:${size};color:${color};font-weight:${weight}"><span>${label}</span><span style="white-space:nowrap;font-variant-numeric:tabular-nums;min-width:80px;text-align:right;color:${color}">${val}</span></div>`;
   let totalsBlock=`<div style="margin-top:16px;border-top:2px solid #1a1a1a;padding-top:14px;display:flex;justify-content:center"><div style="width:400px">`;
@@ -2276,7 +2276,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   }
   if(deliveryCost>0)totalsBlock+=totRow('Доставка',crmFmtN(deliveryCost)+' ₽');
   if(setupCost>0)totalsBlock+=totRow('Сетап',crmFmtN(setupCost)+' ₽');
-  if(extraCharge>0)totalsBlock+=totRow(extraChargeNote||'Доп. услуга',crmFmtN(extraCharge)+' ₽');
+  if(extraCharge>0)totalsBlock+=totRow(esc(extraChargeNote||'Доп. услуга'),crmFmtN(extraCharge)+' ₽');
   totalsBlock+=`<hr style="border:none;border-top:1px solid #ccc;margin:8px 0">`;
   totalsBlock+=totRow('Итого к оплате <span style="font-size:10px;color:#888;font-weight:500;margin-left:6px">без учета залога</span>',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
   totalsBlock+=`</div></div>`;
@@ -2304,7 +2304,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
   </div>`;
   const metaBlock=`<div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Клиент',clientName+(companyName?'<br><span style="font-size:12px;color:#888">'+companyName+'</span>':'')+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${P}${PR}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:12px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
     <div style="${PL}">${ML('Период аренды',crmFmtDate(startDate)+'<br>— '+crmFmtDate(endDate))}</div>
     <div style="${P}${PR}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
@@ -2339,7 +2339,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
     const iDisplay=crmGetItemDisplayName(i);
-    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
+    return`<div style="${iRow}"><div style="${iName}">${esc(iDisplay)}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
   });
   if(deliveryCost>0)allItemRows.push(deliveryRow);
   if(setupCost>0)allItemRows.push(setupRow);
@@ -2385,7 +2385,7 @@ function crmBuildEstimateHTML(d,withDiscount){
 function crmBuildActHTML(d){
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+(deliveryAddress||'—');
+  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+esc(deliveryAddress||'—');
   const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
   const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
@@ -2396,7 +2396,7 @@ function crmBuildActHTML(d){
   const aName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
   const aDetail='font-size:12.5px;color:#888;font-family:sans-serif';
   const aRow='padding:9px 0;border-bottom:1px solid #f0f0f0';
-  const itemsRowsHTML=items.map(i=>{const aDisplay=crmGetItemDisplayName(i);return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
+  const itemsRowsHTML=items.map(i=>{const aDisplay=crmGetItemDisplayName(i);return`<div style="${aRow}"><div style="${aName}">${esc(aDisplay)}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
 
   const sigLine=(label)=>`<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:32px;font-family:sans-serif;font-size:12px;color:#333">
     <span style="white-space:nowrap">${label}</span>
@@ -2411,7 +2411,7 @@ function crmBuildActHTML(d){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел. +7 (966) 866-86-66')}</div>
-    <div style="${PL}">${ML('Клиент',clientName+(companyName?'<br><span style="font-size:11px;color:#888">'+companyName+'</span>':'')+(clientPhone?'<br>'+clientPhone:''))}</div>
+    <div style="${PL}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:11px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
     <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
     <div style="${P}${PR}">${ML('Сетап',setupMeta)}</div>

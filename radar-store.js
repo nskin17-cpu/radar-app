@@ -25,15 +25,35 @@
   var lastStatus = { state: 'idle', pending: 0, at: null, error: null };
 
   // ── Supabase client (singleton — старый код создавал новый клиент на каждый запрос) ───────
+  //
+  // Токен сессии уходит заголовком x-radar-token. После закрытия базы (RLS)
+  // именно он решает, что видно и что можно менять: политики читают его прямо
+  // в Postgres, поэтому подделать доступ из браузера нельзя.
+  var SESSION_TOKEN_KEY = 'radar.session.token.v1';
+  function getSessionToken() {
+    try { return localStorage.getItem(SESSION_TOKEN_KEY) || ''; } catch (e) { return ''; }
+  }
+  function setSessionToken(token) {
+    try {
+      if (token) localStorage.setItem(SESSION_TOKEN_KEY, token);
+      else localStorage.removeItem(SESSION_TOKEN_KEY);
+    } catch (e) { }
+    resetClient();   // пересоздаём клиент, чтобы заголовок применился
+  }
+
   function sb() {
     if (client) return client;
     var url = window.SUPABASE_URL;
     var key = window.SUPABASE_ANON_KEY;
     if (!url || !key) return null;
     if (!window.supabase || !window.supabase.createClient) return null;
+    var headers = {};
+    var token = getSessionToken();
+    if (token) headers['x-radar-token'] = token;
     client = window.supabase.createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
-      realtime: { params: { eventsPerSecond: 1 } }
+      realtime: { params: { eventsPerSecond: 1 } },
+      global: { headers: headers }
     });
     return client;
   }
@@ -750,7 +770,41 @@
     return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
   }
 
+  /**
+   * Вход.
+   *
+   * Сначала пробуем защищённый путь: RPC app_login проверяет bcrypt-пароль
+   * внутри базы и выдаёт токен сессии. Если функции ещё нет (SQL-миграция
+   * безопасности не применена) — работаем по-старому, сверяя SHA-256 в таблице.
+   * Так приложение живёт и до, и после закрытия базы.
+   */
   async function authLogin(username, password) {
+    var s = sb();
+    if (!s) return { success: false, reason: 'no-connection', error: 'Supabase не настроен' };
+
+    try {
+      var rpc = await s.rpc('app_login', { p_username: username, p_password: password });
+      if (!rpc.error && rpc.data) {
+        if (rpc.data.error) return { success: false, reason: 'bad-credentials', error: rpc.data.error };
+        setSessionToken(rpc.data.token);
+        return {
+          success: true, secured: true,
+          user: {
+            username: rpc.data.username, role: rpc.data.role || 'user',
+            perms: rpc.data.perms || null, roleLabel: rpc.data.roleLabel || null
+          }
+        };
+      }
+      // Функции нет — база ещё не закрыта, идём прежним путём.
+      if (rpc.error && !/does not exist|not find the function|schema cache/i.test(rpc.error.message || '')) {
+        return { success: false, reason: 'no-connection', error: rpc.error.message };
+      }
+    } catch (e) { /* сеть — упадём в путь ниже и вернём no-connection */ }
+
+    return legacyAuthLogin(username, password);
+  }
+
+  async function legacyAuthLogin(username, password) {
     var s = sb();
     if (!s) return { success: false, reason: 'no-connection', error: 'Supabase не настроен' };
     try {
@@ -777,9 +831,29 @@
     }
   }
 
+  /** true, если ответ означает «функции ещё нет» (миграция безопасности не применена). */
+  function rpcMissing(err) {
+    return !!err && /does not exist|not find the function|schema cache/i.test(err.message || '');
+  }
+
   async function listUsers() {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен', users: [] };
+    var rpc = await s.rpc('app_list_users');
+    if (!rpc.error) {
+      return {
+        secured: true,
+        users: (rpc.data || []).map(function (u) {
+          return {
+            id: str(u.id), username: str(u.username), role: str(u.role) || 'user',
+            createdAt: str(u.created_at) || null,
+            perms: u.perms && typeof u.perms === 'object' ? u.perms : null,
+            roleLabel: str(u.role_label) || null
+          };
+        })
+      };
+    }
+    if (!rpcMissing(rpc.error)) return { error: rpc.error.message, users: [] };
     var res = await s.from('users').select('*').order('username');
     if (res.error) return { error: res.error.message, users: [] };
     return {
@@ -801,6 +875,12 @@
   async function setUserPerms(username, opts) {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен' };
+    var rpc = await s.rpc('app_set_perms', {
+      p_username: str(username), p_role: opts.role === 'admin' ? 'admin' : 'user',
+      p_perms: opts.perms || null, p_role_label: opts.roleLabel || null
+    });
+    if (!rpc.error) return rpc.data && rpc.data.error ? { error: rpc.data.error } : { ok: true };
+    if (!rpcMissing(rpc.error)) return { error: rpc.error.message };
     var patch = {
       role: opts.role === 'admin' ? 'admin' : 'user',
       perms: opts.perms || null,
@@ -822,6 +902,13 @@
     if (!s) return { error: 'Supabase не настроен' };
     var username = str(input.username).trim();
     if (!username) return { error: 'Пустой логин' };
+    var rpc = await s.rpc('app_create_user', {
+      p_username: username, p_password: str(input.password),
+      p_role: input.role === 'admin' ? 'admin' : 'user',
+      p_perms: input.perms || null, p_role_label: input.roleLabel || null
+    });
+    if (!rpc.error) return rpc.data && rpc.data.error ? { error: rpc.data.error } : { ok: true, secured: true };
+    if (!rpcMissing(rpc.error)) return { error: rpc.error.message };
     var row = {
       username: username,
       password_hash: await sha256Hex(username + ':' + str(input.password)),
@@ -846,6 +933,9 @@
   async function setUserPassword(username, password) {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен' };
+    var rpc = await s.rpc('app_set_password', { p_username: str(username), p_password: str(password) });
+    if (!rpc.error) return rpc.data && rpc.data.error ? { error: rpc.data.error } : { ok: true };
+    if (!rpcMissing(rpc.error)) return { error: rpc.error.message };
     var hash = await sha256Hex(str(username) + ':' + str(password));
     var res = await s.from('users').update({ password_hash: hash }).eq('username', str(username)).select('id');
     if (res.error) return { error: res.error.message };
@@ -853,9 +943,14 @@
     return { ok: true };
   }
 
-  async function deleteUser(id) {
+  async function deleteUser(id, username) {
     var s = sb();
     if (!s) return { error: 'Supabase не настроен' };
+    if (username) {
+      var rpc = await s.rpc('app_delete_user', { p_username: str(username) });
+      if (!rpc.error) return rpc.data && rpc.data.error ? { error: rpc.data.error } : { ok: true };
+      if (!rpcMissing(rpc.error)) return { error: rpc.error.message };
+    }
     var res = await s.from('users').delete().eq('id', str(id)).select('id');
     if (res.error) return { error: res.error.message };
     return { ok: true };
@@ -907,6 +1002,18 @@
     clearOutbox: function () { writeOutbox([]); emit(); },
     // пользователи и вход
     authLogin: authLogin, listUsers: listUsers, saveUser: saveUser,
+    getSessionToken: getSessionToken, setSessionToken: setSessionToken,
+    authLogout: async function () {
+      var s = sb();
+      if (s && getSessionToken()) { try { await s.rpc('app_logout'); } catch (e) { } }
+      setSessionToken('');
+    },
+    isSecured: async function () {
+      var s = sb();
+      if (!s) return false;
+      var r = await s.rpc('app_can', { area: 'orders', need: 'view' });
+      return !r.error;
+    },
     setUserPassword: setUserPassword, deleteUser: deleteUser, mirrorUser: mirrorUser,
     setUserPerms: setUserPerms,
     // обмен с Google Sheets

@@ -238,6 +238,7 @@ function showApp(){
 function logout(){
   if(window.RadarStore&&window.RadarStore.pendingCount()>0&&!confirm('Есть изменения, которые ещё не отправлены на сервер. Выйти всё равно?'))return;
   currentUser=null;window.currentUser=null;clearSession();
+  if(window.RadarStore?.authLogout)window.RadarStore.authLogout();
   document.getElementById('app').classList.remove('active');document.getElementById('loginScreen').style.display='flex';document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';document.getElementById('loginError').textContent='';
 }
 // Восстановление сессии: перезагрузка страницы больше не требует повторного входа,
