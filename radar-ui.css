@@ -438,10 +438,30 @@
 .wh-note-head{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--text3);margin-bottom:2px}
 .wh-note-head strong{color:var(--text2)}
 /* Телефон: колонки листаются горизонтально, карточки крупные под палец */
+/* Переключатели столбцов (только телефон): пять колонок вслепую не листают */
+.wh-tabs{display:none}
 @media(max-width:900px){
-  .wh-board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin:0 -14px;padding:0 14px 8px;-webkit-overflow-scrolling:touch}
-  .wh-col{min-width:min(80vw,320px);scroll-snap-align:start;flex:none}
+  .wh-board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;
+    margin:0 -12px;padding:0 12px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .wh-board::-webkit-scrollbar{display:none}   /* где мы — показывают вкладки сверху */
+  /* width, а не min-width: во flex-контейнере с прокруткой колонка иначе
+     растягивается по самому длинному названию изделия и уезжает за экран */
+  .wh-col{width:calc(100vw - 52px);max-width:340px;flex:0 0 auto;scroll-snap-align:start;min-width:0}
+  .wh-card,.wh-items,.wh-badges,.wh-col-head{min-width:0}
+  .wh-items>div,.wh-num,.wh-empty{overflow-wrap:anywhere}
+  .wh-col-head>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wh-actions .btn{padding:10px 8px;font-size:13px}
+  .wh-desc-more{display:none}
+  .wh-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 -12px 10px;padding:0 12px 2px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .wh-tabs::-webkit-scrollbar{display:none}
+  .wh-tab{flex:none;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);
+    border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .wh-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .wh-tab i{font-style:normal;font-size:10.5px;background:var(--surface3);color:var(--text2);
+    border-radius:999px;padding:1px 6px;line-height:1.4}
+  .wh-tab.active i{background:rgba(255,255,255,.25);color:#fff}
 }
 
 /* ── Центр уведомлений ─────────────────────────────────────────────────────── */

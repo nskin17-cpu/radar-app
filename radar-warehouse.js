@@ -160,6 +160,16 @@
     var board = $('whBoard');
     if (!board) return;
     var cols = buildColumns();
+    // На телефоне колонки листаются свайпом, поэтому сверху — короткие
+    // переключатели: пять столбцов пролистывать вслепую неудобно.
+    var tabs = $('whTabs');
+    if (tabs) {
+      tabs.innerHTML = COLS.map(function (c, i) {
+        var cnt = cols[c.key].length;
+        return '<button class="wh-tab' + (i === 0 ? ' active' : '') + '" data-wh-tab="' + c.key + '" onclick="whGoCol(\'' + c.key + '\')">' +
+          shortTitle(c) + (cnt ? '<i>' + cnt + '</i>' : '') + '</button>';
+      }).join('');
+    }
     board.innerHTML = COLS.map(function (c) {
       var list = cols[c.key];
       return '<div class="wh-col" data-wh-col="' + c.key + '">' +
@@ -169,6 +179,50 @@
         '</div>';
     }).join('');
     bindDnD();
+    watchScroll();
+  }
+
+  function shortTitle(c) {
+    return { resolution: 'Залог', done: 'Завершён' }[c.key] || c.title;
+  }
+
+  window.whGoCol = function (key) {
+    var board = $('whBoard');
+    var col = document.querySelector('[data-wh-col="' + key + '"]');
+    if (board && col) {
+      // scrollIntoView здесь бесполезен: scroll-snap возвращает доску назад.
+      // Считаем целевое смещение сами и прокручиваем контейнер.
+      var target = board.scrollLeft + (col.getBoundingClientRect().left - board.getBoundingClientRect().left);
+      try { board.scrollTo({ left: target, behavior: 'smooth' }); } catch (e) { }
+      // Плавную прокрутку иногда отменяет scroll-snap — добиваем напрямую
+      setTimeout(function () {
+        if (Math.abs(board.scrollLeft - target) > 8) board.scrollLeft = target;
+      }, 320);
+    }
+    markTab(key);
+  };
+  function markTab(key) {
+    document.querySelectorAll('[data-wh-tab]').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.whTab === key);
+    });
+  }
+  /** Подсветка активной вкладки при свайпе доски. */
+  function watchScroll() {
+    var board = $('whBoard');
+    if (!board || board.dataset.scrollBound) return;
+    board.dataset.scrollBound = '1';
+    var t = null;
+    board.addEventListener('scroll', function () {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        var best = null, bestDist = Infinity;
+        document.querySelectorAll('[data-wh-col]').forEach(function (col) {
+          var d = Math.abs(col.getBoundingClientRect().left - board.getBoundingClientRect().left);
+          if (d < bestDist) { bestDist = d; best = col.dataset.whCol; }
+        });
+        if (best) markTab(best);
+      }, 90);
+    }, { passive: true });
   }
 
   function emptyText(key) {
