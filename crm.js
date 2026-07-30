@@ -139,22 +139,18 @@ function crmSyncLegacyMode(){
     setupCost.style.background='var(--surface)';
   }
 }
+/** Заказы прошлых лет ведутся без цен: пересчитываем подписи строк состава. */
 function crmRefreshRowsForYearMode(){
   const legacy=crmIsLegacyYearOrder();
   const list=document.getElementById('crmItemsList');
   if(!list)return;
-  list.querySelectorAll('div').forEach(row=>{
-    const catSel=row.querySelector('[data-cat]');
-    const nameSel=row.querySelector('[data-name]');
-    const priceSpan=row.querySelector('span[data-price]');
-    if(!catSel||!nameSel)return;
-    const selectedName=nameSel.value;
-    const its=crmStock.filter(s=>s.category===catSel.value);
-    const selInStock=its.some(s=>s.name===selectedName);
-    const selFallback=selectedName&&!selInStock?`<option value="${esc(selectedName)}" selected data-price="0" data-setup-rate="0">${esc(selectedName)}</option>`:'';
-    nameSel.innerHTML='<option value="">Изделие</option>'+selFallback+its.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${selectedName===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
-    const opt=nameSel.selectedOptions[0];
-    priceSpan.textContent=legacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');
+  Array.from(list.children).forEach(row=>{
+    const nameInp=row.querySelector('[data-name]');
+    if(!nameInp)return;
+    const s=crmStock.find(x=>x.name===nameInp.value.trim());
+    if(s)nameInp.dataset.itemPrice=legacy?0:(Number(s.price)||0);
+    else if(legacy)nameInp.dataset.itemPrice=0;
+    crmSyncItemRowMeta(row);
   });
 }
 function crmSyncDateRange(fixEnd=true){
@@ -516,12 +512,6 @@ function crmGetItemDisplayName(item){
   const name=crmCleanItemName(item?.name||'');
   const category=String(item?.category||'').trim();
   return name||category||'—';
-}
-function crmGetSelectedItemName(nameSel,category){
-  const rawValue=crmCleanItemName(nameSel?.value||'');
-  const optionText=crmCleanItemName(nameSel?.selectedOptions?.[0]?.textContent||'');
-  if(optionText&&rawValue===String(category||'').trim()&&optionText!==rawValue)return optionText;
-  return rawValue||optionText;
 }
 function crmRenderAll(){crmRenderOrders();crmRenderStats();crmRenderClients();crmRenderStock();crmRenderDash();crmSyncQuickFilterUI()}
 function crmSyncQuickFilterUI(){
@@ -1474,9 +1464,12 @@ function crmRenderStock(){
   }
   if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';crmRenderPricingSection();return}
   const grouped={};
-  items.forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
+  items.slice().sort(crmByName).forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
+  // Категории и изделия внутри — по алфавиту: искать глазами в списке
+  // на сотни позиций иначе невозможно.
+  const groupedEntries=Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0],'ru'));
   if(isMobile){
-    grpEl.innerHTML=Object.entries(grouped).map(([cat,its],idx)=>{
+    grpEl.innerHTML=groupedEntries.map(([cat,its],idx)=>{
       const isOpen=crmStockOpenGroups[cat]!==undefined?crmStockOpenGroups[cat]:idx===0;
       const rows=its.map(s=>`<tr>
         <td style="font-weight:500">${esc(s.name)}</td>
@@ -1490,7 +1483,7 @@ function crmRenderStock(){
     grpEl.querySelectorAll('.stock-mobile-group').forEach(el=>el.addEventListener('toggle',()=>{crmStockOpenGroups[el.getAttribute('data-stock-group')||'']=el.open}));
   }else{
     let rows='';
-    Object.entries(grouped).forEach(([cat,its])=>{
+    groupedEntries.forEach(([cat,its])=>{
       rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
       rows+=its.map(s=>`<tr>
         <td style="font-weight:500">${esc(s.name)}</td>
@@ -1807,26 +1800,155 @@ function crmRenderOrderMeta(order){
     </div>
     <div id="crmOrderLog" class="crm-order-log" style="display:none">${logHtml}</div>`;
 }
+/**
+ * Выбор изделия в строке заказа.
+ *
+ * Раньше это был <select>: сначала выбери категорию, потом крути список на
+ * сотни позиций. Теперь — поле с поиском: пишешь часть названия и видишь
+ * совпадения по всему складу; выбор сам проставляет категорию, цену и ставку
+ * сетапа. Поле остаётся обычным input, поэтому произвольное название (как в
+ * старых заказах, которых уже нет в каталоге) по-прежнему допустимо.
+ *
+ * Данные выбранной позиции живут в data-атрибутах самого поля
+ * (data-price, data-setup-rate) — их читают расчёт сумм и сохранение.
+ */
+const crmByName=(a,b)=>String(a?.name||'').localeCompare(String(b?.name||''),'ru');
+const CRM_PICK_LIMIT=80;
+
+/** Позиции склада под запрос: сначала выбранная категория, потом остальные. */
+function crmItemMatches(query,cat){
+  const q=String(query||'').trim().toLowerCase();
+  const hit=s=>!q||String(s.name||'').toLowerCase().includes(q);
+  const inCat=cat?crmStock.filter(s=>s.category===cat&&hit(s)).sort(crmByName):[];
+  // Ищем и за пределами категории: искомое часто лежит в соседней
+  const rest=(q||!cat)?crmStock.filter(s=>(!cat||s.category!==cat)&&hit(s)).sort(crmByName):[];
+  return inCat.concat(rest).slice(0,CRM_PICK_LIMIT);
+}
+
+/**
+ * Цена и ставка сетапа в подписях строки — из data-атрибутов поля.
+ * Галочку «Сетап» здесь НЕ трогаем: она меняется только при смене изделия
+ * (crmSetupFlagForRate), иначе набор текста в поиске снимал бы её насовсем
+ * и сетап молча выпадал бы из суммы заказа.
+ */
+function crmSyncItemRowMeta(row){
+  const inp=row.querySelector('[data-name]');
+  if(!inp)return;
+  const legacy=crmIsLegacyYearOrder();
+  const price=legacy?0:Number(inp.dataset.itemPrice||0);
+  const priceSpan=row.querySelector('span[data-price]');
+  if(priceSpan)priceSpan.textContent=legacy?'':(price?price+'₽':'');
+  const rate=Number(inp.dataset.itemRate||0);
+  const rateSpan=row.querySelector('[data-rate-display]');
+  if(rateSpan)rateSpan.textContent=rate>0?' '+rate+'₽':'';
+}
+
+/** Сетап включён, если у выбранного изделия есть ставка. */
+function crmSetupFlagForRate(row){
+  const cb=row.querySelector('[data-setup]');
+  if(cb)cb.checked=Number(row.querySelector('[data-name]')?.dataset.itemRate||0)>0;
+}
+
+function crmRenderItemDrop(row){
+  const inp=row.querySelector('[data-name]');
+  const drop=row.querySelector('[data-item-drop]');
+  const cat=row.querySelector('[data-cat]')?.value||'';
+  if(!inp||!drop)return;
+  const legacy=crmIsLegacyYearOrder();
+  const list=crmItemMatches(inp.dataset.typed||'',cat);
+  row._picks=list;
+  drop.innerHTML=list.length
+    ? list.map((s,i)=>`<button type="button" class="crm-item-option" data-pick-idx="${i}">
+        <strong>${esc(s.name)}</strong>
+        <span>${esc(s.category||'без категории')}${legacy?'':' · '+fN(s.price)+'₽'}${Number(s.qty)?' · на складе '+esc(s.qty):''}</span>
+      </button>`).join('')
+    : '<div class="crm-item-none">Ничего не найдено — можно вписать название вручную</div>';
+}
+
+function crmPickItem(row,s){
+  if(!s)return;
+  const inp=row.querySelector('[data-name]');
+  const catSel=row.querySelector('[data-cat]');
+  const legacy=crmIsLegacyYearOrder();
+  inp.value=s.name;
+  inp.dataset.typed='';
+  inp.dataset.itemPrice=legacy?0:(Number(s.price)||0);
+  inp.dataset.itemRate=Number(s.setupRate)||0;
+  if(s.category&&catSel&&catSel.value!==s.category){
+    if(![...catSel.options].some(o=>o.value===s.category))catSel.add(new Option(s.category,s.category));
+    catSel.value=s.category;
+  }
+  crmSyncItemRowMeta(row);
+  crmSetupFlagForRate(row);
+  crmOrderDialogDirty=true;
+  crmClearDerivedManual('items');
+  crmCalcTotal();
+}
+
+function crmBindItemPicker(row){
+  const inp=row.querySelector('[data-name]');
+  const drop=row.querySelector('[data-item-drop]');
+  if(!inp||!drop)return;
+  const open=()=>{crmRenderItemDrop(row);drop.style.display=''};
+  const close=()=>{drop.style.display='none'};
+  inp.addEventListener('focus',()=>{inp.dataset.typed='';open()});
+  inp.addEventListener('input',()=>{
+    inp.dataset.typed=inp.value;
+    // Вписали руками — цену из прошлого выбора не тащим
+    const exact=crmStock.find(s=>s.name===inp.value.trim());
+    inp.dataset.itemPrice=exact?(crmIsLegacyYearOrder()?0:Number(exact.price)||0):0;
+    inp.dataset.itemRate=exact?Number(exact.setupRate)||0:0;
+    crmOrderDialogDirty=true;
+    crmSyncItemRowMeta(row);
+    if(exact)crmSetupFlagForRate(row);   // вписали название целиком — как выбор из списка
+    crmClearDerivedManual('items');
+    crmCalcTotal();
+    open();
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){close();inp.blur()}
+    else if(e.key==='Enter'){e.preventDefault();crmPickItem(row,row._picks?.[0]);close()}
+  });
+  inp.addEventListener('blur',()=>setTimeout(close,180));
+  // pointerdown срабатывает раньше blur — иначе список закрылся бы до выбора
+  drop.addEventListener('pointerdown',e=>{
+    const btn=e.target.closest('[data-pick-idx]');
+    if(!btn)return;
+    e.preventDefault();
+    crmPickItem(row,row._picks?.[Number(btn.dataset.pickIdx)]);
+    close();
+  });
+}
+
 function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   if(!crmOrderDialogInit)crmOrderDialogDirty=true;
   const list=document.getElementById('crmItemsList');
   const row=document.createElement('div');
-  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 60px auto 60px 24px;gap:6px;margin-bottom:6px;align-items:center';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1.4fr 60px auto 60px 24px;gap:6px;margin-bottom:6px;align-items:center';
   const legacy=crmIsLegacyYearOrder();
-  const catOpts=crmCategories.map(c=>`<option value="${esc(c)}" ${item.category===c?'selected':''}>${esc(c)}</option>`).join('');
-  const stockItems=item.category?crmStock.filter(s=>s.category===item.category):[];
-  const savedInStock=!item.name||stockItems.some(s=>s.name===item.name);
-  const fallbackOpt=(!savedInStock&&item.name)?`<option value="${esc(item.name)}" selected data-price="${item.price||0}" data-setup-rate="0">${esc(item.name)}</option>`:'';
-  const itemOpts=fallbackOpt+stockItems.map(s=>`<option value="${esc(s.name)}" data-price="${legacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${item.name===s.name?'selected':''}>${esc(s.name)}${legacy?'':' — '+s.price+'₽'}</option>`).join('');
+  const catOpts=crmCategories.slice().sort((a,b)=>String(a).localeCompare(String(b),'ru'))
+    .map(c=>`<option value="${esc(c)}" ${item.category===c?'selected':''}>${esc(c)}</option>`).join('');
+  const stockItem=item.name?crmStock.find(s=>s.name===item.name):null;
+  const initPrice=legacy?0:(Number(item.price)||Number(stockItem?.price)||0);
+  const initRate=Number(stockItem?.setupRate)||0;
   const setupChecked=item.setup!==false?'checked':'';
-  const initRate=item.name?(Number(crmStock.find(s=>s.name===item.name)?.setupRate)||0):0;
-  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><select data-name style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Изделие</option>${itemOpts}</select><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${item.price?item.price+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
-  const catSel=row.querySelector('[data-cat]'),nameSel=row.querySelector('[data-name]'),priceSpan=row.querySelector('span[data-price]'),qtyInp=row.querySelector('[data-qty]');
-  catSel.addEventListener('change',()=>{const its=crmStock.filter(s=>s.category===catSel.value);const isLegacy=crmIsLegacyYearOrder();nameSel.innerHTML='<option value="">Изделие</option>'+its.map((s,i)=>`<option value="${esc(s.name)}" data-price="${isLegacy?0:s.price}" data-setup-rate="${s.setupRate||0}" ${i===0?'selected':''}>${esc(s.name)}${isLegacy?'':' — '+s.price+'₽'}</option>`).join('');const opt=nameSel.selectedOptions[0];priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r0=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r0>0?' '+r0+'₽':'';const setupCb0=row.querySelector('[data-setup]');if(setupCb0&&r0===0)setupCb0.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
-  nameSel.addEventListener('change',()=>{const opt=nameSel.selectedOptions[0];const isLegacy=crmIsLegacyYearOrder();priceSpan.textContent=isLegacy?'':(opt&&opt.dataset.price?opt.dataset.price+'₽':'');const rateSpan=row.querySelector('[data-rate-display]');const r=Number(opt?.dataset.setupRate||0);if(rateSpan)rateSpan.textContent=r>0?' '+r+'₽':'';const setupCb=row.querySelector('[data-setup]');if(setupCb&&r===0)setupCb.checked=false;crmClearDerivedManual('items');crmCalcTotal()});
+  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><div class="crm-item-pick"><input type="text" data-name value="${esc(item.name||'')}" placeholder="Изделие — начните вводить" autocomplete="off" data-item-price="${initPrice}" data-item-rate="${initRate}" style="width:100%;padding:6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><div class="crm-item-drop" data-item-drop style="display:none"></div></div><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${initPrice?initPrice+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
+  const catSel=row.querySelector('[data-cat]'),nameInp=row.querySelector('[data-name]'),qtyInp=row.querySelector('[data-qty]');
+  catSel.addEventListener('change',()=>{
+    // Смена категории больше не подставляет молча первое изделие: если текущее
+    // в новую категорию не входит — очищаем и открываем список.
+    const cur=nameInp.value.trim();
+    const stillOk=!cur||crmStock.some(s=>s.name===cur&&s.category===catSel.value);
+    if(!stillOk){nameInp.value='';nameInp.dataset.itemPrice=0;nameInp.dataset.itemRate=0;nameInp.dataset.typed=''}
+    crmSyncItemRowMeta(row);
+    crmClearDerivedManual('items');
+    crmCalcTotal();
+    if(!stillOk)nameInp.focus();
+  });
   // Любое изменение состава возвращает производные суммы в автоматический режим.
   qtyInp.addEventListener('input',()=>{crmClearDerivedManual('items');crmCalcTotal()});
   list.appendChild(row);
+  crmBindItemPicker(row);
   row.querySelector('[data-setup]')?.addEventListener('change',()=>{crmClearDerivedManual('items');crmCalcTotal()});
   crmApplyZeroClearBehavior(row);
   if(!crmOrderDialogInit)crmCalcTotal();
@@ -1991,12 +2113,11 @@ function crmGetItems(includeEmpty){
   const items=[];
   document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]').forEach(q=>{
     const row=q.parentElement;
-    const nameSel=row.querySelector('[data-name]');
+    const nameInp=row.querySelector('[data-name]');
     const cat=row.querySelector('[data-cat]')?.value||'';
-    const name=crmGetSelectedItemName(nameSel,cat);
-    const opt=nameSel?.selectedOptions?.[0];
-    let price=Number(opt?.dataset.price||0);
-    let setupRate=Number(opt?.dataset.setupRate||0);
+    const name=crmCleanItemName(nameInp?.value||'');
+    let price=Number(nameInp?.dataset.price||0);
+    let setupRate=Number(nameInp?.dataset.setupRate||0);
     if(name){
       const stockItem=crmStock.find(s=>s.name===name);
       if(!price&&stockItem)price=Number(stockItem.price)||0;
