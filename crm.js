@@ -2028,7 +2028,12 @@ function crmSyncItemOwner(row){
     inp.dataset.itemPartner=pid;
     inp.dataset.itemPartnerName=name;
   }
-  if(box)box.innerHTML=crmOwnerBadge(pid);
+  if(box){
+    box.innerHTML=crmOwnerBadge(pid);
+    // Место под бейдж резервируем здесь: у поля инлайновый padding, и правило
+    // из таблицы стилей ему проигрывает — длинное название уезжало под бейдж.
+    inp.style.paddingRight=box.firstChild?'34px':'8px';
+  }
 }
 
 /** Сетап включён, если у выбранного изделия есть ставка. */
