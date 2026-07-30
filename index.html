@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260730-8">
-<link rel="stylesheet" href="radar-ui.css?v=20260730-8">
+<link rel="stylesheet" href="styles.css?v=20260730-9">
+<link rel="stylesheet" href="radar-ui.css?v=20260730-9">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260730-8';
+window.RADAR_BUILD='20260730-9';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -357,7 +357,10 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div id="page-crmstock" class="page">
       <div class="page-header">
         <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
-        <button class="btn btn-sm" id="crmAddStockBtn" onclick="crmOpenStockModal()">+ Добавить</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" id="crmBulkPriceBtn" onclick="crmToggleStockSelect()">Изменить цены</button>
+          <button class="btn btn-sm" id="crmAddStockBtn" onclick="crmOpenStockModal()">+ Добавить</button>
+        </div>
       </div>
       <div class="form-card" id="crmStockTopCard" style="margin-bottom:12px">
         <div class="page-header" style="margin-bottom:10px">
@@ -420,6 +423,14 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="filter-bar" id="crmStockCatTabs" style="flex-wrap:wrap;margin-bottom:12px"></div>
       <div style="margin-bottom:14px"><input id="crmStockSearch" type="search" placeholder="Поиск по названию или категории" style="max-width:340px"></div>
       <div id="crmStockGroups"></div>
+      <div id="crmStockSelBar" class="stock-selbar" style="display:none">
+        <span id="crmStockSelCount">Ничего не выбрано</span>
+        <div class="stock-selbar-actions">
+          <button class="btn btn-sm btn-secondary" id="crmStockSelAllBtn" onclick="crmStockSelectAllFound()">Выбрать все найденные</button>
+          <button class="btn btn-sm" id="crmStockSelApply" onclick="crmOpenBulkPrice()" disabled>Изменить цены</button>
+          <button class="btn btn-sm btn-secondary" onclick="crmToggleStockSelect(false)">Отмена</button>
+        </div>
+      </div>
       <div id="crmPricingSection"></div>
     </div>
 
@@ -477,6 +488,39 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
 
     <!-- CATEGORY RATE MODAL -->
+    <!-- Массовое изменение цен на складе -->
+    <div class="modal-overlay" id="crmBulkPriceModal">
+      <div class="modal" style="width:460px">
+        <div class="modal-title-row">
+          <div class="modal-title">Изменить цены</div>
+          <button type="button" class="crm-modal-close" onclick="closeModal('crmBulkPriceModal',true)" aria-label="Закрыть">✕</button>
+        </div>
+        <div class="input-group"><label class="input-label">Что сделать</label>
+          <select id="crmBulkMode" onchange="crmBulkPreview()">
+            <option value="set">Поставить одинаковую цену</option>
+            <option value="percent">Изменить на процент</option>
+            <option value="amount">Изменить на сумму</option>
+          </select>
+        </div>
+        <div class="input-group"><label class="input-label" id="crmBulkValueHint">Новая цена, ₽</label>
+          <input type="number" id="crmBulkValue" inputmode="numeric" placeholder="760" oninput="crmBulkPreview()">
+        </div>
+        <div class="input-group" id="crmBulkRoundRow" style="display:none"><label class="input-label">Округлить</label>
+          <select id="crmBulkRound" onchange="crmBulkPreview()">
+            <option value="1">До рубля</option>
+            <option value="10">До 10 ₽</option>
+            <option value="50">До 50 ₽</option>
+          </select>
+        </div>
+        <div class="modal-section">Что получится</div>
+        <div id="crmBulkPreview" class="crm-bulk-preview"></div>
+        <div class="modal-actions">
+          <button class="btn btn-sm btn-secondary" onclick="closeModal('crmBulkPriceModal',true)">Отмена</button>
+          <button class="btn btn-sm" id="crmBulkApplyBtn" onclick="crmApplyBulkPrice()">Применить</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="crmCatRateModal">
       <div class="modal" style="width:320px">
         <div class="modal-title">Ставка сетапа</div>
@@ -875,17 +919,17 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260730-8"></script>
-<script src="radar-pricing.js?v=20260730-8"></script>
-<script src="radar-docs.js?v=20260730-8"></script>
-<script src="supabase.js?v=20260730-8"></script>
-<script src="radar-store.js?v=20260730-8"></script>
-<script src="radar-gateway.js?v=20260730-8"></script>
-<script src="radar.js?v=20260730-8"></script>
-<script src="crm.js?v=20260730-8"></script>
-<script src="radar-warehouse.js?v=20260730-8"></script>
-<script src="radar-notify.js?v=20260730-8"></script>
-<script src="radar-status.js?v=20260730-8"></script>
+<script src="radar-config.js?v=20260730-9"></script>
+<script src="radar-pricing.js?v=20260730-9"></script>
+<script src="radar-docs.js?v=20260730-9"></script>
+<script src="supabase.js?v=20260730-9"></script>
+<script src="radar-store.js?v=20260730-9"></script>
+<script src="radar-gateway.js?v=20260730-9"></script>
+<script src="radar.js?v=20260730-9"></script>
+<script src="crm.js?v=20260730-9"></script>
+<script src="radar-warehouse.js?v=20260730-9"></script>
+<script src="radar-notify.js?v=20260730-9"></script>
+<script src="radar-status.js?v=20260730-9"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();

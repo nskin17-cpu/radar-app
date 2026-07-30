@@ -1468,24 +1468,32 @@ function crmRenderStock(){
   // Категории и изделия внутри — по алфавиту: искать глазами в списке
   // на сотни позиций иначе невозможно.
   const groupedEntries=Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0],'ru'));
+  // Режим выбора: перед названием появляется галочка, действие — внизу экрана
+  const pick=crmStockSelectMode;
+  crmStockFoundIds=items.map(s=>s.id).filter(Boolean);
+  const cbCell=s=>pick?`<td style="width:30px"><input type="checkbox" data-stock-pick="${esc(s.id)}" ${crmStockSel.has(s.id)?'checked':''} style="width:17px;height:17px;accent-color:var(--accent)"></td>`:'';
+  const cbHead=pick?'<th style="width:30px"></th>':'';
+  const cols=pick?6:5;
   if(isMobile){
     grpEl.innerHTML=groupedEntries.map(([cat,its],idx)=>{
       const isOpen=crmStockOpenGroups[cat]!==undefined?crmStockOpenGroups[cat]:idx===0;
       const rows=its.map(s=>`<tr>
+        ${cbCell(s)}
         <td style="font-weight:500">${esc(s.name)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
         <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
         <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
       </tr>`).join('');
-      return `<details class="stock-mobile-group" data-stock-group="${esc(cat)}" ${isOpen?'open':''}><summary><span>${esc(cat)}</span><span>${its.length} поз.</span></summary><div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена</th><th>Сетап</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+      return `<details class="stock-mobile-group" data-stock-group="${esc(cat)}" ${isOpen?'open':''}><summary><span>${esc(cat)}</span><span>${its.length} поз.</span></summary><div class="table-wrap"><table><thead><tr>${cbHead}<th>Название</th><th>Цена</th><th>Сетап</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
     }).join('');
     grpEl.querySelectorAll('.stock-mobile-group').forEach(el=>el.addEventListener('toggle',()=>{crmStockOpenGroups[el.getAttribute('data-stock-group')||'']=el.open}));
   }else{
     let rows='';
     groupedEntries.forEach(([cat,its])=>{
-      rows+=`<tr class="crm-month-sep"><td colspan="5"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
+      rows+=`<tr class="crm-month-sep"><td colspan="${cols}"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
       rows+=its.map(s=>`<tr>
+        ${cbCell(s)}
         <td style="font-weight:500">${esc(s.name)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
@@ -1493,9 +1501,149 @@ function crmRenderStock(){
         <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
       </tr>`).join('');
     });
-    grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    grpEl.innerHTML=`<div class="table-wrap"><table><thead><tr>${cbHead}<th>Название</th><th>Цена аренды</th><th>Сетап за ед.</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
+  if(pick){
+    grpEl.querySelectorAll('[data-stock-pick]').forEach(cb=>cb.addEventListener('change',()=>{
+      const id=cb.getAttribute('data-stock-pick');
+      if(cb.checked)crmStockSel.add(id);else crmStockSel.delete(id);
+      crmUpdateStockSelBar();
+    }));
+  }
+  crmUpdateStockSelBar();
   crmRenderPricingSection();
+}
+
+/* ── Массовое изменение цен на складе ──────────────────────────────────────
+   Правка по одной позиции не годится, когда дорожает целая категория.
+   Отмечаем нужные позиции галочками (или «все найденные» — тогда набор
+   задают поиск и вкладка категории) и меняем цены одним действием:
+   поставить одинаковую, изменить на процент или на сумму. Перед записью
+   показываем «было → станет», потому что отменить массовую правку нечем. */
+let crmStockSelectMode=false;
+let crmStockSel=new Set();
+let crmStockFoundIds=[];
+
+function crmToggleStockSelect(force){
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
+  crmStockSelectMode=typeof force==='boolean'?force:!crmStockSelectMode;
+  if(!crmStockSelectMode)crmStockSel.clear();
+  const btn=document.getElementById('crmBulkPriceBtn');
+  if(btn)btn.textContent=crmStockSelectMode?'Отменить выбор':'Изменить цены';
+  crmRenderStock();
+}
+function crmStockSelectAllFound(){
+  const all=crmStockFoundIds.every(id=>crmStockSel.has(id));
+  if(all)crmStockFoundIds.forEach(id=>crmStockSel.delete(id));
+  else crmStockFoundIds.forEach(id=>crmStockSel.add(id));
+  crmRenderStock();
+}
+function crmUpdateStockSelBar(){
+  const bar=document.getElementById('crmStockSelBar');
+  if(!bar)return;
+  bar.style.display=crmStockSelectMode?'':'none';
+  if(!crmStockSelectMode)return;
+  const n=crmStockSel.size;
+  const allBtn=document.getElementById('crmStockSelAllBtn');
+  if(allBtn)allBtn.textContent=crmStockFoundIds.length&&crmStockFoundIds.every(id=>crmStockSel.has(id))?'Снять все':'Выбрать все найденные';
+  const cnt=document.getElementById('crmStockSelCount');
+  if(cnt)cnt.textContent=n?`Выбрано: ${n}`:'Ничего не выбрано';
+  const go=document.getElementById('crmStockSelApply');
+  if(go)go.disabled=!n;
+}
+/** Позиции, к которым применится изменение. */
+function crmBulkTargets(){
+  return crmStock.filter(s=>crmStockSel.has(s.id));
+}
+function crmNewPriceFor(oldPrice,mode,value,round){
+  const p=Number(oldPrice)||0,v=Number(value)||0;
+  let next=p;
+  if(mode==='set')next=v;
+  else if(mode==='percent')next=p*(1+v/100);
+  else if(mode==='amount')next=p+v;
+  if(round==='10')next=Math.round(next/10)*10;
+  else if(round==='50')next=Math.round(next/50)*50;
+  else next=Math.round(next);
+  return Math.max(0,next);
+}
+function crmOpenBulkPrice(){
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
+  if(!crmStockSel.size){showToast('Сначала отметьте позиции','error');return}
+  document.getElementById('crmBulkMode').value='set';
+  document.getElementById('crmBulkValue').value='';
+  document.getElementById('crmBulkRound').value='1';
+  crmBulkPreview();
+  openModal('crmBulkPriceModal');
+}
+function crmBulkPreview(){
+  const mode=document.getElementById('crmBulkMode')?.value||'set';
+  const value=document.getElementById('crmBulkValue')?.value||'';
+  const round=document.getElementById('crmBulkRound')?.value||'1';
+  const hint=document.getElementById('crmBulkValueHint');
+  if(hint)hint.textContent={set:'Новая цена, ₽',percent:'На сколько процентов (минус — удешевление)',amount:'На сколько рублей (минус — удешевление)'}[mode];
+  const roundRow=document.getElementById('crmBulkRoundRow');
+  if(roundRow)roundRow.style.display=mode==='set'?'none':'';
+  const box=document.getElementById('crmBulkPreview');
+  if(!box)return;
+  const targets=crmBulkTargets();
+  const filled=String(value).trim()!=='';
+  const rows=targets.slice(0,12).map(s=>{
+    const next=filled?crmNewPriceFor(s.price,mode,value,round):Number(s.price)||0;
+    const same=next===(Number(s.price)||0);
+    return `<div class="crm-bulk-row"><span>${esc(s.name)}</span><b>${fN(s.price)} ₽ → <span style="color:${same?'var(--text3)':'var(--green)'}">${fN(next)} ₽</span></b></div>`;
+  }).join('');
+  box.innerHTML=(rows||'<div class="wh-empty">Ничего не выбрано</div>')+
+    (targets.length>12?`<div class="crm-bulk-more">и ещё ${targets.length-12} поз.</div>`:'');
+}
+let _crmBulkRunning=false;
+async function crmApplyBulkPrice(){
+  if(_crmBulkRunning)return;
+  if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
+  const mode=document.getElementById('crmBulkMode').value;
+  const raw=document.getElementById('crmBulkValue').value;
+  const round=document.getElementById('crmBulkRound').value;
+  if(String(raw).trim()===''){showToast('Укажите значение','error');return}
+  const targets=crmBulkTargets();
+  if(!targets.length){showToast('Ничего не выбрано','error');return}
+  const changes=targets.map(s=>({item:s,next:crmNewPriceFor(s.price,mode,raw,round)}))
+                       .filter(c=>c.next!==(Number(c.item.price)||0));
+  if(!changes.length){showToast('Цены и так такие — менять нечего','info');return}
+  if(!confirm(`Изменить цену у ${changes.length} поз.?\n\nНапример: ${changes[0].item.name}\n${fN(changes[0].item.price)} ₽ → ${fN(changes[0].next)} ₽`))return;
+
+  _crmBulkRunning=true;
+  const btn=document.getElementById('crmBulkApplyBtn');
+  const done=[],failed=[];
+  try{
+    // По 4 запроса за раз: быстрее, чем по одному, и не заваливает Supabase
+    for(let i=0;i<changes.length;i+=4){
+      const part=changes.slice(i,i+4);
+      if(btn)btn.textContent=`Сохраняем ${Math.min(i+part.length,changes.length)} из ${changes.length}…`;
+      const res=await Promise.allSettled(part.map(c=>api('updateStockItem',{item:{
+        id:c.item.id,name:c.item.name,category:c.item.category,
+        price:c.next,setupRate:Number(c.item.setupRate)||0,
+        qty:Number(c.item.qty)||0,unit:c.item.unit||'шт'
+      }})));
+      res.forEach((r,ix)=>{
+        const okRes=r.status==='fulfilled'&&r.value&&r.value.success!==false;
+        if(okRes){part[ix].item.price=part[ix].next;done.push(part[ix])}
+        else failed.push({c:part[ix],err:(r.reason?.message)||r.value?.error||'ошибка сети'});
+      });
+    }
+  }finally{
+    _crmBulkRunning=false;
+    if(btn)btn.textContent='Применить';
+  }
+  crmRenderStock();
+  if(failed.length){
+    showToast(`Изменено ${done.length}, не удалось ${failed.length}: ${failed[0].err}`,'error');
+  }else{
+    showToast(`Цены обновлены: ${done.length} поз.`,'success');
+    closeModal('crmBulkPriceModal',true);
+    crmToggleStockSelect(false);
+  }
+  // Свежий склад с сервера — чтобы в списке было ровно то, что в базе
+  const r=await api('getStock');
+  if(r&&r.success){crmStock=r.stock||crmStock;crmRenderStock()}
 }
 function crmRenderPricingSection(){
   const el=document.getElementById('crmPricingSection');if(!el)return;
