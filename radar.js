@@ -116,13 +116,14 @@ function sbBackup(action,payload){
 // раздела «Пользователи»: ровно прежнее поведение, никто не теряет работу.
 const RADAR_PAGE_AREA={
   crm:'orders',clients:'clients',crmstock:'stock',warehouse:'assembly',crmdash:'dashboards',
+  partners:'partners',
   dashboard:'competitors',mycompany:'competitors',competitors:'competitors',compare:'competitors'
 };
 const RADAR_AREA_LABELS={
   orders:'Заказы',clients:'Клиенты',stock:'Склад',assembly:'Выдача заказов',
-  dashboards:'CRM Дашборд',competitors:'Аналитика конкурентов'
+  dashboards:'CRM Дашборд',partners:'Партнёры',competitors:'Аналитика конкурентов'
 };
-const RADAR_FULL_PERMS={orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',competitors:'edit'};
+const RADAR_FULL_PERMS={orders:'edit',clients:'edit',stock:'edit',assembly:'edit',dashboards:'view',partners:'edit',competitors:'edit'};
 function radarPermLevel(area){
   const u=window.currentUser;
   if(!u)return 'none';
@@ -145,7 +146,8 @@ function radarApplyPerms(){
   });
   // Кнопки «добавить/изменить» в шапках страниц
   const editable={crmNewOrderBtn:'orders',crmAddClientBtn:'clients',crmSyncClientsBtn:'clients',
-                  crmAddStockBtn:'stock',compAddBtn:'competitors',myCompanySaveBtn:'competitors'};
+                  crmAddStockBtn:'stock',ptAddPartnerBtn:'partners',ptRecalcBtn:'partners',
+                  compAddBtn:'competitors',myCompanySaveBtn:'competitors'};
   Object.entries(editable).forEach(([id,area])=>{
     const el=document.getElementById(id);
     if(el)el.style.display=radarCanEdit(area)?'':'none';
@@ -158,6 +160,7 @@ function radarStartPage(){
   if(radarCanView('clients'))return 'clients';
   if(radarCanView('stock'))return 'crmstock';
   if(radarCanView('dashboards'))return 'crmdash';
+  if(radarCanView('partners'))return 'partners';
   if(radarCanView('competitors'))return 'dashboard';
   return 'settings';
 }

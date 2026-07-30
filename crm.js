@@ -561,12 +561,12 @@ function crmRenderOrders(){
     const showRemain=remain>0&&!crmPaidStatuses.has(o.paymentStatus);
     const deliveryCell=o.deliveryType==='pickup'?'Самовывоз':(esc(o.deliveryAddress)||'Доставка, адрес не указан');
     const itemsList=(o.items||[]).length
-      ? `<div class="crm-items-mobile-list" style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}</div>`).join('')}</div>`
+      ? `<div class="crm-items-mobile-list" style="display:flex;flex-direction:column;gap:3px;white-space:normal">${(o.items||[]).map(i=>`<div>• ${esc(crmGetItemDisplayName(i))} ×${esc(i.qty)}${crmItemOwnerBadge(i)}</div>`).join('')}</div>`
       : '—';
     if(isMobile){
       return `${sep}<tr class="crm-order-mobile-card"><td colspan="10">
       <div class="crm-om-head">
-        <div class="crm-om-client"><span class="crm-om-num">#${rowIndex}</span><strong>${esc(o.clientName)}</strong><span>${esc(o.clientPhone||'')}</span>${showRemain?`<span class="badge badge-amber">Остаток: ${fN(remain)}₽</span>`:''}</div>
+        <div class="crm-om-client"><span class="crm-om-num">#${rowIndex}</span><strong>${esc(o.clientName)}</strong>${crmOrderOwnerBadges(o)}<span>${esc(o.clientPhone||'')}</span>${showRemain?`<span class="badge badge-amber">Остаток: ${fN(remain)}₽</span>`:''}</div>
         <div class="crm-om-actions"><button onclick="crmToggleItems('${o.id}')" class="crm-om-toggle" title="Показать изделия">↓</button><button class="btn btn-sm btn-secondary" onclick="crmOpenDialog('${o.id}')" style="padding:4px 8px;font-size:11px">✎</button></div>
       </div>
       <div class="crm-om-line"><span>Период</span><strong>${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</strong></div>
@@ -580,7 +580,7 @@ function crmRenderOrders(){
     </td></tr><tr id="crmItemsRow-${o.id}" style="display:none"><td colspan="10" style="padding:6px 10px 8px 12px;font-size:11px;color:var(--text2);background:var(--surface2)">${itemsList}</td></tr>`;
     }
     return `${sep}<tr>
-    <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong><br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}<div class="crm-delivery-mobile">${deliveryCell}</div></td>
+    <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong>${crmOrderOwnerBadges(o)}<br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}<div class="crm-delivery-mobile">${deliveryCell}</div></td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
     <td style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
@@ -1430,6 +1430,19 @@ function crmRenderStockAnalysis(){
   }
 }
 function crmSetStockCat(cat){crmActiveStockCategory=cat;crmRenderStock()}
+/* ── Маркировка партнёрских (комиссионных) товаров ──────────────────────────
+   Бейдж внутренний: показывает короткий код партнёра, название компании — только
+   в подсказке. В смету, акт и КП он не попадает, там берутся name/qty/price. */
+function crmOwnerBadge(partnerId,opts){
+  try{return window.RadarPartners?window.RadarPartners.badge(partnerId,opts):''}catch(e){return ''}
+}
+function crmItemOwnerBadge(item){
+  try{return window.RadarPartners?window.RadarPartners.itemBadge(item):''}catch(e){return ''}
+}
+function crmOrderOwnerBadges(order){
+  try{return window.RadarPartners?window.RadarPartners.orderBadges(order):''}catch(e){return ''}
+}
+
 function crmRenderStock(){
   crmRenderStockTopDashboard();
   crmToggleStockAnalytics(crmStockAnalyticsOpen);
@@ -1479,7 +1492,7 @@ function crmRenderStock(){
       const isOpen=crmStockOpenGroups[cat]!==undefined?crmStockOpenGroups[cat]:idx===0;
       const rows=its.map(s=>`<tr>
         ${cbCell(s)}
-        <td style="font-weight:500">${esc(s.name)}</td>
+        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
         <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
@@ -1494,7 +1507,7 @@ function crmRenderStock(){
       rows+=`<tr class="crm-month-sep"><td colspan="${cols}"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
       rows+=its.map(s=>`<tr>
         ${cbCell(s)}
-        <td style="font-weight:500">${esc(s.name)}</td>
+        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
         <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
@@ -1728,6 +1741,7 @@ function crmOpenStockModal(id){
   document.getElementById('crmStockQty').value=s?.qty||0;
   document.getElementById('crmStockUnit').value=s?.unit||'шт';
   document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
+  try{window.RadarPartnersUI&&window.RadarPartnersUI.fillStockOwner(s?.partnerId||'')}catch(e){}
   openModal('crmStockModal');
   crmApplyZeroClearBehavior(m);
 }
@@ -1744,8 +1758,10 @@ async function crmSaveStockItem(){
     price:Number(document.getElementById('crmStockPrice').value)||0,
     setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
     qty:Number(document.getElementById('crmStockQty').value)||0,
-    unit:document.getElementById('crmStockUnit').value.trim()||'шт'
+    unit:document.getElementById('crmStockUnit').value.trim()||'шт',
+    partnerId:(()=>{try{return window.RadarPartnersUI?window.RadarPartnersUI.stockOwnerValue():''}catch(e){return ''}})()
   };
+  item.ownerType=item.partnerId?'partner':'own';
   if(!item.category||!item.name){showToast('Заполните категорию и название','error');return}
   _crmSavingStock=true;
   if(saveBtn){saveBtn.disabled=true;saveBtn._origText=saveBtn.textContent;saveBtn.textContent='⏳ Сохранение...';}
@@ -1877,6 +1893,7 @@ function crmOpenDialog(id){
   crmOrderDialogInit=false;
   crmAutosaveEnabled=true;
   crmApplyOrderDialogPerms();
+  try{window.RadarPartnersUI&&window.RadarPartnersUI.renderOrderBlock()}catch(e){}
   openModal('crmOrderModal');
 }
 
@@ -1989,6 +2006,29 @@ function crmSyncItemRowMeta(row){
   const rate=Number(inp.dataset.itemRate||0);
   const rateSpan=row.querySelector('[data-rate-display]');
   if(rateSpan)rateSpan.textContent=rate>0?' '+rate+'₽':'';
+  crmSyncItemOwner(row);
+}
+
+/**
+ * Владелец изделия в строке заказа. Держим id партнёра в data-атрибуте поля:
+ * при сохранении он уходит в позицию заказа снимком, чтобы смена владельца
+ * на складе не переписывала задним числом уже посчитанные взаиморасчёты.
+ */
+function crmSyncItemOwner(row){
+  const inp=row.querySelector('[data-name]');
+  const box=row.querySelector('[data-owner-badge]');
+  if(!inp)return;
+  const name=String(inp.value||'').trim();
+  let pid=String(inp.dataset.itemPartner||'');
+  // Снимок из сохранённого заказа переживает смену владельца на складе;
+  // пересчитываем, только когда в строке поменяли изделие.
+  if(inp.dataset.itemPartnerName!==name){
+    const s=crmStock.find(x=>x.name===name);
+    pid=s&&s.partnerId?String(s.partnerId):'';
+    inp.dataset.itemPartner=pid;
+    inp.dataset.itemPartnerName=name;
+  }
+  if(box)box.innerHTML=crmOwnerBadge(pid);
 }
 
 /** Сетап включён, если у выбранного изделия есть ставка. */
@@ -2007,7 +2047,7 @@ function crmRenderItemDrop(row){
   row._picks=list;
   drop.innerHTML=list.length
     ? list.map((s,i)=>`<button type="button" class="crm-item-option" data-pick-idx="${i}">
-        <strong>${esc(s.name)}</strong>
+        <strong>${esc(s.name)}${crmOwnerBadge(s.partnerId)}</strong>
         <span>${esc(s.category||'без категории')}${legacy?'':' · '+fN(s.price)+'₽'}${Number(s.qty)?' · на складе '+esc(s.qty):''}</span>
       </button>`).join('')
     : '<div class="crm-item-none">Ничего не найдено — можно вписать название вручную</div>';
@@ -2080,7 +2120,7 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   const initPrice=legacy?0:(Number(item.price)||Number(stockItem?.price)||0);
   const initRate=Number(stockItem?.setupRate)||0;
   const setupChecked=item.setup!==false?'checked':'';
-  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><div class="crm-item-pick"><input type="text" data-name value="${esc(item.name||'')}" placeholder="Изделие — начните вводить" autocomplete="off" data-item-price="${initPrice}" data-item-rate="${initRate}" style="width:100%;padding:6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><div class="crm-item-drop" data-item-drop style="display:none"></div></div><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${initPrice?initPrice+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
+  row.innerHTML=`<select data-cat style="padding:6px 24px 6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><option value="">Категория</option>${catOpts}</select><div class="crm-item-pick"><input type="text" data-name value="${esc(item.name||'')}" placeholder="Изделие — начните вводить" autocomplete="off" data-item-price="${initPrice}" data-item-rate="${initRate}" style="width:100%;padding:6px 8px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><span class="pt-row-badge" data-owner-badge></span><div class="crm-item-drop" data-item-drop style="display:none"></div></div><input type="number" data-qty value="${item.qty||1}" min="1" style="padding:6px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius-sm)"><label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap"><input type="checkbox" data-setup ${setupChecked} style="width:14px;height:14px;cursor:pointer;accent-color:var(--blue);flex-shrink:0">Сетап<span data-rate-display style="color:var(--blue);font-size:10px;font-weight:600">${initRate>0?' '+initRate+'₽':''}</span></label><span data-price style="font-size:11px;color:var(--text2)">${initPrice?initPrice+'₽':''}</span><span onclick="crmOrderDialogDirty=true;this.parentElement.remove();crmClearDerivedManual('items');crmCalcTotal()" style="cursor:pointer;text-align:center;color:var(--red)">✕</span>`;
   const catSel=row.querySelector('[data-cat]'),nameInp=row.querySelector('[data-name]'),qtyInp=row.querySelector('[data-qty]');
   catSel.addEventListener('change',()=>{
     // Смена категории больше не подставляет молча первое изделие: если текущее
@@ -2099,6 +2139,11 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   crmBindItemPicker(row);
   row.querySelector('[data-setup]')?.addEventListener('change',()=>{crmClearDerivedManual('items');crmCalcTotal()});
   crmApplyZeroClearBehavior(row);
+  if(item.partnerId){
+    nameInp.dataset.itemPartner=String(item.partnerId);
+    nameInp.dataset.itemPartnerName=String(item.name||'');
+  }
+  crmSyncItemOwner(row);
   if(!crmOrderDialogInit)crmCalcTotal();
 }
 /** Значение поля, если пользователь правил его вручную; иначе null (считаем автоматически). */
@@ -2224,6 +2269,7 @@ function crmCalcTotal(){
   if(paidEl)paidEl.value=calc.paidAmount;
   if(remEl)remEl.value=calc.remainingAmount;
   crmRenderItemLineTotals(calc);
+  try{window.RadarPartnersUI&&window.RadarPartnersUI.renderOrderBlock()}catch(e){}
   crmScheduleAutosave();
 }
 
@@ -2266,17 +2312,20 @@ function crmGetItems(includeEmpty){
     const name=crmCleanItemName(nameInp?.value||'');
     let price=Number(nameInp?.dataset.price||0);
     let setupRate=Number(nameInp?.dataset.setupRate||0);
+    let partnerId=String(nameInp?.dataset.itemPartner||'');
     if(name){
       const stockItem=crmStock.find(s=>s.name===name);
       if(!price&&stockItem)price=Number(stockItem.price)||0;
       if(!setupRate&&stockItem)setupRate=Number(stockItem.setupRate)||0;
+      if(!partnerId&&stockItem)partnerId=String(stockItem.partnerId||'');
     }
     if(!name&&!includeEmpty)return;
     items.push({
       name,category:cat,
       qty:Math.max(0,Number(q.value||0)),
       price,setupRate,
-      setup:row.querySelector('[data-setup]')?.checked!==false
+      setup:row.querySelector('[data-setup]')?.checked!==false,
+      partnerId,ownerType:partnerId?'partner':'own'
     });
   });
   return items;
@@ -2399,6 +2448,10 @@ async function crmSaveOrder(){
         : 'Нет сети — заказ сохранён локально и уйдёт после подключения','info');
     }else{
       showToast(id?'Обновлено':'Заказ создан','success');
+      // Взаиморасчёты пишутся только после подтверждения заказа сервером:
+      // иначе ссылка на несуществующий заказ не прошла бы по внешнему ключу.
+      const savedOrder=crmOrders.find(x=>x.id===savedId);
+      if(savedOrder&&window.RadarPartners)window.RadarPartners.syncOrder(savedOrder);
     }
   }catch(e){
     showToast('Ошибка сохранения: '+(e?.message||e),'error');

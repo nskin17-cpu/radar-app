@@ -76,6 +76,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="nav-item" data-page="clients" onclick="switchPage('clients')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="2.2"/><path d="M1.5 11c.9-1.6 2.4-2.5 3.5-2.5s2.6.9 3.5 2.5"/><path d="M9 4h3M9 7h3M9 10h3"/></svg></span> Клиенты</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4l6-3 6 3v6l-6 3-6-3V4z"/><path d="M7 1v12M1 4l6 3 6-3"/></svg></span> Склад</div>
     <div class="nav-item" data-page="warehouse" onclick="switchPage('warehouse')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="3.4" height="12" rx="0.8"/><rect x="5.3" y="1" width="3.4" height="8" rx="0.8"/><rect x="9.6" y="1" width="3.4" height="10" rx="0.8"/></svg></span> Выдача заказов</div>
+    <div class="nav-item" data-page="partners" onclick="switchPage('partners')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.6" cy="4.6" r="2.2"/><circle cx="9.4" cy="4.6" r="2.2"/><path d="M1 12c.6-2 2-3 3.6-3s3 1 3.6 3"/><path d="M9.4 9c1.6 0 3 1 3.6 3"/></svg></span> Партнёры</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 11l3-4 3 2 3-5 3 3"/></svg></span> CRM Дашборд</div>
     <div class="nav-section">Система</div>
     <div class="nav-item" data-page="settings" onclick="switchPage('settings')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.9 2.9l1.4 1.4M9.7 9.7l1.4 1.4M2.9 11.1l1.4-1.4M9.7 4.3l1.4-1.4"/></svg></span> Настройки</div>
@@ -450,6 +451,11 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           <div class="input-group"><label class="input-label">Количество</label><input type="number" id="crmStockQty" min="0" value="0"></div>
           <div class="input-group"><label class="input-label">Единица</label><input type="text" id="crmStockUnit" value="шт" placeholder="шт"></div>
         </div>
+        <div class="input-group" id="crmStockOwnerGroup" style="display:none">
+          <label class="input-label">Собственность</label>
+          <select id="crmStockOwner"><option value="">NANDRENT (наш товар)</option></select>
+          <div class="pt-hint">Внутреннее поле. В смету, акт и КП не попадает.</div>
+        </div>
         <div class="modal-actions">
           <button class="btn btn-sm btn-danger" id="crmStockDeleteBtn" onclick="crmDeleteStockItem()" style="display:none;margin-right:auto">Удалить</button>
           <button class="btn btn-sm btn-secondary" onclick="closeModal('crmStockModal')">Отмена</button>
@@ -655,6 +661,122 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         </div>
       </div>
     </div>
+
+    <!-- ПАРТНЁРЫ (комиссионные товары) — только внутренний раздел.
+         Ничего отсюда не попадает в смету, акт и КП. -->
+    <div id="page-partners" class="page">
+      <div class="page-header">
+        <div><div class="page-title">Партнёры</div><div class="page-desc">Комиссионные товары, взаиморасчёты и баланс</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" id="ptRecalcBtn" onclick="ptRecalcAll()" title="Пересчитать взаиморасчёты по всем заказам">↻ Пересчитать</button>
+          <button class="btn btn-sm" id="ptAddPartnerBtn" onclick="ptOpenPartnerModal()">+ Партнёр</button>
+        </div>
+      </div>
+      <div id="ptMigrationWarn" class="pt-warn" style="display:none">
+        Раздел не установлен: выполните <code>sql/partners-1-system.sql</code> в SQL Editor Supabase.
+      </div>
+      <div class="filter-bar" id="ptPartnerTabs" style="flex-wrap:wrap;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <select id="ptPeriod" style="width:auto" onchange="ptOnPeriodChange()">
+          <option value="today">Сегодня</option>
+          <option value="week">Неделя</option>
+          <option value="month" selected>Месяц</option>
+          <option value="quarter">Квартал</option>
+          <option value="year">Год</option>
+          <option value="all">Всё время</option>
+          <option value="custom">Произвольный период</option>
+        </select>
+        <span id="ptCustomRange" style="display:none;gap:8px">
+          <input type="date" id="ptFrom" style="width:auto" onchange="ptRender()">
+          <input type="date" id="ptTo" style="width:auto" onchange="ptRender()">
+        </span>
+        <span id="ptPeriodLabel" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div id="ptBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: партнёр и условия сотрудничества -->
+<div class="modal-overlay" id="ptPartnerModal">
+  <div class="modal">
+    <div class="modal-title" id="ptPartnerModalTitle">Новый партнёр</div>
+    <input type="hidden" id="ptPartnerId">
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Имя *</label><input type="text" id="ptPartnerName" placeholder="Анастасия Аникианова"></div>
+      <div class="input-group"><label class="input-label">Компания</label><input type="text" id="ptPartnerCompany" placeholder="Anikanova Flowers"></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="ptPartnerPhone" placeholder="+7..."></div>
+      <div class="input-group"><label class="input-label">Клиент в базе</label><input type="text" id="ptPartnerClient" list="ptClientList" placeholder="Так узнаём его собственные заказы"><datalist id="ptClientList"></datalist></div>
+    </div>
+    <div class="modal-section">Условия сотрудничества</div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Сервисный сбор %</label><input type="number" id="ptPartnerFee" min="0" max="100" step="0.1" value="5" inputmode="decimal"><div class="pt-hint">Собственный заказ партнёра. Берётся с полной стоимости его товаров, скидка не учитывается.</div></div>
+      <div class="input-group"><label class="input-label">Доля партнёра %</label><input type="number" id="ptPartnerShare" min="0" max="100" step="0.1" value="50" inputmode="decimal"><div class="pt-hint">Заказ стороннего клиента. Делится сумма после скидки клиента.</div></div>
+    </div>
+    <div class="crm-grid-3">
+      <div class="input-group"><label class="input-label">Алгоритм</label><select id="ptPartnerScheme"><option value="auto">Определять по клиенту заказа</option><option value="service_fee">Всегда сервисный сбор</option><option value="revenue_share">Всегда деление прибыли</option></select></div>
+      <div class="input-group"><label class="input-label">Метка</label><input type="text" id="ptPartnerCode" maxlength="4" placeholder="AF"><div class="pt-hint">Короткий нейтральный код для бейджа.</div></div>
+      <div class="input-group"><label class="input-label">Цвет метки</label><input type="color" id="ptPartnerColor" value="#7C5CFF" style="height:34px;padding:2px"></div>
+    </div>
+    <div class="input-group"><label class="input-label">Заметка</label><textarea id="ptPartnerNote" rows="2"></textarea></div>
+    <label class="pt-check"><input type="checkbox" id="ptPartnerActive" checked> Активный партнёр</label>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="ptPartnerDeleteBtn" onclick="ptDeletePartner()" style="display:none;margin-right:auto">Удалить</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('ptPartnerModal')">Отмена</button>
+      <button class="btn btn-sm" onclick="withSaveGuard(this,ptSavePartner)">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: дополнительный расход (мойка, ремонт, упаковка…) -->
+<div class="modal-overlay" id="ptExpenseModal">
+  <div class="modal">
+    <div class="modal-title" id="ptExpenseModalTitle">Дополнительный расход</div>
+    <input type="hidden" id="ptExpenseId">
+    <input type="hidden" id="ptExpensePartner">
+    <input type="hidden" id="ptExpenseOrder">
+    <div id="ptExpenseOrderInfo" class="pt-hint" style="margin-bottom:8px"></div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Тип расхода *</label><select id="ptExpenseType"></select></div>
+      <div class="input-group"><label class="input-label">Сумма ₽ *</label><input type="number" id="ptExpenseAmount" min="0" value="0" inputmode="numeric"><div class="pt-hint">Вводится вручную: стоимость каждый раз разная.</div></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Дата</label><input type="date" id="ptExpenseDate"></div>
+      <div class="input-group"><label class="input-label">Сотрудник</label><input type="text" id="ptExpenseEmployee"></div>
+    </div>
+    <div class="input-group"><label class="input-label">За чей счёт</label><select id="ptExpenseBillable"><option value="partner">Удержать с партнёра</option><option value="company">Списать на NANDRENT</option></select></div>
+    <div class="input-group"><label class="input-label">Комментарий</label><textarea id="ptExpenseComment" rows="2" placeholder="Напр. привезли грязными, мойка своими силами"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="ptExpenseDeleteBtn" onclick="ptDeleteExpense()" style="display:none;margin-right:auto">Удалить</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('ptExpenseModal')">Отмена</button>
+      <button class="btn btn-sm" onclick="withSaveGuard(this,ptSaveExpense)">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: выплата партнёру -->
+<div class="modal-overlay" id="ptPayoutModal">
+  <div class="modal">
+    <div class="modal-title">Выплата партнёру</div>
+    <input type="hidden" id="ptPayoutId">
+    <input type="hidden" id="ptPayoutPartner">
+    <div id="ptPayoutInfo" class="pt-hint" style="margin-bottom:8px"></div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Сумма ₽ *</label><input type="number" id="ptPayoutAmount" min="0" value="0" inputmode="numeric"></div>
+      <div class="input-group"><label class="input-label">Дата</label><input type="date" id="ptPayoutDate"></div>
+    </div>
+    <div class="crm-grid-2">
+      <div class="input-group"><label class="input-label">Способ</label><select id="ptPayoutMethod"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option><option value="other">Другое</option></select></div>
+      <div class="input-group"><label class="input-label">Сотрудник</label><input type="text" id="ptPayoutEmployee"></div>
+    </div>
+    <div class="input-group"><label class="input-label">Комментарий</label><textarea id="ptPayoutComment" rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="ptPayoutDeleteBtn" onclick="ptDeletePayout()" style="display:none;margin-right:auto">Удалить</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('ptPayoutModal')">Отмена</button>
+      <button class="btn btn-sm" onclick="withSaveGuard(this,ptSavePayout)">Сохранить</button>
+    </div>
   </div>
 </div>
 
@@ -812,6 +934,9 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <summary><span class="crm-collapse-title">Комментарий</span><span class="crm-collapse-hint" id="crmCommentHint"></span></summary>
       <div class="input-group" style="margin:8px 0 0"><textarea id="crmComment" rows="3" placeholder="Заметка по заказу"></textarea></div>
     </details>
+    <!-- Взаиморасчёты: появляется только если в заказе есть партнёрские товары.
+         Раздел строго внутренний — в клиентские документы ничего отсюда не идёт. -->
+    <div id="crmPartnerBlock"></div>
     <div class="crm-doc-actions" id="crmDocActions">
       <button class="btn btn-sm btn-danger" id="crmDeleteBtn" onclick="crmDeleteOrder()" style="display:none">Удалить</button>
       <button class="btn btn-sm btn-secondary" id="crmEstimateProBtn" onclick="crmGenerateEstimatePDF(true)" style="display:none" title="Смета со скидкой">Смета (со скидкой)</button>
@@ -927,6 +1052,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <script src="radar-gateway.js?v=20260730-9"></script>
 <script src="radar.js?v=20260730-9"></script>
 <script src="crm.js?v=20260730-9"></script>
+<script src="radar-partners.js?v=20260730-9"></script>
+<script src="radar-partners-ui.js?v=20260730-9"></script>
 <script src="radar-warehouse.js?v=20260730-9"></script>
 <script src="radar-notify.js?v=20260730-9"></script>
 <script src="radar-status.js?v=20260730-9"></script>

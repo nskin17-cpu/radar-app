@@ -569,3 +569,71 @@
   .stock-selbar-actions .btn:last-child{grid-column:1 / -1}
   .crm-bulk-row{font-size:13px;padding:7px 9px}
 }
+
+/* ── Партнёрские (комиссионные) товары ─────────────────────────────────────
+   Маркировка нейтральная: цветная точка и короткий код партнёра.
+   Название компании — только в подсказке, чтобы экран, случайно
+   повёрнутый к клиенту, не вызвал вопросов.                              */
+.pt-badge{display:inline-flex;align-items:center;justify-content:center;
+  min-width:20px;height:15px;padding:0 4px;margin-left:5px;vertical-align:middle;
+  border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:0.3px;
+  line-height:1;white-space:nowrap;cursor:default;
+  color:var(--pt,#7C5CFF);background:color-mix(in srgb,var(--pt,#7C5CFF) 14%,transparent);
+  border:0.5px solid color-mix(in srgb,var(--pt,#7C5CFF) 35%,transparent)}
+.pt-badge-dot{min-width:7px;width:7px;height:7px;padding:0;border-radius:50%;
+  background:var(--pt,#7C5CFF);border:0}
+/* Бейдж внутри поля выбора изделия: строка заказа — жёсткая сетка,
+   отдельная колонка сломала бы её на телефоне. */
+.pt-row-badge{position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  z-index:2;pointer-events:none;display:flex}
+.pt-row-badge .pt-badge{margin-left:0}
+.crm-item-pick:has(.pt-row-badge .pt-badge) input[data-name]{padding-right:34px}
+.pt-hint{font-size:10.5px;color:var(--text3);line-height:1.35;margin-top:3px}
+.pt-check{display:flex;align-items:center;gap:7px;font-size:12px;
+  color:var(--text2);cursor:pointer;margin-top:6px}
+.pt-check input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.pt-warn{padding:10px 13px;margin-bottom:12px;border-radius:var(--radius-sm);
+  font-size:12px;line-height:1.45;color:var(--amber,#B26A00);
+  background:var(--amber-dim,rgba(255,169,64,0.12));
+  border:0.5px solid rgba(255,169,64,0.32)}
+.pt-warn code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+
+/* Раздел «Взаиморасчёты» в карточке заказа */
+.pt-settle{margin-top:10px;border:0.5px solid var(--border2);
+  border-radius:var(--radius);background:var(--surface2);overflow:hidden}
+.pt-settle-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:9px 12px;font-size:12px;font-weight:700;
+  border-bottom:0.5px solid var(--border2)}
+.pt-settle-scheme{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;
+  color:var(--text2);background:var(--surface);border:0.5px solid var(--border2)}
+.pt-settle-body{padding:4px 12px 10px}
+.pt-row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:5px 0;font-size:12px;color:var(--text2);
+  border-bottom:0.5px dashed var(--border2)}
+.pt-row:last-child{border-bottom:0}
+.pt-row b{white-space:nowrap;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.pt-row.pt-row-total b{color:var(--blue);font-size:13px}
+.pt-row.pt-row-partner b{color:var(--purple,#7C5CFF)}
+.pt-sub{font-size:10.5px;color:var(--text3);font-weight:400;display:block}
+
+/* Дашборд партнёров */
+.pt-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:8px;margin-bottom:14px}
+.pt-card{padding:11px 13px;background:var(--surface);border:0.5px solid var(--border2);
+  border-radius:var(--radius)}
+.pt-card-label{font-size:10px;color:var(--text3);font-weight:600;
+  text-transform:uppercase;letter-spacing:0.4px}
+.pt-card-value{font-size:19px;font-weight:700;margin-top:4px;
+  font-variant-numeric:tabular-nums}
+.pt-card-split{margin-top:6px;font-size:11px;color:var(--text2);line-height:1.5}
+.pt-card-split span{display:flex;justify-content:space-between;gap:8px}
+.pt-card-split b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.pt-section{margin-top:14px}
+.pt-section-title{font-size:12px;font-weight:700;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.pt-empty{padding:22px;text-align:center;font-size:12px;color:var(--text3)}
+@media(max-width:768px){
+  .pt-cards{grid-template-columns:1fr 1fr}
+  .pt-card-value{font-size:17px}
+  .pt-row{font-size:13px}
+}

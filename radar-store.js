@@ -94,13 +94,22 @@
 
   // ── Единая модель заказа ─────────────────────────────────────────────────────────────────
   function normalizeItem(i) {
-    return {
+    var it = {
       name: str(i && i.name).trim(),
       category: str(i && i.category).trim(),
       qty: Math.max(0, num(i && i.qty, 0)),
       price: Math.max(0, num(i && i.price, 0)),
       setup: !(i && i.setup === false)
     };
+    // Владелец позиции — снимок на момент сохранения заказа, а не ссылка на склад.
+    // Если товар позже выкупят у партнёра, взаиморасчёты по прошлым заказам
+    // не должны задним числом обнулиться. Пустое поле = наш товар.
+    var partnerId = str(i && (i.partnerId != null ? i.partnerId : i.partner_id)).trim();
+    if (partnerId) {
+      it.ownerType = 'partner';
+      it.partnerId = partnerId;
+    }
+    return it;
   }
 
   /** Приводит запись из любого источника (Supabase, Sheets, форма, кэш) к канонической модели. */
@@ -247,7 +256,7 @@
       if (known.has(k)) out[k] = row[k];
       else if (row[k] !== undefined && row[k] !== null && row[k] !== '' && row[k] !== 0) dropped.push(k);
     });
-    if (dropped.length) console.warn('[store] в таблице ' + table + ' нет колонок: ' + dropped.join(', ') + ' — примените sql/migration-2026-07-orders.sql');
+    if (dropped.length) console.warn('[store] в таблице ' + table + ' нет колонок: ' + dropped.join(', ') + ' — примените миграции из папки sql/');
     return out;
   }
 
@@ -615,11 +624,15 @@
   async function loadStock() {
     try {
       var rows = await fetchAll('stock', '*');
+      if (rows.length && !columnCache.stock) columnCache.stock = new Set(Object.keys(rows[0]));
       var stock = rows.map(function (s) {
+        var partnerId = str(s.partner_id);
         return {
           id: str(s.id), name: str(s.name), category: str(s.category),
           price: num(s.price, 0), setupRate: num(s.setup_rate, 0),
-          qty: num(s.qty, 0), unit: str(s.unit) || 'шт'
+          qty: num(s.qty, 0), unit: str(s.unit) || 'шт',
+          ownerType: partnerId ? 'partner' : (str(s.owner_type) || 'own'),
+          partnerId: partnerId
         };
       });
       lsSet(CFG.cache.stockKey, stock);
@@ -655,11 +668,18 @@
   async function saveStockItem(item) {
     var s = sb();
     if (!s) throw new Error('Supabase не настроен');
+    var partnerId = str(item.partnerId);
     var row = {
       name: str(item.name), category: str(item.category), price: num(item.price, 0),
-      setup_rate: num(item.setupRate, 0), qty: num(item.qty, 0), unit: str(item.unit) || 'шт'
+      setup_rate: num(item.setupRate, 0), qty: num(item.qty, 0), unit: str(item.unit) || 'шт',
+      owner_type: partnerId ? 'partner' : 'own',
+      partner_id: partnerId || null
     };
     if (item.id) row.id = item.id;
+    // Пока sql/partners-1-system.sql не применён, колонок владельца ещё нет —
+    // отбрасываем их, чтобы склад продолжал сохраняться как раньше.
+    await loadColumns('stock');
+    row = filterToExistingColumns('stock', row);
     var res = await s.from('stock').upsert(row, { onConflict: item.id ? 'id' : 'name,category' }).select('*');
     if (res.error) throw new Error(res.error.message);
     if (!res.data || !res.data.length) throw new Error('Supabase не подтвердил запись позиции склада');
@@ -672,6 +692,166 @@
     if (res.error) throw new Error(res.error.message);
     return true;
   }
+  // ── Партнёрские (комиссионные) товары ────────────────────────────────────────────────────
+  // Тонкий слой доступа: вся логика распределения прибыли живёт в radar-partners.js,
+  // здесь только чтение/запись. Через outbox эти сущности не идут — их правят
+  // на рабочем месте, а не в поле, поэтому офлайн-очередь тут была бы лишней сложностью.
+  //
+  // Если sql/partners-1-system.sql ещё не применён, таблиц нет: чтение отдаёт
+  // пустой список и флаг missing, приложение продолжает работать без раздела.
+  function partnersMissing(err) {
+    var m = String((err && err.message) || err || '').toLowerCase();
+    return m.indexOf('does not exist') !== -1 || m.indexOf('schema cache') !== -1 || m.indexOf('not find the table') !== -1;
+  }
+
+  function normalizePartner(p) {
+    p = p || {};
+    var scheme = str(p.settlementScheme || p.settlement_scheme) || 'auto';
+    return {
+      id: str(p.id),
+      name: str(p.name),
+      company: str(p.company),
+      phone: str(p.phone),
+      clientId: str(p.clientId || p.client_id),
+      clientName: str(p.clientName || p.client_name),
+      serviceFeePct: num(p.serviceFeePct != null ? p.serviceFeePct : p.service_fee_pct, 0),
+      partnerSharePct: num(p.partnerSharePct != null ? p.partnerSharePct : p.partner_share_pct, 0),
+      settlementScheme: scheme === 'service_fee' || scheme === 'revenue_share' ? scheme : 'auto',
+      code: str(p.code),
+      color: str(p.color) || '#7C5CFF',
+      active: p.active !== false,
+      note: str(p.note)
+    };
+  }
+
+  function partnerToRow(p) {
+    return {
+      id: str(p.id), name: str(p.name), company: str(p.company) || null, phone: str(p.phone) || null,
+      client_id: str(p.clientId) || null, client_name: str(p.clientName) || null,
+      service_fee_pct: num(p.serviceFeePct, 0), partner_share_pct: num(p.partnerSharePct, 0),
+      settlement_scheme: str(p.settlementScheme) || 'auto',
+      code: str(p.code) || null, color: str(p.color) || '#7C5CFF',
+      active: p.active !== false, note: str(p.note) || null
+    };
+  }
+
+  async function partnerRead(table, build, order) {
+    var s = sb();
+    if (!s) return { rows: [], missing: false, error: 'Supabase не настроен' };
+    var q = s.from(table).select('*');
+    if (order) q = q.order(order.col, { ascending: order.asc !== false });
+    var res = await q;
+    if (res.error) return { rows: [], missing: partnersMissing(res.error), error: res.error.message };
+    return { rows: (res.data || []).map(build), missing: false };
+  }
+
+  async function partnerWrite(table, row) {
+    var s = sb();
+    if (!s) throw new Error('Supabase не настроен');
+    var res = await s.from(table).upsert(row, { onConflict: 'id' }).select('*');
+    if (res.error) throw new Error(partnersMissing(res.error) ? 'Раздел партнёров не установлен: примените sql/partners-1-system.sql' : res.error.message);
+    return (res.data || [])[0];
+  }
+
+  async function partnerDelete(table, id) {
+    var s = sb();
+    if (!s) throw new Error('Supabase не настроен');
+    var res = await s.from(table).delete().eq('id', str(id));
+    if (res.error) throw new Error(res.error.message);
+    return true;
+  }
+
+  async function loadPartners() {
+    var r = await partnerRead('partners', normalizePartner, { col: 'name' });
+    return { partners: r.rows, missing: r.missing, error: r.error };
+  }
+
+  async function loadPartnerSettlements() {
+    var r = await partnerRead('partner_settlements', function (x) {
+      var items = x.items;
+      if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
+      return {
+        id: str(x.id), orderId: str(x.order_id), partnerId: str(x.partner_id),
+        scheme: str(x.scheme),
+        partnerGross: num(x.partner_gross, 0), partnerNet: num(x.partner_net, 0),
+        discountPct: num(x.discount_pct, 0),
+        serviceFeePct: num(x.service_fee_pct, 0), serviceFeeAmount: num(x.service_fee_amount, 0),
+        partnerSharePct: num(x.partner_share_pct, 0),
+        partnerIncome: num(x.partner_income, 0), companyIncome: num(x.company_income, 0),
+        ownItemsTotal: num(x.own_items_total, 0),
+        status: str(x.status) || 'accrued', comment: str(x.comment),
+        items: Array.isArray(items) ? items : [],
+        calculatedAt: str(x.calculated_at) || null
+      };
+    });
+    return { settlements: r.rows, missing: r.missing, error: r.error };
+  }
+
+  async function savePartnerSettlement(x) {
+    return partnerWrite('partner_settlements', {
+      id: str(x.id), order_id: str(x.orderId), partner_id: str(x.partnerId),
+      scheme: str(x.scheme),
+      partner_gross: num(x.partnerGross, 0), partner_net: num(x.partnerNet, 0),
+      discount_pct: num(x.discountPct, 0),
+      service_fee_pct: num(x.serviceFeePct, 0), service_fee_amount: num(x.serviceFeeAmount, 0),
+      partner_share_pct: num(x.partnerSharePct, 0),
+      partner_income: num(x.partnerIncome, 0), company_income: num(x.companyIncome, 0),
+      own_items_total: num(x.ownItemsTotal, 0),
+      status: str(x.status) || 'accrued', comment: str(x.comment) || null,
+      items: Array.isArray(x.items) ? x.items : [],
+      calculated_at: nowIso()
+    });
+  }
+
+  async function loadPartnerExpenseTypes() {
+    var r = await partnerRead('partner_expense_types', function (x) {
+      return { id: str(x.id), name: str(x.name), sort: num(x.sort, 100), active: x.active !== false };
+    }, { col: 'sort' });
+    return { types: r.rows, missing: r.missing, error: r.error };
+  }
+
+  async function loadPartnerExpenses() {
+    var r = await partnerRead('partner_expenses', function (x) {
+      return {
+        id: str(x.id), partnerId: str(x.partner_id), orderId: str(x.order_id),
+        typeId: str(x.type_id) || 'other', amount: num(x.amount, 0),
+        comment: str(x.comment), employee: str(x.employee),
+        spentAt: str(x.spent_at).slice(0, 10),
+        billableTo: str(x.billable_to) || 'partner'
+      };
+    }, { col: 'spent_at', asc: false });
+    return { expenses: r.rows, missing: r.missing, error: r.error };
+  }
+
+  async function savePartnerExpense(x) {
+    return partnerWrite('partner_expenses', {
+      id: str(x.id), partner_id: str(x.partnerId), order_id: str(x.orderId) || null,
+      type_id: str(x.typeId) || 'other', amount: num(x.amount, 0),
+      comment: str(x.comment) || null, employee: str(x.employee) || null,
+      spent_at: dateOrNull(str(x.spentAt).slice(0, 10)),
+      billable_to: str(x.billableTo) || 'partner'
+    });
+  }
+
+  async function loadPartnerPayouts() {
+    var r = await partnerRead('partner_payouts', function (x) {
+      return {
+        id: str(x.id), partnerId: str(x.partner_id), amount: num(x.amount, 0),
+        paidAt: str(x.paid_at).slice(0, 10), method: str(x.method),
+        comment: str(x.comment), employee: str(x.employee)
+      };
+    }, { col: 'paid_at', asc: false });
+    return { payouts: r.rows, missing: r.missing, error: r.error };
+  }
+
+  async function savePartnerPayout(x) {
+    return partnerWrite('partner_payouts', {
+      id: str(x.id), partner_id: str(x.partnerId), amount: num(x.amount, 0),
+      paid_at: dateOrNull(str(x.paidAt).slice(0, 10)), method: str(x.method) || null,
+      comment: str(x.comment) || null, employee: str(x.employee) || null
+    });
+  }
+
   async function saveCategory(cat) {
     var s = sb();
     if (!s) throw new Error('Supabase не настроен');
@@ -1046,6 +1226,18 @@
     saveOrder: saveOrder, deleteOrder: deleteOrder,
     saveClient: saveClient, deleteClient: deleteClient,
     saveStockItem: saveStockItem, deleteStockItem: deleteStockItem, saveCategory: saveCategory,
+    // партнёрские товары и взаиморасчёты
+    normalizePartner: normalizePartner,
+    loadPartners: loadPartners,
+    savePartner: function (p) { return partnerWrite('partners', partnerToRow(p)); },
+    deletePartner: function (id) { return partnerDelete('partners', id); },
+    loadPartnerSettlements: loadPartnerSettlements, savePartnerSettlement: savePartnerSettlement,
+    deletePartnerSettlement: function (id) { return partnerDelete('partner_settlements', id); },
+    loadPartnerExpenseTypes: loadPartnerExpenseTypes,
+    loadPartnerExpenses: loadPartnerExpenses, savePartnerExpense: savePartnerExpense,
+    deletePartnerExpense: function (id) { return partnerDelete('partner_expenses', id); },
+    loadPartnerPayouts: loadPartnerPayouts, savePartnerPayout: savePartnerPayout,
+    deletePartnerPayout: function (id) { return partnerDelete('partner_payouts', id); },
     // чтение
     loadOrders: loadOrders, loadClients: loadClients, loadStock: loadStock,
     loadCategories: loadCategories, loadPricing: loadPricing,
