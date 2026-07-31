@@ -2370,11 +2370,17 @@ let crmAutosaveEnabled=false;
  */
 function crmPersistOrder(opts={}){
   if(!radarCanEdit('orders'))return null;
-  const order=crmCollectOrder();
-  if(!order.clientName)return null;
-  const isNew=!order.id;
-  if(isNew)order.id=RadarStore.makeOrderId();
-  const previous=isNew?null:crmOrders.find(o=>o.id===order.id)||null;
+  const form=crmCollectOrder();
+  if(!form.clientName)return null;
+  const isNew=!form.id;
+  if(isNew)form.id=RadarStore.makeOrderId();
+  const previous=isNew?null:crmOrders.find(o=>o.id===form.id)||null;
+  // Форма знает только свои поля. Всё остальное принадлежит заказу и обязано
+  // пережить сохранение: складское состояние (wh) — работа кладовщика, номер и
+  // дата создания — идентичность заказа, clientId — связь с карточкой клиента.
+  // Без этого слияния правка менеджера (в том числе фоновое автосохранение)
+  // стирала доску склада и перенумеровывала заказ текущим месяцем.
+  const order=previous?{...previous,...form}:form;
 
   // Открытие заказа не должно порождать запись: если ничего не изменилось,
   // автосохранению нечего делать.

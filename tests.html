@@ -37,6 +37,7 @@
 <script src="radar-partners.js"></script>
 <script src="radar-docs.js"></script>
 <script src="radar-store.js"></script>
+<script src="radar-warehouse.js"></script>
 </head>
 <body>
 <h1>Radar NR — проверка модуля заказов и смет</h1>
@@ -350,6 +351,99 @@ function testOutbox(){
   eq('очередь очищена',S.pendingCount(),0);
 }
 
+// ── 4b. Доска склада «Выдача заказов» ────────────────────────────────────────
+// Правила колонок и автосборки — чистые функции, поэтому проверяются напрямую,
+// без кликов по интерфейсу.
+function testWarehouse(){
+  const W=window.RadarWarehouse;
+  G('4б. Выдача заказов: колонки, автосборка, месяцы');
+  if(!check('модуль доски склада загружен',!!W))return;
+
+  const day=n=>{const d=new Date();d.setDate(d.getDate()+n);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+  const mk=over=>({id:'w1',orderNumber:'NR-W1',clientName:'Склад',status:'preparing',
+    paymentStatus:'pending_confirmation',startDate:day(10),endDate:day(12),
+    items:[{name:'Стул',qty:4},{name:'Стол',qty:1}],deliveryType:'pickup',
+    depositStatus:'pending',compensationAmount:0,wh:null,...over});
+  const col=o=>W.colOf(o,W.whGet(o));
+
+  // Заказ падает в «Сборку» за 3 дня и только после оплаты/подтверждения
+  eq('оплачен, выдача через 3 дня → сборка',col(mk({paymentStatus:'paid',startDate:day(3)})),'todo');
+  eq('подтверждён, выдача завтра → сборка',col(mk({paymentStatus:'confirmed',startDate:day(1)})),'todo');
+  eq('предоплачен сегодня → сборка',col(mk({paymentStatus:'prepaid',startDate:day(0)})),'todo');
+  eq('оплачен, но выдача через 4 дня → ожидают',col(mk({paymentStatus:'paid',startDate:day(4)})),'upcoming');
+  eq('срок близко, но оплаты нет → ожидают',col(mk({paymentStatus:'pending_confirmation',startDate:day(1)})),'upcoming');
+  eq('просроченный оплаченный заказ остаётся в сборке',col(mk({paymentStatus:'paid',startDate:day(-3)})),'todo');
+
+  // Статус заказа и колонка доски — одна правда в обе стороны
+  eq('менеджер поставил «В работе» → карточка в «Выдан»',col(mk({status:'in_progress'})),'issued');
+  eq('менеджер поставил «Выполнен» → карточка в «Завершён»',col(mk({status:'completed'})),'done');
+  eq('менеджер поставил «Сборка» → карточка в «Сборке»',col(mk({status:'assembly',startDate:day(40)})),'todo');
+  eq('склад собрал → «Собрано» важнее статуса CRM',col(mk({status:'preparing',wh:{state:'assembled'}})),'assembled');
+  eq('склад выдал → «Выдан»',col(mk({wh:{state:'issued'}})),'issued');
+  eq('складское «собрано» пишет в заказ статус «Сборка»',W.WH_TO_STATUS.assembled,'assembly');
+  eq('складское «выдан» пишет в заказ «В работе»',W.WH_TO_STATUS.issued,'in_progress');
+  eq('складской «возврат» пишет в заказ «Выполнен»',W.WH_TO_STATUS.returned,'completed');
+
+  // Деньги закрывает менеджер: склад лишь фиксирует факт
+  eq('возврат принят, вопросов нет → завершён',col(mk({wh:{state:'returned'}})),'done');
+  eq('возврат + залог на руках → ждёт менеджера',col(mk({wh:{state:'returned'},depositStatus:'deposited'})),'resolution');
+  eq('возврат + компенсация → ждёт менеджера',col(mk({wh:{state:'returned'},compensationAmount:3000})),'resolution');
+  eq('менеджер закрыл вопрос → завершён',
+     col(mk({wh:{state:'returned',resolvedAt:'2026-07-01T10:00:00Z'},depositStatus:'deposited'})),'done');
+
+  // Куда везти — берётся из карточки заказа, второй копии адреса нет
+  eq('самовывоз',W.deliveryOf(mk({})).label,'Самовывоз');
+  eq('доставка помечена',W.deliveryOf(mk({deliveryType:'delivery',deliveryAddress:'Ленина 5'})).label,'Доставка');
+  eq('адрес с загородом и проносом',
+     W.deliveryOf(mk({deliveryType:'delivery',deliveryAddress:'Ленина 5',deliveryZone:'outside',
+       deliveryKm:12,carryFloor:'yes'})).address,'Ленина 5, за город 12 км, нужен пронос');
+
+  // Месяцы: полная история, ничего не теряется на стыке
+  const now=new Date(), thisM=W.monthKeyOf(now);
+  const prevD=new Date(now.getFullYear(),now.getMonth()-1,15);
+  const prevM=W.monthKeyOf(prevD);
+  const prevIso=prevD.getFullYear()+'-'+String(prevD.getMonth()+1).padStart(2,'0')+'-15';
+  check('завершённый заказ виден в своём месяце',
+        W.inMonth(mk({startDate:prevIso,status:'completed',wh:{state:'returned'}}),prevM));
+  check('и не засоряет текущий месяц',
+        !W.inMonth(mk({startDate:prevIso,status:'completed',wh:{state:'returned'}}),thisM));
+  check('невыданный заказ прошлого месяца остаётся на доске (просрочка не теряется)',
+        W.inMonth(mk({startDate:prevIso,status:'in_progress'}),thisM));
+  const nextD=new Date(now.getFullYear(),now.getMonth()+1,1);
+  const nextIso=nextD.getFullYear()+'-'+String(nextD.getMonth()+1).padStart(2,'0')+'-01';
+  const daysToNext=Math.round((nextD-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5);
+  check('заказ на 1-е число видно в конце месяца, когда пора собирать',
+        W.inMonth(mk({startDate:nextIso,paymentStatus:'paid'}),thisM)===(daysToNext<=3),
+        'дней до 1-го: '+daysToNext);
+  check('неоплаченный заказ следующего месяца в текущий не лезет',
+        !W.inMonth(mk({startDate:nextIso,paymentStatus:'pending_confirmation'}),thisM));
+
+  // Складское состояние переживает сохранение — первопричина «сборка сбрасывается»
+  G('4в. Складское состояние переживает сохранение');
+  const wh={state:'assembled',checklist:{'0':true},notes:[{at:'2026-07-30T09:00:00Z',user:'sklad',text:'нет ножки'}],
+    assembledAt:'2026-07-30T09:05:00Z',assembledBy:'sklad'};
+  const stored=S.normalizeOrder({id:'w9',orderNumber:'NR-202601-0001',clientName:'Настя',
+    createdAt:'2026-01-05T00:00:00Z',startDate:day(1),items:[{name:'Стул',qty:4}],wh:wh});
+  eq('чек-лист сохранён',S.normalizeOrder(stored).wh.checklist['0'],true);
+  eq('комментарий сохранён',S.normalizeOrder(stored).wh.notes[0].text,'нет ножки');
+  const round=S.normalizeOrder(S.orderToRow(stored));
+  eq('круг объект → строка БД → объект: состояние',round.wh.state,'assembled');
+  eq('круг объект → строка БД → объект: чек-лист',round.wh.checklist['0'],true);
+  eq('wh из БД строкой JSON разбирается',S.normalizeOrder({id:'x',clientName:'x',wh:JSON.stringify(wh)}).wh.state,'assembled');
+  eq('прогресс сборки',W.checklistProgress(stored,W.whGet(stored)).pct,100);
+
+  // Форма заказа не знает про склад — без слияния она стирала его работу
+  const form={id:'w9',clientName:'Настя Иванова',items:[]};
+  check('без слияния состояние склада терялось (первопричина)',S.normalizeOrder(form).wh===null);
+  const merged=S.normalizeOrder({...stored,...form});
+  eq('со слиянием чек-лист выжил',merged.wh.checklist['0'],true);
+  eq('со слиянием комментарий выжил',merged.wh.notes.length,1);
+  eq('со слиянием номер заказа не перевыпущен',merged.orderNumber,'NR-202601-0001');
+  eq('со слиянием дата создания не сброшена',String(merged.createdAt).slice(0,10),'2026-01-05');
+  eq('правка менеджера при этом применилась',merged.clientName,'Настя Иванова');
+}
+
 // ── 5. Живой Supabase: полный жизненный цикл ─────────────────────────────────
 async function testSupabase(){
   G('5. Supabase — создание, чтение, правка, удаление');
@@ -611,6 +705,7 @@ async function testPdfText(){
     testPartnerOrders();
     testModel();
     testOutbox();
+    testWarehouse();
     await testSupabase();
     await testOffline();
     await testBigOrder();

@@ -398,8 +398,14 @@
 }
 
 /* ── Выдача заказов: доска склада (Сборка → Собрано → Выдан → Вернули) ────── */
-.wh-board{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:10px;align-items:start}
+.wh-board{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:10px;align-items:start}
+@media(max-width:1480px) and (min-width:1281px){.wh-board{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:1280px) and (min-width:901px){.wh-board{grid-template-columns:repeat(3,1fr)}}
+.wh-toolbar{display:flex;gap:8px;align-items:center;flex:0 0 auto}
+.wh-month,.wh-search{height:30px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);
+  border-radius:var(--radius-sm);padding:0 9px;font-size:12.5px;font-family:inherit}
+.wh-search{width:190px}
+.wh-search::-webkit-search-cancel-button{cursor:pointer}
 .wh-col{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
 .wh-col.wh-drop{outline:2px dashed var(--blue);outline-offset:-2px;background:var(--blue-dim)}
 .wh-col-head{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text2);padding:2px 4px;line-height:1.25}
@@ -416,6 +422,11 @@
 .wh-b-green{background:var(--green-dim);color:var(--green)}
 .wh-b-blue{background:var(--blue-dim);color:var(--blue)}
 .wh-b-grey{background:var(--surface3);color:var(--text2)}
+.wh-addr{font-size:11px;color:var(--text2);margin:6px 0 0;line-height:1.35;overflow-wrap:anywhere}
+.wh-ret-row{display:flex;align-items:center;gap:8px;padding:6px 9px;background:var(--surface2);border-radius:7px;font-size:12.5px}
+.wh-ret-row>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.wh-ret-row select{flex:none;width:120px;height:28px;border:0.5px solid var(--border2);background:var(--surface);
+  color:var(--text);border-radius:6px;font-size:12px;font-family:inherit;padding:0 6px}
 .wh-items{font-size:11.5px;color:var(--text2);display:flex;flex-direction:column;gap:2px;margin:7px 0 0;line-height:1.35}
 .wh-more{color:var(--text3);font-size:10.5px}
 .wh-progress-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:10.5px;color:var(--text2)}
@@ -452,6 +463,10 @@
   .wh-col-head>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wh-actions .btn{padding:10px 8px;font-size:13px}
   .wh-desc-more{display:none}
+  /* Телефон: месяц и «Обновить» в одну строку, поиск — во всю ширину под ними */
+  .wh-toolbar{width:100%;flex-wrap:wrap}
+  .wh-month{flex:none;width:150px}
+  .wh-search{order:3;flex:none;width:100%}
   .wh-tabs{display:flex;gap:6px;overflow-x:auto;margin:0 -12px 10px;padding:0 12px 2px;
     -webkit-overflow-scrolling:touch;scrollbar-width:none}
   .wh-tabs::-webkit-scrollbar{display:none}

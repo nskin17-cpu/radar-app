@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260731-1">
-<link rel="stylesheet" href="radar-ui.css?v=20260731-1">
+<link rel="stylesheet" href="styles.css?v=20260731-2">
+<link rel="stylesheet" href="radar-ui.css?v=20260731-2">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260730-9';
+window.RADAR_BUILD='20260731-2';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -544,7 +544,11 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div id="page-warehouse" class="page">
       <div class="page-header">
         <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат → Завершение.<span class="wh-desc-more"> В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты; залоги и компенсации закрывает менеджер</span></div></div>
-        <button class="btn btn-sm btn-secondary" id="whRefreshBtn" onclick="whRefresh()">Обновить</button>
+        <div class="wh-toolbar">
+          <select id="whMonth" class="wh-month" onchange="whSetMonth(this.value)"></select>
+          <input type="search" id="whSearch" class="wh-search" placeholder="Номер или заказчик" oninput="whSetSearch(this.value)">
+          <button class="btn btn-sm btn-secondary" id="whRefreshBtn" onclick="whRefresh()">Обновить</button>
+        </div>
       </div>
       <div id="whMigrationWarn" style="display:none" class="wh-warn">В базе нет колонки «wh» — выполните sql/security-5-warehouse.sql, иначе состояние доски не сохранится.</div>
       <div class="wh-tabs" id="whTabs"></div>
@@ -983,7 +987,10 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <button type="button" class="crm-modal-close" onclick="closeModal('whCardModal',true)" aria-label="Закрыть">✕</button>
     </div>
     <div id="whCardMeta"></div>
-    <div class="modal-section">Состав и сборка</div>
+    <div class="modal-section" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span>Состав и сборка <span id="whCardProgress" style="color:var(--text2);font-weight:400"></span></span>
+      <button type="button" id="whCheckAllBtn" class="btn btn-sm btn-secondary" style="padding:3px 10px;font-size:11px;display:none">Отметить всё</button>
+    </div>
     <div id="whCardItems" class="wh-checklist"></div>
     <div class="modal-section">История</div>
     <div id="whCardTimeline" class="wh-timeline"></div>
@@ -1044,19 +1051,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260731-1"></script>
-<script src="radar-pricing.js?v=20260731-1"></script>
-<script src="radar-docs.js?v=20260731-1"></script>
-<script src="supabase.js?v=20260731-1"></script>
-<script src="radar-store.js?v=20260731-1"></script>
-<script src="radar-gateway.js?v=20260731-1"></script>
-<script src="radar.js?v=20260731-1"></script>
-<script src="crm.js?v=20260731-1"></script>
-<script src="radar-partners.js?v=20260731-1"></script>
-<script src="radar-partners-ui.js?v=20260731-1"></script>
-<script src="radar-warehouse.js?v=20260731-1"></script>
-<script src="radar-notify.js?v=20260731-1"></script>
-<script src="radar-status.js?v=20260731-1"></script>
+<script src="radar-config.js?v=20260731-2"></script>
+<script src="radar-pricing.js?v=20260731-2"></script>
+<script src="radar-docs.js?v=20260731-2"></script>
+<script src="supabase.js?v=20260731-2"></script>
+<script src="radar-store.js?v=20260731-2"></script>
+<script src="radar-gateway.js?v=20260731-2"></script>
+<script src="radar.js?v=20260731-2"></script>
+<script src="crm.js?v=20260731-2"></script>
+<script src="radar-partners.js?v=20260731-2"></script>
+<script src="radar-partners-ui.js?v=20260731-2"></script>
+<script src="radar-warehouse.js?v=20260731-2"></script>
+<script src="radar-notify.js?v=20260731-2"></script>
+<script src="radar-status.js?v=20260731-2"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
