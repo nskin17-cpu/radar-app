@@ -398,9 +398,13 @@
 }
 
 /* ── Выдача заказов: доска склада (Сборка → Собрано → Выдан → Вернули) ────── */
-.wh-board{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:10px;align-items:start}
-@media(max-width:1480px) and (min-width:1281px){.wh-board{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:1280px) and (min-width:901px){.wh-board{grid-template-columns:repeat(3,1fr)}}
+/* Этапы читаются слева направо, поэтому доска не переносится на вторую строку:
+   на узком экране она скроллится вбок, сохраняя порядок Сборка → … → Завершён. */
+.wh-board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(210px,1fr);gap:10px;
+  align-items:start;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:8px}
+.wh-board::-webkit-scrollbar{height:8px}
+.wh-board::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.wh-board::-webkit-scrollbar-track{background:transparent}
 .wh-toolbar{display:flex;gap:8px;align-items:center;flex:0 0 auto}
 .wh-month,.wh-search{height:30px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);
   border-radius:var(--radius-sm);padding:0 9px;font-size:12.5px;font-family:inherit}
