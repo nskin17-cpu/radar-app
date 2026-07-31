@@ -34,6 +34,7 @@
 </script>
 <script src="radar-config.js"></script>
 <script src="radar-pricing.js"></script>
+<script src="radar-partners.js"></script>
 <script src="radar-docs.js"></script>
 <script src="radar-store.js"></script>
 </head>
@@ -193,6 +194,92 @@ function testPricing(){
   const estNo=P.calcEstimate({items,discount:20,deliveryType:'delivery',deliveryZone:'city',
     deliveryCost:7200,setupCost:2150,extraChargeAmount:0,paymentStatus:'confirmed',paidAmount:0},pricing,false);
   eq('смета без скидки — полная цена',estNo.items[0].unitPrice,720);
+}
+
+// ── 1b. Собственный заказ партнёра ───────────────────────────────────────────
+// Изделия партнёра в его собственном заказе клиент не оплачивает: в сумму
+// и в клиентские документы они не входят, но остаются полноценными позициями
+// заказа — сетап, склад и база сервисного сбора считают их по реальной цене.
+function testPartnerOrders(){
+  G('1b. Собственный заказ партнёра');
+  const PT=window.RadarPartners;
+  const savedPartners=PT.state.partners;
+  try{
+    PT.state.partners=[{id:'test-af',name:'Тестовый Партнёр',company:'Тест-Флор',
+      code:'TF',color:'#C2185B',serviceFeePct:5,partnerSharePct:50}];
+    const pricing={deliveryBaseCity:7200,deliveryPerKm:110,setupMin:2500,setupGlass:55,setupChairModern:60};
+    const HER={name:'Бокал партнёра',category:'Бокалы',qty:20,price:100,partnerId:'test-af',ownerType:'partner',setup:true,setupRate:55};
+    const OUR={name:'Стул наш',category:'Стулья',qty:10,price:500,ownerType:'own',setup:true,setupRate:60};
+    const mk=(o)=>({id:'T1',deliveryType:'pickup',discount:0,...o});
+    const her=(o)=>mk({clientName:'Тестовый Партнёр',...o});
+    const cli=(o)=>mk({clientName:'Сторонний Клиент',...o});
+    const calc=o=>P.calcOrder({order:o,items:o.items,discount:o.discount,pricing});
+    const settle=(o,c)=>PT.calcOrderSettlements({order:o,calc:c,partners:PT.state.partners,stock:[]});
+    const printed=c=>c.items.filter(i=>i.billable!==false);
+
+    // Обычный заказ без партнёрских позиций — ничего не поменялось
+    let o=cli({items:[OUR]}),c=calc(o);
+    eq('обычный заказ: сумма товаров',c.itemsGross,5000);
+    check('обычный заказ: все позиции оплачиваемые',c.items.every(i=>i.billable));
+    eq('обычный заказ: взаиморасчётов нет',settle(o,c).rows.length,0);
+
+    // Заказ стороннего клиента: партнёрские позиции оплачиваются как обычные
+    o=cli({items:[OUR,HER]});c=calc(o);
+    check('заказ клиента: партнёрская позиция оплачивается',c.items[1].billable===true);
+    eq('заказ клиента: сумма товаров',c.itemsGross,7000);
+    eq('заказ клиента: обе строки в документе',printed(c).length,2);
+    let r=settle(o,c).rows[0];
+    eq('заказ клиента: схема',r.scheme,'revenue_share');
+    eq('заказ клиента: доход партнёра 50%',r.partnerIncome,1000);
+    eq('заказ клиента: доход NANDRENT 50%',r.companyIncome,1000);
+
+    // Собственный заказ партнёра: только его позиции
+    o=her({items:[HER]});c=calc(o);
+    check('свой заказ: позиция неоплачиваемая',c.items[0].billable===false);
+    eq('свой заказ: реальная цена сохранена',c.items[0].lineTotal,2000);
+    eq('свой заказ: сумма товаров',c.itemsGross,0);
+    eq('свой заказ: сетап считается по реальным ставкам',c.setupCost,2500);
+    eq('свой заказ: итог = только услуги',c.orderAmount,2500);
+    eq('свой заказ: в документе строк нет',printed(c).length,0);
+    r=settle(o,c).rows[0];
+    eq('свой заказ: схема',r.scheme,'service_fee');
+    eq('свой заказ: сбор 5% от полной цены',r.serviceFeeAmount,100);
+
+    // Смешанный состав
+    o=her({items:[OUR,HER]});c=calc(o);
+    eq('смешанный: платим только за наши',c.itemsGross,5000);
+    eq('смешанный: в документ идут только наши',printed(c).length,1);
+    eq('смешанный: сетап от всех позиций',c.setupCost,2500);
+    r=settle(o,c).rows[0];
+    eq('смешанный: база сбора — полная цена партнёрских',r.partnerGross,2000);
+    eq('смешанный: наши товары в заказе',r.ownItemsTotal,5000);
+
+    // Скидка бьёт только по нашим позициям, на сервисный сбор не влияет
+    o=her({items:[OUR,HER],discount:20});c=calc(o);
+    eq('со скидкой: скидка только с наших',c.discountAmount,1000);
+    eq('со скидкой: товары со скидкой',c.itemsTotal,4000);
+    eq('со скидкой: сбор не изменился',settle(o,c).rows[0].serviceFeeAmount,100);
+
+    // Смета и акт строятся из того же расчёта
+    o=her({items:[OUR,HER]});
+    const est=P.calcEstimate(o,pricing,false);
+    eq('смета: одна строка',printed(est).length,1);
+    check('смета: партнёрских позиций нет',!printed(est).some(i=>i.name===HER.name));
+    eq('смета: сумма товаров',est.itemsGross,5000);
+    eq('смета: сетап напечатан',est.setupCost,2500);
+    eq('растровый движок печатает то же',PT.billableItems(o.items,o).length,1);
+
+    // Сетап не зависит от того, кому принадлежат позиции
+    const many={...HER,qty:100};
+    eq('сетап: свой заказ',calc(her({items:[many]})).setupCost,5500);
+    eq('сетап: заказ клиента',calc(cli({items:[many]})).setupCost,5500);
+
+    // Партнёры не загрузились — считаем как раньше
+    PT.state.partners=[];
+    eq('без загруженных партнёров поведение прежнее',calc(her({items:[OUR,HER]})).itemsGross,7000);
+  }finally{
+    PT.state.partners=savedPartners;
+  }
 }
 
 // ── 2. Модель заказа ─────────────────────────────────────────────────────────
@@ -521,6 +608,7 @@ async function testPdfText(){
   const sum=document.getElementById('summary');
   try{
     testPricing();
+    testPartnerOrders();
     testModel();
     testOutbox();
     await testSupabase();

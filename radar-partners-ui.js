@@ -44,7 +44,7 @@
     var order, calc;
     try {
       order = crmCollectOrder();
-      calc = RadarPricing.calcOrder({ items: order.items, discount: order.discount, pricing: I.currentPricing() });
+      calc = RadarPricing.calcOrder({ order: order, items: order.items, discount: order.discount, pricing: I.currentPricing() });
     } catch (e) { host.innerHTML = ''; return; }
 
     var orderId = str($('crmOrderId') && $('crmOrderId').value);
@@ -72,6 +72,7 @@
       if (isFee) {
         html += row('Сервисный сбор NANDRENT', fP(r.serviceFeeAmount),
           r.serviceFeePct + '% от полной стоимости — скидка не учитывается');
+        html += '<div class="pt-hint" style="margin:2px 0 6px">Свои изделия партнёр не арендует: в составе заказа они показаны как 0 ₽ и не печатаются в смете и акте. На складе, в сетапе и в статистике выдач они учитываются полностью.</div>';
       } else {
         html += row('Распределение прибыли', r.partnerSharePct + ' / ' + money(100 - r.partnerSharePct),
           'от суммы после скидки клиента');

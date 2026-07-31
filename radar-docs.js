@@ -129,6 +129,16 @@
     return { table: { widths: ['*', '*'], body: body }, layout: META_LAYOUT, margin: [0, 0, 0, 4] };
   }
 
+  /**
+   * Позиции для клиента. Неоплачиваемые строки (billable===false — изделия
+   * партнёра в его собственном заказе) в документ не попадают: клиент за них
+   * не платит, и в итогах расчёта их тоже нет. В заказе стороннего клиента
+   * партнёрские позиции печатаются как обычные.
+   */
+  function clientItems(calc) {
+    return (calc && calc.items || []).filter(function (i) { return i.billable !== false; });
+  }
+
   // ── Смета ────────────────────────────────────────────────────────────────────────────────
   function buildEstimateDoc(order, calc, opts) {
     opts = opts || {};
@@ -144,7 +154,7 @@
       { text: 'Сумма', fontSize: 7, characterSpacing: 1.2, color: '#999999', alignment: 'right' }
     ]];
 
-    calc.items.forEach(function (i) {
+    clientItems(calc).forEach(function (i) {
       body.push([
         { text: displayName(i), fontSize: 9.5, color: INK },
         { text: n(i.qty), fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
@@ -344,7 +354,7 @@
       { text: 'Получено', fontSize: 7, characterSpacing: 1.2, color: '#999999', alignment: 'right' },
       { text: 'Возвращено', fontSize: 7, characterSpacing: 1.2, color: '#999999', alignment: 'right' }
     ]];
-    calc.items.forEach(function (i) {
+    clientItems(calc).forEach(function (i) {
       body.push([
         { text: displayName(i), fontSize: 9.5, color: INK },
         { text: n(i.qty) + ' шт', fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },

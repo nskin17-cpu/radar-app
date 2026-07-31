@@ -54,6 +54,28 @@
     return 0;
   }
 
+  /**
+   * Оплачиваемость позиции.
+   *
+   * Позиция может присутствовать в заказе полностью — склад, сетап, аналитика,
+   * история, бронь — и при этом не входить в сумму к оплате и в клиентские
+   * документы. Это не «скрытие» позиции: её цена остаётся реальной, обнуляется
+   * только то, что предъявляется клиенту.
+   *
+   * Сам движок цен не знает, почему позиция неоплачиваемая: правило
+   * подключается снаружи через setBillingPolicy (сейчас — из radar-partners.js,
+   * для собственных заказов партнёра). Поэтому новые схемы владения
+   * не потребуют правок здесь.
+   */
+  var billingPolicy = null;
+  function setBillingPolicy(fn) { billingPolicy = typeof fn === 'function' ? fn : null; }
+  function isBillable(item, ctx) {
+    if (item && item.billable === false) return false;
+    if (!billingPolicy) return true;
+    // Расчёт заказа не должен падать из-за внешней политики.
+    try { return billingPolicy(item, ctx) !== false; } catch (e) { return true; }
+  }
+
   function calcDelivery(input, pricing) {
     var p = mergePricing(pricing);
     if (input.deliveryType !== 'delivery') return 0;
@@ -105,11 +127,14 @@
         setup: setupOn,
         setupRate: rate,
         lineTotal: money(price * qty),
-        lineSetup: setupOn ? money(rate * qty) : 0
+        lineSetup: setupOn ? money(rate * qty) : 0,
+        billable: isBillable(i, input)
       };
     });
 
-    var itemsGross = money(items.reduce(function (s, i) { return s + i.lineTotal; }, 0));
+    // Неоплачиваемые позиции остаются в расчёте с реальной ценой (сетап,
+    // аналитика, база сервисного сбора), но в сумму товаров не входят.
+    var itemsGross = money(items.reduce(function (s, i) { return i.billable ? s + i.lineTotal : s; }, 0));
     var discountPct = Math.min(100, Math.max(0, num(input.discount, 0)));
     var discountAmount = money(itemsGross * discountPct / 100);
 
@@ -164,6 +189,7 @@
    */
   function calcEstimate(order, pricing, withDiscount) {
     var base = {
+      order: order,          // контекст заказа нужен политике оплачиваемости
       items: order.items,
       pricing: pricing,
       discount: withDiscount ? order.discount : 0,
@@ -198,6 +224,7 @@
     setupRateFor: setupRateFor,
     calcDelivery: calcDelivery,
     calcSetup: calcSetup,
+    setBillingPolicy: setBillingPolicy,
     calcOrder: calcOrder,
     calcEstimate: calcEstimate
   };

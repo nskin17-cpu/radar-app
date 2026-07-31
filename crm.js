@@ -2278,16 +2278,36 @@ function crmCalcTotal(){
   crmScheduleAutosave();
 }
 
-/** Подсказка суммы по каждой строке — видно, из чего складывается итог. */
+/**
+ * Подсказка суммы по каждой строке — видно, из чего складывается итог.
+ * Неоплачиваемые строки (изделия партнёра в его собственном заказе) показываем
+ * нулём: клиент за них не платит. Реальная цена никуда не делась — она видна
+ * в подсказке и по ней считается сервисный сбор.
+ */
 function crmRenderItemLineTotals(calc){
   const rows=document.getElementById('crmItemsList')?.querySelectorAll('[data-qty]')||[];
   rows.forEach((q,ix)=>{
     const span=q.parentElement.querySelector('span[data-price]');
     const line=calc.items[ix];
     if(!span||!line)return;
+    if(line.billable===false){
+      span.textContent='0₽';
+      span.style.color='var(--text3)';
+      span.title=`Изделие партнёра${crmItemPartnerName(q.parentElement)} — в сумму заказа и в документы клиента не входит. Собственная цена ${fN(line.price)}₽ × ${line.qty}, по ней считается сервисный сбор.`;
+      return;
+    }
+    span.style.color='';
     span.textContent=line.lineTotal?fN(line.lineTotal)+'₽':'';
     span.title=line.price?`${fN(line.price)}₽ × ${line.qty}`:'';
   });
+}
+/** Имя партнёра строки — для подсказки. Пустая строка, если владелец не определён. */
+function crmItemPartnerName(row){
+  try{
+    const pid=row.querySelector('[data-name]')?.dataset.itemPartner||'';
+    const p=pid&&RadarPartners.partnerById(pid);
+    return p?' '+(p.company||p.name):'';
+  }catch(e){return ''}
 }
 function crmSyncPaidAndRemaining(){
   const amountEl=document.getElementById('crmAmount');
@@ -2566,7 +2586,17 @@ function crmApplyEstimatePdfLink(pdf){
   // Large clickable area covering bottom half of last page where "Условия работы" block lands.
   pdf.link(10, 180, 190, 100, { url:'https://nandrent.ru/uslovia' });
 }
+/**
+ * Позиции для клиентского документа в растровом движке.
+ * Тот же отбор, что и в RadarDocs: изделия партнёра в его собственном заказе
+ * клиент не оплачивает и в смете/акте не видит.
+ */
+function crmDocItems(d){
+  try{return window.RadarPartners?RadarPartners.billableItems(d.items,d):d.items}
+  catch(e){return d.items}
+}
 function crmBuildEstimateHTML(d,withDiscount){
+  d={...d,items:crmDocItems(d)};
   const isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,deliveryCost,discountPct,depositAmt,carryFloor,deliveryZone,deliveryKm,items,manualOrderAmount,manualItemsTotal,extraChargeAmount,extraChargeNote}=d;
   const calcItemsTotal=items.reduce((s,i)=>s+(Number(i.price)*Number(i.qty)),0);
@@ -2710,6 +2740,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   return pages.join('');
 }
 function crmBuildActHTML(d){
+  d={...d,items:crmDocItems(d)};
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
   const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
   const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+esc(deliveryAddress||'—');

@@ -80,6 +80,32 @@
     return s ? str(s.partnerId) : '';
   }
 
+  /**
+   * Оплачивает ли клиент эту позицию.
+   *
+   * Единственный случай, когда нет, — собственный заказ партнёра (service_fee):
+   * свои изделия партнёр у нас не арендует, с них берётся только сервисный сбор.
+   * В заказе стороннего клиента партнёрские товары оплачиваются как обычно.
+   *
+   * ВАЖНО: «неоплачиваемая» ≠ «скрытая». Позиция остаётся полноценной частью
+   * заказа: сборка на складе, выдача и возврат, занятость, статистика выдач,
+   * сетап и база сервисного сбора считают её по реальной цене. Обнуляется
+   * только сумма к оплате и строка в клиентских документах.
+   */
+  function isBillableItem(item, order) {
+    if (!order) return true;
+    var pid = ownerOf(item, currentStockIndex());
+    if (!pid) return true;
+    var p = partnerById(pid);
+    if (!p) return true;
+    return resolveScheme(p, order) !== 'service_fee';
+  }
+
+  /** Позиции, которые видит клиент: для смет, актов и КП. */
+  function billableItems(items, order) {
+    return (items || []).filter(function (i) { return isBillableItem(i, order); });
+  }
+
   function buildStockIndex(stock) {
     var idx = {};
     (stock || []).forEach(function (s) {
@@ -187,7 +213,7 @@
   function orderSummary(order, ctx) {
     var calc = ctx && ctx.calc;
     if (!calc) {
-      try { calc = RadarPricing.calcOrder({ items: order.items, discount: order.discount, pricing: (ctx && ctx.pricing) || {} }); }
+      try { calc = RadarPricing.calcOrder({ order: order, items: order.items, discount: order.discount, pricing: (ctx && ctx.pricing) || {} }); }
       catch (e) { calc = {}; }
     }
     return calcOrderSettlements({ order: order, calc: calc, partners: state.partners, stock: (ctx && ctx.stock) || currentStock() });
@@ -309,7 +335,7 @@
       if (!state.partners.length) return null;
       if (!state.loaded) await load();
 
-      var calc = RadarPricing.calcOrder({ items: order.items, discount: order.discount, pricing: currentPricing() });
+      var calc = RadarPricing.calcOrder({ order: order, items: order.items, discount: order.discount, pricing: currentPricing() });
       var res = calcOrderSettlements({ order: order, calc: calc, partners: state.partners, stock: currentStock() });
       var existing = state.settlements.filter(function (s) { return s.orderId === order.id; });
       var keepIds = {};
@@ -499,11 +525,22 @@
     };
   }
 
+  // Движок цен спрашивает про каждую позицию, оплачивает ли её клиент.
+  // Регистрируем правило один раз — дальше все расчёты (форма заказа, список,
+  // смета, акт) автоматически учитывают собственные заказы партнёров.
+  if (window.RadarPricing && RadarPricing.setBillingPolicy) {
+    RadarPricing.setBillingPolicy(function (item, ctx) {
+      return isBillableItem(item, ctx && (ctx.order || ctx));
+    });
+  }
+
   window.RadarPartners = {
     // чистый расчёт
     calcOrderSettlements: calcOrderSettlements,
     resolveScheme: resolveScheme,
     isPartnerOwnOrder: isPartnerOwnOrder,
+    isBillableItem: isBillableItem,
+    billableItems: billableItems,
     ownerOf: ownerOf,
     buildStockIndex: buildStockIndex,
     SCHEME_LABEL: SCHEME_LABEL,
