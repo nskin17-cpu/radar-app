@@ -29,14 +29,37 @@
      не пришёл (сбой сети ровно в момент выкладки новой версии, закешированная
      неудача), браузер молча рисовал бы окно заказа голой разметкой. Тогда
      грузим тот же файл по адресу без версии — вёрстка остаётся на месте. -->
-<link rel="stylesheet" href="styles.css?v=20260825-3" onerror="this.onerror=null;this.href='styles.css'">
-<link rel="stylesheet" href="radar-ui.css?v=20260825-3" onerror="this.onerror=null;this.href='radar-ui.css'">
+<link rel="stylesheet" href="styles.css?v=20260825-4" onerror="this.onerror=null;this.href='styles.css'">
+<link rel="stylesheet" href="radar-ui.css?v=20260825-4" onerror="this.onerror=null;this.href='radar-ui.css'">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260825-3';
+window.RADAR_BUILD='20260825-4';
 console.log('[Radar] build',window.RADAR_BUILD);
+// ── Защита от застревания на старой сборке ──────────────────────────────────
+// GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
+// показывает ПРОШЛУЮ страницу — а она тянет скрипты по прошлым ?v=, то есть
+// приложение работает на старом коде. Со стороны это выглядит как «починенная
+// ошибка вернулась»: суммы снова не считаются, вёрстка снова едет.
+// Поэтому спрашиваем сервер, какая сборка актуальна, и уходим на неё.
+// Перезагрузка не больше одной на сессию (ключ по своей сборке) — если сервер
+// почему-то продолжит отдавать другое, второй раз мы уже не пойдём, петли нет.
+(function(){
+  if(typeof fetch!=='function')return;
+  var once='radar.freshcheck.'+window.RADAR_BUILD;
+  try{ if(sessionStorage.getItem(once))return; }catch(e){ return; }
+  fetch('index.html?fresh='+Date.now(),{cache:'no-store'})
+    .then(function(r){ return r.ok?r.text():''; })
+    .then(function(html){
+      var m=html.match(/RADAR_BUILD='([^']+)'/);
+      if(!m||m[1]===window.RADAR_BUILD)return;
+      console.log('[Radar] на сервере сборка',m[1],'— перезагружаюсь');
+      try{ sessionStorage.setItem(once,'1'); }catch(e){}
+      location.replace(location.pathname+'?b='+encodeURIComponent(m[1]));
+    })
+    .catch(function(){});
+})();
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
 window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
@@ -1058,19 +1081,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260825-3"></script>
-<script src="radar-pricing.js?v=20260825-3"></script>
-<script src="radar-docs.js?v=20260825-3"></script>
-<script src="supabase.js?v=20260825-3"></script>
-<script src="radar-store.js?v=20260825-3"></script>
-<script src="radar-gateway.js?v=20260825-3"></script>
-<script src="radar.js?v=20260825-3"></script>
-<script src="crm.js?v=20260825-3"></script>
-<script src="radar-partners.js?v=20260825-3"></script>
-<script src="radar-partners-ui.js?v=20260825-3"></script>
-<script src="radar-warehouse.js?v=20260825-3"></script>
-<script src="radar-notify.js?v=20260825-3"></script>
-<script src="radar-status.js?v=20260825-3"></script>
+<script src="radar-config.js?v=20260825-4"></script>
+<script src="radar-pricing.js?v=20260825-4"></script>
+<script src="radar-docs.js?v=20260825-4"></script>
+<script src="supabase.js?v=20260825-4"></script>
+<script src="radar-store.js?v=20260825-4"></script>
+<script src="radar-gateway.js?v=20260825-4"></script>
+<script src="radar.js?v=20260825-4"></script>
+<script src="crm.js?v=20260825-4"></script>
+<script src="radar-partners.js?v=20260825-4"></script>
+<script src="radar-partners-ui.js?v=20260825-4"></script>
+<script src="radar-warehouse.js?v=20260825-4"></script>
+<script src="radar-notify.js?v=20260825-4"></script>
+<script src="radar-status.js?v=20260825-4"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
