@@ -542,8 +542,28 @@ function crmFilteredOrders(){
 const crmSL={preparing:'Подготовка',assembly:'Сборка',in_progress:'В работе',completed:'Выполнен'};
 const crmPL={pending_confirmation:'На подтверждении',confirmed:'Подтвержден',prepaid:'Предоплата',paid:'Оплачен',paid_cash:'Оплачен наличными'};
 const crmPaidStatuses=new Set(['paid','paid_cash']);
+/**
+ * Годы в фильтре списка заказов — из самих заказов, а не из жёсткого списка.
+ * Раньше <option> были вписаны в index.html (2023–2026), и заказ на 2027-й год
+ * сохранялся, но показать его было нечем: год отсутствовал в фильтре.
+ *
+ * Текущий год есть в списке всегда — даже когда заказов на него ещё нет.
+ */
+function crmFillYearFilterOptions(){
+  const sel=document.getElementById('crmYearFilter');
+  if(!sel)return;
+  const nowY=new Date().getFullYear();
+  const years=[...new Set([nowY,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])]
+    .filter(y=>y>2020).sort((a,b)=>b-a);
+  // Выбранный год мог исчезнуть (удалили последний заказ того года) — возвращаемся к текущему.
+  if(!years.includes(crmYearFilter))crmYearFilter=nowY;
+  const html=years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  if(sel.innerHTML!==html)sel.innerHTML=html;
+  sel.value=String(crmYearFilter);
+}
 function crmRenderOrders(){
   const t=document.getElementById('crmOrdersTable');if(!t)return;
+  crmFillYearFilterOptions();
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
   const isMobile=window.innerWidth<=768;
