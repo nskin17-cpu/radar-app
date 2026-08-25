@@ -2011,7 +2011,8 @@ function crmItemMatches(query,cat){
 }
 
 /**
- * Цена и ставка сетапа в подписях строки — из data-атрибутов поля.
+ * Цена и ставка сетапа в подписях строки — из data-атрибутов поля
+ * (data-item-price, data-item-rate; их же читает crmGetItems).
  * Галочку «Сетап» здесь НЕ трогаем: она меняется только при смене изделия
  * (crmSetupFlagForRate), иначе набор текста в поиске снимал бы её насовсем
  * и сетап молча выпадал бы из суммы заказа.
@@ -2355,8 +2356,14 @@ function crmGetItems(includeEmpty){
     const nameInp=row.querySelector('[data-name]');
     const cat=row.querySelector('[data-cat]')?.value||'';
     const name=crmCleanItemName(nameInp?.value||'');
-    let price=Number(nameInp?.dataset.price||0);
-    let setupRate=Number(nameInp?.dataset.setupRate||0);
+    // ВАЖНО: ключи именно itemPrice/itemRate (атрибуты data-item-price,
+    // data-item-rate). Здесь читались dataset.price и dataset.setupRate —
+    // таких атрибутов у поля нет, поэтому цена строки ВСЕГДА выходила нулём,
+    // а спасал только запасной поиск по складу ниже. Позиция, которой в
+    // справочнике нет (переименовали, удалили, старое название), давала 0 —
+    // и «Сумма со скидкой» показывала ноль при непустом составе заказа.
+    let price=Number(nameInp?.dataset.itemPrice||0);
+    let setupRate=Number(nameInp?.dataset.itemRate||0);
     let partnerId=String(nameInp?.dataset.itemPartner||'');
     if(name){
       const stockItem=crmStock.find(s=>s.name===name);

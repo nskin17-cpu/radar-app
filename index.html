@@ -25,13 +25,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=20260825-1">
-<link rel="stylesheet" href="radar-ui.css?v=20260825-1">
+<link rel="stylesheet" href="styles.css?v=20260825-2">
+<link rel="stylesheet" href="radar-ui.css?v=20260825-2">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260825-1';
+window.RADAR_BUILD='20260825-2';
 console.log('[Radar] build',window.RADAR_BUILD);
 // Учётные данные Supabase (вшиты для работы с любого устройства)
 window.SUPABASE_URL='https://tqmzpktshlolqbydolpf.supabase.co';
@@ -1054,19 +1054,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260825-1"></script>
-<script src="radar-pricing.js?v=20260825-1"></script>
-<script src="radar-docs.js?v=20260825-1"></script>
-<script src="supabase.js?v=20260825-1"></script>
-<script src="radar-store.js?v=20260825-1"></script>
-<script src="radar-gateway.js?v=20260825-1"></script>
-<script src="radar.js?v=20260825-1"></script>
-<script src="crm.js?v=20260825-1"></script>
-<script src="radar-partners.js?v=20260825-1"></script>
-<script src="radar-partners-ui.js?v=20260825-1"></script>
-<script src="radar-warehouse.js?v=20260825-1"></script>
-<script src="radar-notify.js?v=20260825-1"></script>
-<script src="radar-status.js?v=20260825-1"></script>
+<script src="radar-config.js?v=20260825-2"></script>
+<script src="radar-pricing.js?v=20260825-2"></script>
+<script src="radar-docs.js?v=20260825-2"></script>
+<script src="supabase.js?v=20260825-2"></script>
+<script src="radar-store.js?v=20260825-2"></script>
+<script src="radar-gateway.js?v=20260825-2"></script>
+<script src="radar.js?v=20260825-2"></script>
+<script src="crm.js?v=20260825-2"></script>
+<script src="radar-partners.js?v=20260825-2"></script>
+<script src="radar-partners-ui.js?v=20260825-2"></script>
+<script src="radar-warehouse.js?v=20260825-2"></script>
+<script src="radar-notify.js?v=20260825-2"></script>
+<script src="radar-status.js?v=20260825-2"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();
