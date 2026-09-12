@@ -14,7 +14,7 @@ function withSaveGuard(btn,asyncFn){
   });
 }
 // ========== CRM MODULE ==========
-let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmClients=[],crmClientsYears=[new Date().getFullYear()],crmClientsAllYears=false,crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
+let crmOrders=[],crmStock=[],crmCategories=[],crmCategoriesData=[],crmActiveStockCategory='',crmQuickFilter='all',crmYearFilter=new Date().getFullYear(),crmMonthFilter='',crmClients=[],crmClientsYears=[new Date().getFullYear()],crmClientsAllYears=false,crmClientAnalyticsOpen=false,crmStockAnalyticsOpen=false,crmClientProfileState={id:'',openCats:{}};
 let crmStockOpenGroups={};
 let crmOrderDialogDirty=false,crmOrderDialogInit=false,crmLegacyModeAtOpen=false,crmOrderInputsBound=false;
 let crmClientDropdownOpen=false;
@@ -527,6 +527,7 @@ function crmFilteredOrders(){
     const d0=crmParseDateLocal(o.startDate);if(!d0)return false;
     const oy=d0.getFullYear();
     if(crmYearFilter&&oy!==crmYearFilter)return false;
+    if(crmMonthFilter!==''&&d0.getMonth()!==Number(crmMonthFilter))return false;
     if(crmQuickFilter==='month'){const now=new Date();const d=crmParseDateLocal(o.startDate);return d&&d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()}
     if(crmQuickFilter==='assembly'){const now=new Date();now.setHours(0,0,0,0);const lim=new Date(now);lim.setDate(lim.getDate()+3);const d=crmParseDateLocal(o.startDate);return d&&o.status!=='completed'&&d>=now&&d<=lim}
     if(crmQuickFilter==='tomorrow'){const t=new Date();t.setDate(t.getDate()+1);t.setHours(0,0,0,0);const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===t.getTime()&&o.status!=='completed'}
@@ -561,9 +562,27 @@ function crmFillYearFilterOptions(){
   if(sel.innerHTML!==html)sel.innerHTML=html;
   sel.value=String(crmYearFilter);
 }
+const CRM_MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь',
+                 'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+/**
+ * Месяцы в фильтре списка заказов.
+ *
+ * Показываем все двенадцать, а не только те, где есть заказы: список тогда
+ * не прыгает при смене года, и пустой месяц видно сразу — это ответ «заказов
+ * нет», а не «месяц куда-то делся».
+ */
+function crmFillMonthFilterOptions(){
+  const sel=document.getElementById('crmMonthFilter');
+  if(!sel)return;
+  const html='<option value="">Все месяцы</option>'+
+    CRM_MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+  if(sel.innerHTML!==html)sel.innerHTML=html;
+  sel.value=crmMonthFilter===''?'':String(crmMonthFilter);
+}
 function crmRenderOrders(){
   const t=document.getElementById('crmOrdersTable');if(!t)return;
   crmFillYearFilterOptions();
+  crmFillMonthFilterOptions();
   const orders=crmFilteredOrders();
   if(!orders.length){t.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:30px">Нет заказов</td></tr>';return}
   const isMobile=window.innerWidth<=768;
@@ -602,7 +621,7 @@ function crmRenderOrders(){
     return `${sep}<tr>
     <td>${rowIndex}</td><td><strong>${esc(o.clientName)}</strong>${crmOrderOwnerBadges(o)}<br><span style="color:var(--text2);font-size:11px">${esc(o.clientPhone)}</span>${showRemain?`<br><span class="badge badge-amber" style="margin-top:4px">Остаток: ${fN(remain)}₽</span>`:''}<div class="crm-delivery-mobile">${deliveryCell}</div></td>
     <td><button onclick="crmToggleItems('${o.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:2px 4px" title="Показать изделия">↓</button></td>
-    <td style="font-size:11px">${deliveryCell}</td>
+    <td class="crm-delivery-cell" style="font-size:11px">${deliveryCell}</td>
     <td class="mono" style="font-size:11px">${crmFormatDate(o.startDate)} — ${crmFormatDate(o.endDate)}</td>
     <td class="mono">${fN(o.orderAmount)}₽</td>
     <td><select data-crm-status="${o.id}" style="padding:4px 28px 4px 6px;font-size:11px;border:0.5px solid var(--border2);border-radius:6px;background:${o.status==='completed'?'#dff6e8':o.status==='in_progress'?'#e0edff':o.status==='assembly'?'#fff4d6':'#ffead4'};max-width:110px">${Object.entries(crmSL).map(([v,l])=>`<option value="${v}" ${o.status===v?'selected':''}>${l}</option>`).join('')}</select></td>
@@ -3077,6 +3096,7 @@ document.getElementById('crmStockModal')?.addEventListener('click',e=>{if(e.targ
 document.getElementById('crmClientModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientModal'))closeModal('crmClientModal')});
 document.getElementById('crmClientProfileModal')?.addEventListener('click',e=>{if(e.target===document.getElementById('crmClientProfileModal'))closeModal('crmClientProfileModal')});
 document.getElementById('crmYearFilter')?.addEventListener('change',e=>{crmYearFilter=Number(e.target.value)||0;crmRenderOrders()});
+document.getElementById('crmMonthFilter')?.addEventListener('change',e=>{crmMonthFilter=e.target.value===''?'':Number(e.target.value);crmRenderOrders()});
 document.getElementById('crmStartDate')?.addEventListener('change',crmHandleStartDateChange);
 document.getElementById('crmEndDate')?.addEventListener('change',()=>{crmSyncDateRange(true)});
 window.canCloseModal=(id)=>id==='crmOrderModal'?crmCanCloseOrderDialog():true;

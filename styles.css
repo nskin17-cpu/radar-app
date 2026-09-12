@@ -206,7 +206,7 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
 @media(max-width:768px){.crm-grid-2{grid-template-columns:1fr!important}.crm-grid-3{grid-template-columns:1fr 1fr!important}#crmOrderModal .modal{padding:16px 12px;max-width:98vw}}
 @media(max-width:768px){.crm-month-sep span{font-size:9.5px;padding:5px 8px;letter-spacing:.28px}}
 @media(max-width:768px){
-  #crmYearFilter,#crmCompletionFilter,#crmStatusFilter,#crmPaymentFilter{
+  #crmYearFilter,#crmMonthFilter,#crmCompletionFilter,#crmStatusFilter,#crmPaymentFilter{
     width:100%!important;
     min-width:0!important;
     flex:1 1 100%;

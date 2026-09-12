@@ -655,3 +655,59 @@
   .pt-card-value{font-size:17px}
   .pt-row{font-size:13px}
 }
+
+/* ── Список заказов: всё в одном окне, без прокрутки вбок ────────────────────
+   Раньше таблица жила по общему правилу table{min-width:900px} и растягивалась
+   содержимым: длинный адрес или длинное имя уводили правый край за экран, и
+   список приходилось листать вбок, чтобы увидеть статусы и залог.
+
+   Здесь таблица раскладывается по долям окна (table-layout:fixed). Ширина
+   колонок больше не зависит от того, насколько длинный адрес в конкретном
+   заказе, а сумма долей всегда равна 100% — прокрутки вбок не возникает ни
+   при какой ширине окна. Только страница заказов: на складе и в клиентах
+   свои раскладки. */
+#page-crm .table-wrap table{min-width:0;table-layout:fixed}
+#page-crm th,
+#page-crm td{padding-left:8px;padding-right:8px}
+
+#page-crm th:nth-child(1){width:3%}      /* №               */
+#page-crm th:nth-child(2){width:16%}     /* Клиент          */
+#page-crm th:nth-child(3){width:3%}      /* раскрыть состав */
+#page-crm th:nth-child(4){width:17%}     /* Доставка/адрес  */
+#page-crm th:nth-child(5){width:11%}     /* Период          */
+#page-crm th:nth-child(6){width:8%}      /* Сумма           */
+#page-crm th:nth-child(7){width:13%}     /* Статус работы   */
+#page-crm th:nth-child(8){width:14.5%}   /* Статус оплаты   */
+#page-crm th:nth-child(9){width:10%}     /* Залог           */
+#page-crm th:nth-child(10){width:4.5%}   /* Изменить        */
+
+/* Текст переносится по словам вместо того, чтобы расширять колонку.
+   overflow-wrap:break-word, а не anywhere: последний рубит слова посреди
+   слога («Алекса / ндра Моргун»), и читать имена становится невозможно. */
+#page-crm tbody td:nth-child(2),
+#page-crm td.crm-delivery-cell{
+  white-space:normal;
+  overflow-wrap:break-word;
+  line-height:1.35;
+}
+/* Сумма остатка — цельная подпись, по слогам её переносить незачем. */
+#page-crm tbody td:nth-child(2) .badge{white-space:nowrap}
+/* Выпадающие списки занимают свою колонку целиком и за неё не вылезают. */
+#page-crm tbody td select{max-width:100%!important;width:100%}
+/* Заголовки узких колонок тоже переносятся, иначе они расширяют раскладку. */
+#page-crm thead th{white-space:normal}
+
+/* Ничто не вылезает за свою колонку: при фиксированной раскладке длинная
+   строка иначе наезжает на соседнюю ячейку (период налезал на сумму). */
+#page-crm tbody td{overflow:hidden}
+/* Период — единственная ячейка, где перенос уместнее обрезки: при нехватке
+   места «05.09 — 05.09» встаёт в две строки, а не теряет вторую дату. */
+#page-crm tbody td:nth-child(5){white-space:normal}
+/* Стрелка выпадающего списка съедала 28px справа — на узкой колонке это
+   половина подписи («Внес» вместо «Внесён»). Оставляем ей ровно столько,
+   сколько нужно, остальное отдаём тексту. */
+#page-crm tbody td select{
+  padding-right:15px!important;   /* inline-стиль строки задаёт 28px — перебиваем */
+  padding-left:5px!important;
+  background-position:right 3px center;
+}
