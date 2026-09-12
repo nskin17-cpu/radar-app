@@ -659,6 +659,11 @@ async function testPdfText(){
         est.squashPage(paymentPage).includes('ПРЕДОПЛАТА')&&est.squashPage(paymentPage).includes('СПОСОБЫОПЛАТЫ'),
         'стр. '+paymentPage);
 
+  // Стрелка у скидки рисуется вектором: символа «↓» в Roboto от pdfmake нет,
+  // и в PDF он печатался пустым прямоугольником с крестом.
+  check('у скидки нет символа без глифа в шрифте',
+        !est.all.includes('↓')&&!est.all.includes('▼')&&!est.all.includes('▾'));
+
   // Перевод на карту частного лица убран из сметы — следим, чтобы не вернулся
   check('в смете нет перевода на карту частного лица',
         !S1.includes('Карта')&&!S1.includes('АндрейГ')&&!S1.includes('Альфа')&&!S1.includes('9060604060'));

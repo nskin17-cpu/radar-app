@@ -29,13 +29,13 @@
      не пришёл (сбой сети ровно в момент выкладки новой версии, закешированная
      неудача), браузер молча рисовал бы окно заказа голой разметкой. Тогда
      грузим тот же файл по адресу без версии — вёрстка остаётся на месте. -->
-<link rel="stylesheet" href="styles.css?v=20260912-1" onerror="this.onerror=null;this.href='styles.css'">
-<link rel="stylesheet" href="radar-ui.css?v=20260912-1" onerror="this.onerror=null;this.href='radar-ui.css'">
+<link rel="stylesheet" href="styles.css?v=20260912-2" onerror="this.onerror=null;this.href='styles.css'">
+<link rel="stylesheet" href="radar-ui.css?v=20260912-2" onerror="this.onerror=null;this.href='radar-ui.css'">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260912-1';
+window.RADAR_BUILD='20260912-2';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -1081,19 +1081,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260912-1"></script>
-<script src="radar-pricing.js?v=20260912-1"></script>
-<script src="radar-docs.js?v=20260912-1"></script>
-<script src="supabase.js?v=20260912-1"></script>
-<script src="radar-store.js?v=20260912-1"></script>
-<script src="radar-gateway.js?v=20260912-1"></script>
-<script src="radar.js?v=20260912-1"></script>
-<script src="crm.js?v=20260912-1"></script>
-<script src="radar-partners.js?v=20260912-1"></script>
-<script src="radar-partners-ui.js?v=20260912-1"></script>
-<script src="radar-warehouse.js?v=20260912-1"></script>
-<script src="radar-notify.js?v=20260912-1"></script>
-<script src="radar-status.js?v=20260912-1"></script>
+<script src="radar-config.js?v=20260912-2"></script>
+<script src="radar-pricing.js?v=20260912-2"></script>
+<script src="radar-docs.js?v=20260912-2"></script>
+<script src="supabase.js?v=20260912-2"></script>
+<script src="radar-store.js?v=20260912-2"></script>
+<script src="radar-gateway.js?v=20260912-2"></script>
+<script src="radar.js?v=20260912-2"></script>
+<script src="crm.js?v=20260912-2"></script>
+<script src="radar-partners.js?v=20260912-2"></script>
+<script src="radar-partners-ui.js?v=20260912-2"></script>
+<script src="radar-warehouse.js?v=20260912-2"></script>
+<script src="radar-notify.js?v=20260912-2"></script>
+<script src="radar-status.js?v=20260912-2"></script>
 <script>
 function saveSupabaseSettings(){
   const url=document.getElementById('settingsSbUrl').value.trim();

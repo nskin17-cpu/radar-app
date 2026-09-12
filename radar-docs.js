@@ -58,6 +58,26 @@
   function metaCell(title, value) {
     return { stack: [label(title), { text: value, fontSize: 10, color: INK, lineHeight: 1.35 }] };
   }
+  /**
+   * Стрелка вниз для строки скидки в итогах.
+   *
+   * Раньше здесь стоял символ «↓» (U+2193). Roboto, который pdfmake носит
+   * с собой, этого глифа не содержит (как и «▼», «▾»), поэтому в готовом
+   * PDF на его месте печатался пустой прямоугольник с крестом. Рисуем
+   * стрелку вектором — от состава шрифта она больше не зависит.
+   */
+  function downArrow(color) {
+    return {
+      width: 6,
+      margin: [0, 3.6, 0, 0],
+      canvas: [
+        { type: 'line', x1: 3, y1: 0, x2: 3, y2: 4, lineWidth: 1.1, lineColor: color },
+        { type: 'polyline', closePath: true, color: color,
+          points: [{ x: 0.5, y: 3.4 }, { x: 5.5, y: 3.4 }, { x: 3, y: 7.2 }] }
+      ]
+    };
+  }
+
   function sectionTitle(text) {
     return { text: String(text).toUpperCase(), fontSize: 7, characterSpacing: 2, color: '#aaaaaa', margin: [0, 14, 0, 6] };
   }
@@ -176,14 +196,18 @@
     // Итоги — единым неразрывным блоком
     function totalRow(text, value, style) {
       style = style || {};
+      var color = style.color || '#777777';
+      var caption = style.arrow
+        ? { columns: [downArrow(color), { text: text, fontSize: style.size || 9.5, color: color, bold: !!style.bold, width: '*' }], columnGap: 4 }
+        : { text: text, fontSize: style.size || 9.5, color: color, bold: !!style.bold };
       return [
-        { text: text, fontSize: style.size || 9.5, color: style.color || '#777777', bold: !!style.bold },
+        caption,
         { text: value, fontSize: style.size || 9.5, color: style.color || '#777777', bold: !!style.bold, alignment: 'right', noWrap: true }
       ];
     }
     var totalsBody = [totalRow('Сумма товаров', money(calc.itemsGross))];
     if (hasDiscount) {
-      totalsBody.push(totalRow('↓ Скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: '#5f9265', bold: true }));
+      totalsBody.push(totalRow('Скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: '#5f9265', bold: true, arrow: true }));
       totalsBody.push(totalRow('Товары со скидкой', money(calc.itemsTotal)));
     }
     if (calc.deliveryCost > 0) totalsBody.push(totalRow('Доставка', money(calc.deliveryCost)));
