@@ -656,8 +656,14 @@ async function testPdfText(){
         est.squashPage(totalsPage).includes('Сумматоваров')&&est.squashPage(totalsPage).includes('Итогокоплате'),
         'стр. '+totalsPage);
   check('блок «Условия оплаты» не разорван между страницами',
-        est.squashPage(paymentPage).includes('ПРЕДОПЛАТА')&&est.squashPage(paymentPage).includes('РЕКВИЗИТЫ'),
+        est.squashPage(paymentPage).includes('ПРЕДОПЛАТА')&&est.squashPage(paymentPage).includes('СПОСОБЫОПЛАТЫ'),
         'стр. '+paymentPage);
+
+  // Перевод на карту частного лица убран из сметы — следим, чтобы не вернулся
+  check('в смете нет перевода на карту частного лица',
+        !S1.includes('Карта')&&!S1.includes('АндрейГ')&&!S1.includes('Альфа')&&!S1.includes('9060604060'));
+  check('в смете указаны расчёт по счёту и СБП',
+        S1.includes('посчётуилиСБП'),est.text.match(/Безналичн[\s\S]{0,60}/)?.[0]||'');
 
   const act=await extractPdf('act',1);
   const A=act.squash;

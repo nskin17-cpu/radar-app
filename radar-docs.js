@@ -28,8 +28,6 @@
     name: 'NANDRENT',
     tagline: 'Аренда посуды и мебели',
     phone: '+7 (966) 866-86-66',
-    card: '+7 (906) 060-40-60',
-    cardOwner: 'Андрей Г. · Альфа-Банк',
     termsUrl: 'https://nandrent.ru/uslovia',
     termsLabel: 'nandrent.ru/uslovia'
   };
@@ -227,7 +225,10 @@
     if (order.depositAmount > 0) {
       payCells.push(metaCell('Залог', money(order.depositAmount) + '\nВозвращается после возврата и проверки изделий'));
     }
-    payCells.push(metaCell('Реквизиты', 'Карта: ' + COMPANY.card + '\nИмя: ' + COMPANY.cardOwner));
+    // Перевод на карту частного лица из сметы убран: клиенту предлагаются
+    // только расчёты с компанией. Номера счёта здесь намеренно нет — счёт
+    // выставляется под конкретный заказ, а в шаблоне устарел бы молча.
+    payCells.push(metaCell('Способы оплаты', 'Безналичный расчёт по счёту или СБП\nСчёт на оплату пришлём по запросу'));
 
     var paymentBlock = {
       unbreakable: true,
