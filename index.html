@@ -7,6 +7,18 @@
      включает env(safe-area-inset-*) для нижней панели кнопок. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Radar NR</title>
+<script>
+// Подготовить автономный запуск до загрузки библиотек и первого входа.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).catch(() => {});
+}
+if (navigator.onLine === false) {
+  const target = new URL('./offline.html', location.href);
+  target.search = location.search;
+  target.hash = location.hash;
+  location.replace(target.href);
+}
+</script>
 <!-- Иконка PWA: iOS принимает только PNG в apple-touch-icon (SVG молча игнорирует).
      Исходник — icon.svg, PNG перегенерированы из него (qlmanage/sips). -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -16,15 +28,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="NR">
 <meta name="theme-color" content="#f5f5f7">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<!-- html2canvas + jsPDF оставлены как запасной движок документов (RadarConfig.documents.engine='legacy') -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- pdfmake: векторные смета и акт, одинаковые на всех устройствах -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <!-- onerror — страховка от «приложение без стилей». Если файл по адресу с ?v=
      не пришёл (сбой сети ровно в момент выкладки новой версии, закешированная
      неудача), браузер молча рисовал бы окно заказа голой разметкой. Тогда
@@ -35,7 +39,7 @@
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-orders';
+window.RADAR_BUILD='20261128-ios-1';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -79,6 +83,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="input-group"><label class="input-label">Логин</label><input type="text" id="loginUser" placeholder="admin" autocomplete="username"></div>
     <div class="input-group"><label class="input-label">Пароль</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn" id="loginBtn" onclick="handleLogin()" style="margin-top:6px">Войти</button>
+    <a href="offline.html">Просмотр без связи</a>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -252,7 +257,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
-      <a href="offline.html#orders" class="btn btn-sm btn-secondary">Сохранённые заказы</a>
+      <a href="offline.html#orders" class="btn btn-sm btn-secondary">Сохранённые заказы</a> <small role="status" data-offline-ready>Готовим доступ без связи…</small>
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
         <button class="btn btn-sm" id="crmNewOrderBtn" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -578,7 +583,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- ВЫДАЧА ЗАКАЗОВ (доска склада) -->
     <div id="page-warehouse" class="page">
-      <a href="offline.html#assembly" class="btn btn-sm btn-secondary">Сохранённая доска выдачи</a>
+      <a href="offline.html#assembly" class="btn btn-sm btn-secondary">Сохранённая доска выдачи</a> <small role="status" data-offline-ready>Готовим доступ без связи…</small>
       <div class="page-header">
         <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат → Завершение.<span class="wh-desc-more"> В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты; залоги и компенсации закрывает менеджер</span></div></div>
         <div class="wh-toolbar">
@@ -1087,21 +1092,29 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
 <div class="toast-container" id="toasts"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- html2canvas + jsPDF оставлены как запасной движок документов (RadarConfig.documents.engine='legacy') -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- pdfmake: векторные смета и акт, одинаковые на всех устройствах -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
 <script src="radar-config.js?v=20261128-orders"></script>
-<script src="radar-offline.js?v=20261128-orders"></script>
+<script src="radar-offline.js?v=20261128-ios-1"></script>
 <script src="radar-pricing.js?v=20261128-catalog"></script>
 <script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
 <script src="radar-docs.js?v=20261128-orders"></script>
 <script src="supabase.js?v=20260912-3"></script>
-<script src="radar-store.js?v=20261128-orders"></script>
+<script src="radar-store.js?v=20261128-ios-1"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
 <script src="radar.js?v=20261128-orders"></script>
 <script src="crm.js?v=20261128-orders"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
 <script src="radar-warehouse.js?v=20261128-orders"></script>
-<script src="radar-notify.js?v=20260912-3"></script>
+<script src="radar-notify.js?v=20261128-ios-1"></script>
 <script src="radar-status.js?v=20260912-3"></script>
 <script>
 function saveSupabaseSettings(){

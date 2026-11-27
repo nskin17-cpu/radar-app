@@ -46,6 +46,39 @@
 
   window.RadarOffline = { capture, forget };
 
+  const indicators = document.querySelectorAll('[data-offline-ready]');
+  if (indicators.length) {
+    let shellReady = false;
+    function updateIndicator() {
+      let snapshot;
+      try { snapshot = JSON.parse(localStorage.getItem(RadarConfig.cache.ordersKey)); } catch (error) {}
+      const available = snapshot && snapshot.owner === owner() && snapshot.at && Array.isArray(snapshot.orders);
+      const text = !shellReady ? 'Офлайн-страницы ещё не готовы' :
+        available ? 'Доступно без связи' : 'Ожидаем загрузки заказов';
+      indicators.forEach(el => { if (el.textContent !== text) el.textContent = text; });
+    }
+    function checkWorker() {
+      const worker = navigator.serviceWorker?.controller;
+      if (!worker) { shellReady = false; updateIndicator(); return; }
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => channel.port1.close(), 5000);
+      channel.port1.onmessage = event => {
+        clearTimeout(timer);
+        channel.port1.close();
+        if (navigator.serviceWorker.controller !== worker) return;
+        shellReady = event.data === true;
+        updateIndicator();
+      };
+      worker.postMessage('offline-status', [channel.port2]);
+    }
+    navigator.serviceWorker?.addEventListener('controllerchange', checkWorker);
+    window.addEventListener('pageshow', checkWorker);
+    window.addEventListener('radar-orders-cache', updateIndicator);
+    window.addEventListener('storage', updateIndicator);
+    checkWorker();
+    updateIndicator();
+  }
+
   const list = document.getElementById('offlineList');
   if (!list) return;
   const status = document.getElementById('offlineStatus');

@@ -583,6 +583,7 @@
     if (!lsSet(CFG.cache.ordersKey, {owner:username, at:Date.now(), orders:list})) {
       window.showToast?.('Не удалось обновить копию заказов на устройстве', 'error');
     }
+    window.dispatchEvent(new Event('radar-orders-cache'));
   }
   function updateOrdersCache(order) {
     var list = getOrdersCache();

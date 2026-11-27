@@ -3,9 +3,9 @@
 
 const scope = self.registration.scope;
 const shellPrefix = 'radar-offline-shell:' + new URL(scope).pathname + ':';
-const shellCache = shellPrefix + '20261128-2';
+const shellCache = shellPrefix + '20261128-ios-1';
 const offlinePage = new URL('offline.html', scope).href;
-const assets = ['radar-config.js?v=20261128-orders', 'radar-offline.js?v=20261128-orders',
+const assets = ['radar-config.js?v=20261128-orders', 'radar-offline.js?v=20261128-ios-1',
   'radar-warehouse.js?v=20261128-orders', 'offline-orders.js?v=20261128-orders']
   .map(path => new URL(path, scope).href);
 
@@ -24,27 +24,58 @@ self.addEventListener('activate', event => {
   })());
 });
 
+self.addEventListener('message', event => {
+  if (event.data !== 'offline-status' || !event.ports[0]) return;
+  event.waitUntil((async () => {
+    const cache = await caches.open(shellCache);
+    const entries = await Promise.all([offlinePage, ...assets].map(url => cache.match(url)));
+    event.ports[0].postMessage(entries.every(Boolean));
+  })());
+});
+
+async function offlineResponse() {
+  const cache = await caches.open(shellCache);
+  return await cache.match(offlinePage) || new Response(
+    '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><p>Копия Radar недоступна. Откройте приложение с интернетом, чтобы сохранить заказы на этом устройстве.</p>',
+    {headers:{'Content-Type':'text/html; charset=utf-8'}}
+  );
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   // Кэшируем только автономную страницу и её версионированные скрипты.
-  if (url.href === offlinePage || assets.includes(url.href)) {
+  if (url.origin === self.location.origin && url.pathname === new URL(offlinePage).pathname) {
+    event.respondWith(offlineResponse());
+    return;
+  }
+  if (assets.includes(url.href)) {
     event.respondWith(caches.open(shellCache).then(async cache => (await cache.match(request)) || fetch(request)));
     return;
   }
-  if (request.mode !== 'navigate' || url.origin !== self.location.origin ||
+  if ((request.mode !== 'navigate' && request.destination !== 'document') || url.origin !== self.location.origin ||
       ![new URL(scope).pathname, new URL('index.html', scope).pathname].includes(url.pathname)) return;
   event.respondWith((async () => {
+    if (self.navigator.onLine === false) return offlineResponse();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
+    const timer = setTimeout(() => controller.abort(), 3000);
     try {
-      const response = await fetch(request, {signal: controller.signal});
-      if (response.status < 500) return response;
+      const response = await fetch(request, {signal: controller.signal, cache:'no-store'});
+      if (response.ok && response.status !== 204) {
+        // Держим таймер до конца HTML: связь может оборваться после заголовков.
+        const body = await response.arrayBuffer();
+        if (body.byteLength) {
+          const headers = new Headers(response.headers);
+          headers.delete('Content-Encoding');
+          headers.delete('Content-Length');
+          return new Response(body, {status:response.status, headers});
+        }
+      }
     } catch (error) {
       // Ошибка сети или тайм-аут: открываем локальный список документов.
     } finally { clearTimeout(timer); }
-    return (await caches.open(shellCache)).match(offlinePage);
+    return offlineResponse();
   })());
 });
 

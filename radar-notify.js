@@ -507,10 +507,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     var t = $('notifTab-admin');
     if (t) t.style.display = 'none';
-    // Регистрация нужна для уведомлений и просмотра локальных PDF.
-    if ('serviceWorker' in navigator) {
-      try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
-    }
     if (me()) { var b = $('notifBell'); if (b) b.style.display = ''; startPolling(); }
   });
 })();
