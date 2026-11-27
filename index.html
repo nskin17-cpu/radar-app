@@ -475,6 +475,8 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
         <div class="input-group"><label class="input-label">Категория *</label><select id="crmStockCat"><option value="">Выберите категорию</option></select></div>
         <div class="input-group"><label class="input-label" style="font-size:10px;color:var(--text2)">Или создать новую категорию</label><input type="text" id="crmStockNewCat" placeholder="Напр. Лорен ротанг золотая основа" oninput="if(this.value.trim())document.getElementById('crmStockCat').value=''"></div>
         <div class="input-group"><label class="input-label">Название *</label><input type="text" id="crmStockName" placeholder="Стул Непал белый"></div>
+        <div class="input-group"><label class="input-label" for="crmStockDocumentName">Название для сметы и акта</label><input type="text" id="crmStockDocumentName" placeholder="По умолчанию — название изделия"></div>
+        <div class="input-group"><label class="input-label" for="crmStockMaterial">Материал</label><input type="text" id="crmStockMaterial" placeholder="Например, плотный бархат"></div>
         <div class="crm-grid-2">
           <div class="input-group"><label class="input-label">Цена аренды ₽</label><input type="number" id="crmStockPrice" min="0" value="0"></div>
           <div class="input-group"><label class="input-label">Сетап за ед. ₽</label><input type="number" id="crmStockSetupRate" min="0" value="0"></div>
@@ -1084,14 +1086,14 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
 <script src="radar-config.js?v=20260912-3"></script>
-<script src="radar-pricing.js?v=20260912-3"></script>
-<script src="doc-assets/product-photos.js?v=20261125" defer></script>
-<script src="radar-docs.js?v=20261125"></script>
+<script src="radar-pricing.js?v=20261128-catalog"></script>
+<script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
+<script src="radar-docs.js?v=20261128-catalog"></script>
 <script src="supabase.js?v=20260912-3"></script>
-<script src="radar-store.js?v=20260912-3"></script>
+<script src="radar-store.js?v=20261128-catalog"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
 <script src="radar.js?v=20260912-3"></script>
-<script src="crm.js?v=20261125"></script>
+<script src="crm.js?v=20261128-catalog"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
 <script src="radar-warehouse.js?v=20260912-3"></script>

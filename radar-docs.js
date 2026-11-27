@@ -41,7 +41,7 @@
     return String(name || '').replace(/\s*[—-]\s*\d[\d\s]*\s*₽\s*$/, '').trim();
   }
   function displayName(item) {
-    return cleanName(item && item.name) || String((item && item.category) || '').trim() || '—';
+    return cleanName(item && (item.documentName || item.name)) || String((item && item.category) || '').trim() || '—';
   }
   function fmtDate(s) {
     if (!s) return '—';
@@ -68,6 +68,7 @@
   }
 
   function productPhoto(item) {
+    if (item && item.catalogVariant) return window.RadarDocumentPhotos && window.RadarDocumentPhotos[item.catalogVariant];
     var name = cleanName(item && item.name).toLowerCase().replace(/ё/g, 'е')
       .replace(/[^a-zа-я0-9]+/g, ' ').trim();
     return window.RadarDocumentPhotos && window.RadarDocumentPhotos[name];
@@ -79,6 +80,7 @@
       { text: displayName(item), fontSize: 9.5, color: INK },
       { text: setup ? 'Сетап включён' : 'Без сетапа', fontSize: 8, color: setup ? '#42654c' : '#686868', margin: [0, 2, 0, 0] }
     ] };
+    if (item.material) caption.stack.splice(1, 0, { text: 'Материал: ' + item.material, fontSize: 8, color: '#626a70', margin: [0, 2, 0, 0] });
     var photo = productPhoto(item);
     return { columns: [photo ? { image: photo, fit: [36, 36], width: 36 } : { text: '', width: 36 }, caption], columnGap: 8 };
   }

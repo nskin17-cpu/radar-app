@@ -1775,6 +1775,8 @@ function crmOpenStockModal(id){
   }
   const newCatEl=document.getElementById('crmStockNewCat');if(newCatEl)newCatEl.value='';
   document.getElementById('crmStockName').value=s?.name||'';
+  document.getElementById('crmStockMaterial').value=s?.material||'';
+  document.getElementById('crmStockDocumentName').value=s?.documentName||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
   document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
   document.getElementById('crmStockQty').value=s?.qty||0;
@@ -1794,6 +1796,8 @@ async function crmSaveStockItem(){
     id,
     category:(document.getElementById('crmStockNewCat')?.value.trim()||document.getElementById('crmStockCat').value.trim()),
     name:document.getElementById('crmStockName').value.trim(),
+    material:document.getElementById('crmStockMaterial').value.trim(),
+    documentName:document.getElementById('crmStockDocumentName').value.trim(),
     price:Number(document.getElementById('crmStockPrice').value)||0,
     setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
     qty:Number(document.getElementById('crmStockQty').value)||0,
@@ -2104,6 +2108,7 @@ function crmPickItem(row,s){
   const catSel=row.querySelector('[data-cat]');
   const legacy=crmIsLegacyYearOrder();
   inp.value=s.name;
+  row._documentItem=null;
   inp.dataset.typed='';
   inp.dataset.itemPrice=legacy?0:(Number(s.price)||0);
   inp.dataset.itemRate=Number(s.setupRate)||0;
@@ -2127,6 +2132,7 @@ function crmBindItemPicker(row){
   inp.addEventListener('focus',()=>{inp.dataset.typed='';open()});
   inp.addEventListener('input',()=>{
     inp.dataset.typed=inp.value;
+    row._documentItem=null;
     // Вписали руками — цену из прошлого выбора не тащим
     const exact=crmStock.find(s=>s.name===inp.value.trim());
     inp.dataset.itemPrice=exact?(crmIsLegacyYearOrder()?0:Number(exact.price)||0):0;
@@ -2157,6 +2163,7 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
   if(!crmOrderDialogInit)crmOrderDialogDirty=true;
   const list=document.getElementById('crmItemsList');
   const row=document.createElement('div');
+  if(item.stockId||item.documentName||item.material||item.catalogVariant)row._documentItem=item;
   row.style.cssText='display:grid;grid-template-columns:1fr 1.4fr 60px auto 60px 24px;gap:6px;margin-bottom:6px;align-items:center';
   const legacy=crmIsLegacyYearOrder();
   const catOpts=crmCategories.slice().sort((a,b)=>String(a).localeCompare(String(b),'ru'))
@@ -2172,7 +2179,7 @@ function crmAddItemRow(item={name:'',qty:'1',category:'',price:0,setup:true}){
     // в новую категорию не входит — очищаем и открываем список.
     const cur=nameInp.value.trim();
     const stillOk=!cur||crmStock.some(s=>s.name===cur&&s.category===catSel.value);
-    if(!stillOk){nameInp.value='';nameInp.dataset.itemPrice=0;nameInp.dataset.itemRate=0;nameInp.dataset.typed=''}
+    if(!stillOk){row._documentItem=null;nameInp.value='';nameInp.dataset.itemPrice=0;nameInp.dataset.itemRate=0;nameInp.dataset.typed=''}
     crmSyncItemRowMeta(row);
     crmClearDerivedManual('items');
     crmCalcTotal();
@@ -2384,15 +2391,20 @@ function crmGetItems(includeEmpty){
     let price=Number(nameInp?.dataset.itemPrice||0);
     let setupRate=Number(nameInp?.dataset.itemRate||0);
     let partnerId=String(nameInp?.dataset.itemPartner||'');
+    let stockItem;
     if(name){
-      const stockItem=crmStock.find(s=>s.name===name);
+      stockItem=crmStock.find(s=>s.name===name&&(!cat||s.category===cat));
       if(!price&&stockItem)price=Number(stockItem.price)||0;
       if(!setupRate&&stockItem)setupRate=Number(stockItem.setupRate)||0;
       if(!partnerId&&stockItem)partnerId=String(stockItem.partnerId||'');
     }
     if(!name&&!includeEmpty)return;
+    const snapshot=row._documentItem;
+    const keep=snapshot && crmCleanItemName(snapshot.name)===name && (snapshot.category||'')===cat;
+    const doc=keep?snapshot:stockItem;
     items.push({
       name,category:cat,
+      ...(doc?{stockId:keep?doc.stockId:doc.id,catalogVariant:doc.catalogVariant,documentName:doc.documentName||name,material:doc.material}:{}),
       qty:Math.max(0,Number(q.value||0)),
       price,setupRate,
       setup:row.querySelector('[data-setup]')?.checked!==false,
@@ -2643,6 +2655,10 @@ function crmApplyEstimatePdfLink(pdf){
  * Тот же отбор, что и в RadarDocs: изделия партнёра в его собственном заказе
  * клиент не оплачивает и в смете/акте не видит.
  */
+function crmDocumentCaptionHTML(item){
+  const label=esc(item.documentName||crmGetItemDisplayName(item));
+  return item.material?label+'<div style="font-size:10px;font-weight:400;color:#626a70">Материал: '+esc(item.material)+'</div>':label;
+}
 function crmDocItems(d){
   try{return window.RadarPartners?RadarPartners.billableItems(d.items,d):d.items}
   catch(e){return d.items}
@@ -2738,7 +2754,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const bottomSection=`${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`;
 
   // Dynamic pagination: split items across pages so nothing gets cut
-  const itemRowH=isMobile?34:48;
+  const itemRowH=(isMobile?34:48)+(items.some(i=>i.material)?14:0);
   const headerMetaH=isMobile?290:310;
   const bottomH=isMobile?440:500;
   const titleH=35;
@@ -2747,8 +2763,8 @@ function crmBuildEstimateHTML(d,withDiscount){
   const allItemRows=items.map(i=>{
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
-    const iDisplay=crmGetItemDisplayName(i);
-    return`<div style="${iRow}"><div style="${iName}">${esc(iDisplay)}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
+    const iDisplay=crmDocumentCaptionHTML(i);
+    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
   });
   if(deliveryCost>0)allItemRows.push(deliveryRow);
   if(setupCost>0)allItemRows.push(setupRow);
@@ -2806,7 +2822,7 @@ function crmBuildActHTML(d){
   const aName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
   const aDetail='font-size:12.5px;color:#888;font-family:sans-serif';
   const aRow='padding:9px 0;border-bottom:1px solid #f0f0f0';
-  const itemsRowsHTML=items.map(i=>{const aDisplay=crmGetItemDisplayName(i);return`<div style="${aRow}"><div style="${aName}">${esc(aDisplay)}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
+  const itemsRowsHTML=items.map(i=>{const aDisplay=crmDocumentCaptionHTML(i);return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
 
   const sigLine=(label)=>`<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:32px;font-family:sans-serif;font-size:12px;color:#333">
     <span style="white-space:nowrap">${label}</span>

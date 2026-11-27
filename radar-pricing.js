@@ -121,6 +121,9 @@
       var rate = setupRateFor(i.name, i.category, pricing, i.setupRate);
       return {
         name: String(i.name || ''),
+        documentName: i.documentName,
+        material: i.material,
+        catalogVariant: i.catalogVariant,
         category: String(i.category || ''),
         qty: qty,
         price: price,

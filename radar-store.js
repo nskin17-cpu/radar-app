@@ -105,6 +105,9 @@
     // Если товар позже выкупят у партнёра, взаиморасчёты по прошлым заказам
     // не должны задним числом обнулиться. Пустое поле = наш товар.
     var partnerId = str(i && (i.partnerId != null ? i.partnerId : i.partner_id)).trim();
+    for (var field of ['stockId', 'catalogVariant', 'documentName', 'material']) {
+      if (i && i[field]) it[field] = str(i[field]);
+    }
     if (partnerId) {
       it.ownerType = 'partner';
       it.partnerId = partnerId;
@@ -629,6 +632,7 @@
         var partnerId = str(s.partner_id);
         return {
           id: str(s.id), name: str(s.name), category: str(s.category),
+          material: str(s.material), documentName: str(s.document_name), catalogVariant: str(s.catalog_variant),
           price: num(s.price, 0), setupRate: num(s.setup_rate, 0),
           qty: num(s.qty, 0), unit: str(s.unit) || 'шт',
           ownerType: partnerId ? 'partner' : (str(s.owner_type) || 'own'),
@@ -676,9 +680,14 @@
       partner_id: partnerId || null
     };
     if (item.id) row.id = item.id;
+    if (item.material !== undefined) row.material = str(item.material);
+    if (item.documentName !== undefined) row.document_name = str(item.documentName);
     // Пока sql/partners-1-system.sql не применён, колонок владельца ещё нет —
     // отбрасываем их, чтобы склад продолжал сохраняться как раньше.
-    await loadColumns('stock');
+    var columns = await loadColumns('stock');
+    if (columns && ((row.material && !columns.has('material')) || (row.document_name && !columns.has('document_name')))) {
+      throw new Error('Для материала и названия в PDF требуется обновление каталога в базе.');
+    }
     row = filterToExistingColumns('stock', row);
     var res = await s.from('stock').upsert(row, { onConflict: item.id ? 'id' : 'name,category' }).select('*');
     if (res.error) throw new Error(res.error.message);
