@@ -36,6 +36,7 @@
     <section id="offlineOrders">
       <p id="orderStatus" role="status"></p>
       <div id="orderFilters" hidden>
+        <label>Филиал <select id="offlineBranch"></select></label>
         <input id="orderSearch" type="search" aria-label="Номер заказа или заказчик" placeholder="Номер заказа или заказчик">
         <select id="orderMonth" aria-label="Месяц"></select>
       </div>
@@ -46,9 +47,9 @@
     <ul id="offlineList"></ul>
     </section>
   </main>
-  <script src="radar-config.js?v=20261128-orders"></script>
+  <script src="radar-config.js?v=20261128-branches"></script>
   <script src="radar-offline.js?v=20261128-ios-1"></script>
-  <script src="radar-warehouse.js?v=20261128-orders"></script>
-  <script src="offline-orders.js?v=20261128-orders"></script>
+  <script src="radar-warehouse.js?v=20261128-branches"></script>
+  <script src="offline-orders.js?v=20261128-branches"></script>
 </body>
 </html>

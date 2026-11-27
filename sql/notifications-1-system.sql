@@ -400,6 +400,7 @@ as $$
   demand as (
     select lower(trim(i->>'name')) as iname,
            coalesce(nullif(trim(i->>'category'),''), '') as icat,
+           coalesce(to_jsonb(o)->>'warehouse_branch', 'rostov') as branch,
            o.id as order_id, o.start_date, o.end_date,
            coalesce((i->>'qty')::numeric, 0) as qty
       from orders o, jsonb_array_elements(coalesce(o.items,'[]'::jsonb)) i
@@ -408,20 +409,22 @@ as $$
        and o.end_date >= notif_today() and o.start_date <= notif_today() + 30
   ),
   focus as (   -- позиции, которые нас интересуют (все или только заказа-виновника)
-    select distinct iname, icat from demand
+    select distinct branch, iname, icat from demand
      where p_order_id is null or order_id = p_order_id
   ),
   per_day as (
-    select d.iname, d.icat, days.day, sum(d.qty) as need, count(distinct d.order_id) as orders_cnt
+    select d.branch, d.iname, d.icat, days.day, sum(d.qty) as need, count(distinct d.order_id) as orders_cnt
       from demand d join days on days.day between d.start_date and d.end_date
-      join focus f on f.iname = d.iname and f.icat = d.icat
-     group by d.iname, d.icat, days.day
+      join focus f on f.branch = d.branch and f.iname = d.iname and f.icat = d.icat
+     group by d.branch, d.iname, d.icat, days.day
   )
-  select s.name, s.category, p.day, p.need, s.qty, p.orders_cnt
+  select s.name, s.category, p.day, p.need, available.qty, p.orders_cnt
     from per_day p
     join stock s on lower(trim(s.name)) = p.iname
                 and (p.icat = '' or lower(trim(s.category)) = lower(p.icat))
-   where s.qty > 0 and p.need > s.qty
+    cross join lateral (select case when p.branch = 'rostov' then coalesce(s.qty,0)
+      else coalesce((to_jsonb(s)->'branch_quantities'->>p.branch)::numeric,0) end as qty) available
+   where p.need > available.qty
    order by p.day, s.name;
 $$;
 

@@ -119,7 +119,7 @@
   function availableMonths() {
     var set = {};
     set[currentMonthKey()] = 1;
-    orders().forEach(function (o) {
+    orders().filter(o=>RadarConfig.warehouse.includes(o)).forEach(function (o) {
       var d = parseDay(o.startDate);
       if (d) set[monthKeyOf(d)] = 1;
     });
@@ -250,7 +250,7 @@
     var board = $('whBoard');
     if (!board) return;
     renderMonthPicker();
-    var cols = buildColumns(orders(), selectedMonth(), whSearch);
+    var cols = buildColumns(orders().filter(o=>RadarConfig.warehouse.includes(o)), selectedMonth(), whSearch);
     // На телефоне колонки листаются свайпом, поэтому сверху — короткие
     // переключатели: шесть столбцов пролистывать вслепую неудобно.
     var tabs = $('whTabs');
@@ -852,6 +852,7 @@
 
   // Открытие по навигации — оборачиваем switchPage поверх обёртки crm.js
   if (typeof window.switchPage !== 'function') return;
+  window.addEventListener('radar-branch',whRender);
   var prevSwitch = window.switchPage;
   window.switchPage = function (p) {
     prevSwitch(p);

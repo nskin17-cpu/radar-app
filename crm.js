@@ -352,7 +352,7 @@ async function crmFillSetupRates(){
     const rate=crmItemSetupRate(s.name,s.category);
     if(!rate)continue;
     s.setupRate=rate;
-    await api('updateStockItem',{item:s});
+    await api('updateStockItem',{item:{...s,qty:undefined}});
     sbBackup('upsertStockItem',s);
   }
 }
@@ -414,7 +414,7 @@ function crmRestoreDraft(d){
   const f=d.form||{};
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v};
   crmOrderDialogInit=true;
-  set('crmClient',f.clientName);set('crmPhone',f.clientPhone);set('crmCompany',f.companyName);
+  set('crmOrderBranch',f.branchId||'rostov');set('crmClient',f.clientName);set('crmPhone',f.clientPhone);set('crmCompany',f.companyName);
   set('crmStartDate',f.startDate);set('crmEndDate',f.endDate);set('crmAddress',f.deliveryAddress);
   set('crmStatus',f.status);set('crmPayment',f.paymentStatus);set('crmDeliveryType',f.deliveryType);
   set('crmDeliveryZone',f.deliveryZone);set('crmDeliveryKm',f.deliveryKm);set('crmCarryFloor',f.carryFloor);
@@ -523,7 +523,7 @@ function crmFilteredOrders(){
   const cf=document.getElementById('crmCompletionFilter')?.value||'not_completed';
   const sf=document.getElementById('crmStatusFilter')?.value||'all';
   const pf=document.getElementById('crmPaymentFilter')?.value||'all';
-  return crmOrders.filter(o=>{
+  return crmBranchOrders().filter(o=>{
     const d0=crmParseDateLocal(o.startDate);if(!d0)return false;
     const oy=d0.getFullYear();
     if(crmYearFilter&&oy!==crmYearFilter)return false;
@@ -554,7 +554,7 @@ function crmFillYearFilterOptions(){
   const sel=document.getElementById('crmYearFilter');
   if(!sel)return;
   const nowY=new Date().getFullYear();
-  const years=[...new Set([nowY,...crmOrders.map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])]
+  const years=[...new Set([nowY,...crmBranchOrders().map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])]
     .filter(y=>y>2020).sort((a,b)=>b-a);
   // Выбранный год мог исчезнуть (удалили последний заказ того года) — возвращаемся к текущему.
   if(!years.includes(crmYearFilter))crmYearFilter=nowY;
@@ -664,15 +664,16 @@ function crmRenderOrders(){
       .then(()=>{if(v==='returned_comp')crmOpenDialog(id)});
   }))}
 function crmRenderStats(){
+  const orders=crmBranchOrders();
   const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();
-  const mo=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&d.getMonth()===cm&&d.getFullYear()===cy});
-  const nc=crmOrders.filter(o=>o.status!=='completed');
+  const mo=orders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&d.getMonth()===cm&&d.getFullYear()===cy});
+  const nc=orders.filter(o=>o.status!=='completed');
   document.getElementById('crmTotalOrders').textContent=mo.length;
   document.getElementById('crmActiveOrders').textContent=nc.length;
   const now2=new Date();now2.setHours(0,0,0,0);const lim=new Date(now2);lim.setDate(lim.getDate()+3);
-  document.getElementById('crmAssemblyOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&o.status!=='completed'&&d>=now2&&d<=lim}).length;
+  document.getElementById('crmAssemblyOrders').textContent=orders.filter(o=>{const d=crmParseDateLocal(o.startDate);return d&&o.status!=='completed'&&d>=now2&&d<=lim}).length;
   const tm=new Date();tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);
-  document.getElementById('crmTomorrowOrders').textContent=crmOrders.filter(o=>{const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===tm.getTime()&&o.status!=='completed'}).length;
+  document.getElementById('crmTomorrowOrders').textContent=orders.filter(o=>{const d=crmParseDateLocal(o.startDate);if(!d)return false;d.setHours(0,0,0,0);return d.getTime()===tm.getTime()&&o.status!=='completed'}).length;
 }
 function crmClientMetrics(c,years,allYears){
   const name=String(c.name||'').trim().toLowerCase();
@@ -1256,11 +1257,11 @@ function crmSetMultiOptions(id,options,selectedValues,defaultValue){
 }
 function crmGetStockYears(){
   const curYear=new Date().getFullYear();
-  return [...new Set([curYear,...crmOrders.filter(o=>crmPaidStatuses.has(o.paymentStatus)).map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
+  return [...new Set([curYear,...crmBranchOrders().filter(o=>crmPaidStatuses.has(o.paymentStatus)).map(o=>crmParseDateLocal(o.startDate)?.getFullYear()).filter(Boolean)])].sort((a,b)=>b-a);
 }
 function crmGetStockFactRows(){
   const rows=[];
-  crmOrders.forEach((o,ix)=>{
+  crmBranchOrders().forEach((o,ix)=>{
     if(!crmPaidStatuses.has(o.paymentStatus))return;
     const d=crmParseDateLocal(o.startDate);
     if(!d)return;
@@ -1468,6 +1469,26 @@ function crmRenderStockAnalysis(){
     console.error('crmRenderStockAnalysis failed',err);
   }
 }
+const warehouse = RadarConfig.warehouse;
+function crmBranchOrders(){return crmOrders.filter(order=>warehouse.includes(order))}
+function crmBranchStock(){
+  return document.getElementById('crmWholeCatalog')?.checked ? crmStock : crmStock.filter(s=>warehouse.quantity(s)>0);
+}
+function crmRefreshBranchSelectors(){
+  document.querySelectorAll('[data-warehouse-branch]').forEach(select=>{
+    warehouse.options(select);
+    select.onchange=()=>warehouse.select(select.value);
+  });
+}
+crmRefreshBranchSelectors();
+window.addEventListener('radar-branch',()=>{
+  crmRefreshBranchSelectors();
+  crmStockSel.clear();
+  crmActiveStockCategory='';
+  crmRenderOrders();
+  crmRenderStats();
+  crmRenderStock();
+});
 function crmSetStockCat(cat){crmActiveStockCategory=cat;crmRenderStock()}
 /* ── Маркировка партнёрских (комиссионных) товаров ──────────────────────────
    Бейдж внутренний: показывает короткий код партнёра, название компании — только
@@ -1485,11 +1506,12 @@ function crmOrderOwnerBadges(order){
 function crmRenderStock(){
   crmRenderStockTopDashboard();
   crmToggleStockAnalytics(crmStockAnalyticsOpen);
+  const inventory=crmBranchStock();
   // Category tabs
   const tabs=document.getElementById('crmStockCatTabs');
   const isMobile=window.innerWidth<=768;
   if(tabs){
-    const allCats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))].sort();
+    const allCats=[...new Set(inventory.map(s=>s.category).filter(Boolean))].sort();
     if(isMobile){
       const current=crmActiveStockCategory||'Все категории';
       tabs.innerHTML=`<details class="stock-cat-mobile-dd"><summary>${esc(current)}</summary><div class="stock-cat-mobile-list"><button type="button" class="filter-btn${crmActiveStockCategory===''?' active':''}" data-stock-cat="">Все</button>${allCats.map(c=>`<button type="button" class="filter-btn${crmActiveStockCategory===c?' active':''}" data-stock-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div></details>`;
@@ -1508,13 +1530,22 @@ function crmRenderStock(){
   const grpEl=document.getElementById('crmStockGroups');if(!grpEl)return;
   const statsEl=document.getElementById('crmStockStats');
   const q=(document.getElementById('crmStockSearch')?.value||'').toLowerCase();
-  let items=crmStock.filter(s=>!q||[s.name,s.category].join(' ').toLowerCase().includes(q));
+  let items=inventory.filter(s=>!q||[s.name,s.category].join(' ').toLowerCase().includes(q));
   if(crmActiveStockCategory)items=items.filter(s=>s.category===crmActiveStockCategory);
   if(statsEl){
-    const cats=[...new Set(crmStock.map(s=>s.category).filter(Boolean))];
-    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Позиций</div><div class="stat-value dark">${crmStock.length}</div></div><div class="stat-card"><div class="stat-label">Категорий</div><div class="stat-value blue">${cats.length}</div></div>`;
+    const cats=[...new Set(inventory.map(s=>s.category).filter(Boolean))];
+    statsEl.innerHTML=`<div class="stat-card"><div class="stat-label">Позиций</div><div class="stat-value dark">${inventory.length}</div></div><div class="stat-card"><div class="stat-label">Категорий</div><div class="stat-value blue">${cats.length}</div></div>`;
   }
-  if(!items.length){grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Ничего не найдено</div></div>';crmRenderPricingSection();return}
+  if(!items.length){
+    const message=!inventory.length&&!q&&!crmActiveStockCategory
+      ? 'На складе «'+warehouse.names[warehouse.selected]+'» пока нет остатков.'
+      : 'Ничего не найдено';
+    grpEl.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">'+esc(message)+'</div></div>';
+    crmStockFoundIds=[];
+    crmUpdateStockSelBar();
+    crmRenderPricingSection();
+    return;
+  }
   const grouped={};
   items.slice().sort(crmByName).forEach(s=>{const c=s.category||'Без категории';if(!grouped[c])grouped[c]=[];grouped[c].push(s)});
   // Категории и изделия внутри — по алфавиту: искать глазами в списке
@@ -1534,7 +1565,7 @@ function crmRenderStock(){
         <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
-        <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
+        <td><span class="badge ${warehouse.quantity(s)>20?'badge-green':warehouse.quantity(s)>5?'badge-amber':'badge-red'}">${warehouse.quantity(s)} ${esc(s.unit||'шт')}</span></td>
         <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
       </tr>`).join('');
       return `<details class="stock-mobile-group" data-stock-group="${esc(cat)}" ${isOpen?'open':''}><summary><span>${esc(cat)}</span><span>${its.length} поз.</span></summary><div class="table-wrap"><table><thead><tr>${cbHead}<th>Название</th><th>Цена</th><th>Сетап</th><th>Кол-во</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
@@ -1549,7 +1580,7 @@ function crmRenderStock(){
         <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
-        <td><span class="badge ${Number(s.qty)>20?'badge-green':Number(s.qty)>5?'badge-amber':'badge-red'}">${s.qty} ${esc(s.unit||'шт')}</span></td>
+        <td><span class="badge ${warehouse.quantity(s)>20?'badge-green':warehouse.quantity(s)>5?'badge-amber':'badge-red'}">${warehouse.quantity(s)} ${esc(s.unit||'шт')}</span></td>
         <td style="width:32px"><button class="btn-icon" onclick="crmOpenStockModal('${esc(s.id)}')">✎</button></td>
       </tr>`).join('');
     });
@@ -1673,7 +1704,7 @@ async function crmApplyBulkPrice(){
       const res=await Promise.allSettled(part.map(c=>api('updateStockItem',{item:{
         id:c.item.id,name:c.item.name,category:c.item.category,
         price:c.next,setupRate:Number(c.item.setupRate)||0,
-        qty:Number(c.item.qty)||0,unit:c.item.unit||'шт'
+        partnerId:c.item.partnerId,unit:c.item.unit||'шт'
       }})));
       res.forEach((r,ix)=>{
         const okRes=r.status==='fulfilled'&&r.value&&r.value.success!==false;
@@ -1779,7 +1810,17 @@ function crmOpenStockModal(id){
   document.getElementById('crmStockDocumentName').value=s?.documentName||'';
   document.getElementById('crmStockPrice').value=s?.price||0;
   document.getElementById('crmStockSetupRate').value=s?.setupRate||0;
-  document.getElementById('crmStockQty').value=s?.qty||0;
+  const branch=warehouse.selected;
+  m.dataset.branch=branch;
+  m._stockBefore=s ? {...s} : null;
+  document.getElementById('crmStockQtyLabel').textContent='Количество · '+warehouse.names[branch];
+  document.getElementById('crmStockQty').value=s?warehouse.quantity(s,branch):0;
+  const transfer=document.getElementById('crmBranchTransfer');
+  transfer.hidden=!s || !radarCanEdit('stock') || !warehouse.quantity(s,branch);
+  transfer.open=false;
+  const target=Object.keys(warehouse.names).find(key=>key!==branch);
+  document.getElementById('crmTransferRoute').textContent=warehouse.names[branch]+' → '+warehouse.names[target];
+  document.getElementById('crmTransferQty').value='';
   document.getElementById('crmStockUnit').value=s?.unit||'шт';
   document.getElementById('crmStockDeleteBtn').style.display=s?'inline-block':'none';
   try{window.RadarPartnersUI&&window.RadarPartnersUI.fillStockOwner(s?.partnerId||'')}catch(e){}
@@ -1800,10 +1841,23 @@ async function crmSaveStockItem(){
     documentName:document.getElementById('crmStockDocumentName').value.trim(),
     price:Number(document.getElementById('crmStockPrice').value)||0,
     setupRate:Number(document.getElementById('crmStockSetupRate').value)||0,
-    qty:Number(document.getElementById('crmStockQty').value)||0,
     unit:document.getElementById('crmStockUnit').value.trim()||'шт',
     partnerId:(()=>{try{return window.RadarPartnersUI?window.RadarPartnersUI.stockOwnerValue():''}catch(e){return ''}})()
   };
+  const modal=document.getElementById('crmStockModal'), branch=modal.dataset.branch;
+  const before=modal._stockBefore;
+  const quantity=Number(document.getElementById('crmStockQty').value);
+  if(!Number.isFinite(quantity)||quantity<0){showToast('Проверьте количество','error');return}
+  if(!before || quantity!==warehouse.quantity(before,branch)){
+    if(branch==='rostov'){
+      item.qty=quantity;
+      if(before)item.expectedQty=before.qty;
+    }else{
+      item.branchQuantitiesWrite={...before?.branchQuantities,[branch]:quantity};
+      if(before)item.expectedBranchQuantities=before.branchQuantities||{};
+      else item.qty=0;
+    }
+  }
   item.ownerType=item.partnerId?'partner':'own';
   if(!item.category||!item.name){showToast('Заполните категорию и название','error');return}
   _crmSavingStock=true;
@@ -1827,15 +1881,34 @@ async function crmSaveStockItem(){
       const r2=await api('getStock');
       if(r2.success)crmStock=r2.stock||[];
       crmRenderStock();
-    }else{showToast('Ошибка сохранения','error')}
-  }catch(e){showToast('Ошибка сохранения','error')}
+    }else{showToast(r.error||'Ошибка сохранения','error')}
+  }catch(e){showToast(e.message||'Ошибка сохранения','error')}
   finally{_crmSavingStock=false;if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=saveBtn._origText||'Сохранить';}}
+}
+async function crmTransferStock(){
+  const modal=document.getElementById('crmStockModal'), before=modal._stockBefore;
+  const button=document.getElementById('crmTransferBtn');
+  if(!before||button.disabled||!radarCanEdit('stock'))return;
+  const from=modal.dataset.branch, to=Object.keys(warehouse.names).find(id=>id!==from);
+  const count=Number(document.getElementById('crmTransferQty').value);
+  if(!Number.isFinite(count)||count<=0||count>warehouse.quantity(before,from)){
+    showToast('Введите количество в пределах остатка филиала','error');return;
+  }
+  if(!confirm('Подтвердить получение '+count+' '+before.unit+' «'+before.name+'» в филиале '+warehouse.names[to]+'?'))return;
+  button.disabled=true;
+  try{
+    await RadarStore.transferStock(before,from,to,count);
+    closeModal('crmStockModal');
+    const updated=await api('getStock');
+    if(updated.success)crmStock=updated.stock;
+    crmRenderStock();showToast('Перемещение учтено','success');
+  }catch(e){showToast(e.message,'error')}finally{button.disabled=false}
 }
 async function crmDeleteStockItem(){
   if(!radarCanEdit('stock')){showToast('Нет прав на изменение склада','error');return}
   const id=document.getElementById('crmStockId').value;
   const item=crmStock.find(s=>s.id===id);
-  if(!id||!confirm('Удалить позицию?'))return;
+  if(!id||!confirm('Удалить изделие из общего каталога и обоих складов?'))return;
   const r=await api('deleteStockItem',{id});
   if(r.success){
     if(item)sbBackup('deleteStockItem',{id,name:item.name,category:item.category});
@@ -1849,6 +1922,7 @@ async function crmDeleteStockItem(){
 function crmOpenDialog(id){
   const m=document.getElementById('crmOrderModal');
   crmBindDialogInputs();
+  warehouse.options(document.getElementById('crmOrderBranch'),id?(crmOrders.find(o=>o.id===id)?.branchId||'rostov'):warehouse.selected);
   crmOrderDialogInit=true;
   crmOrderDialogDirty=false;
   document.getElementById('crmDialogTitle').textContent=id?'Редактировать заказ':'Новый заказ';
@@ -2097,7 +2171,7 @@ function crmRenderItemDrop(row){
   drop.innerHTML=list.length
     ? list.map((s,i)=>`<button type="button" class="crm-item-option" data-pick-idx="${i}">
         <strong>${esc(s.name)}${crmOwnerBadge(s.partnerId)}</strong>
-        <span>${esc(s.category||'без категории')}${legacy?'':' · '+fN(s.price)+'₽'}${Number(s.qty)?' · на складе '+esc(s.qty):''}</span>
+        <span>${esc(s.category||'без категории')}${legacy?'':' · '+fN(s.price)+'₽'} · на складе ${warehouse.quantity(s,document.getElementById('crmOrderBranch').value)}</span>
       </button>`).join('')
     : '<div class="crm-item-none">Ничего не найдено — можно вписать название вручную</div>';
 }
@@ -2236,6 +2310,7 @@ function crmReadForm(){
   const bu=crmManual('crmBudget');       if(bu!=null)manual.budgetAmount=bu;
   return{
     id:val('crmOrderId'),
+    branchId:val('crmOrderBranch')||warehouse.selected,
     clientName:val('crmClient').trim(),
     clientPhone:val('crmPhone'),
     companyName:val('crmCompany'),

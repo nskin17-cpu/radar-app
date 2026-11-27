@@ -39,7 +39,7 @@ if (navigator.onLine === false) {
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-ios-1';
+window.RADAR_BUILD='20261128-branches';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -257,6 +257,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
+      <label class="input-label">Филиал <select data-warehouse-branch aria-label="Филиал"></select></label>
       <a href="offline.html#orders" class="btn btn-sm btn-secondary">Сохранённые заказы</a> <small role="status" data-offline-ready>Готовим доступ без связи…</small>
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
         <button class="btn btn-sm" id="crmNewOrderBtn" onclick="crmOpenDialog()">+ Новый заказ</button></div>
@@ -395,6 +396,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- CRM STOCK -->
     <div id="page-crmstock" class="page">
+      <label class="input-label">Филиал <select data-warehouse-branch aria-label="Филиал"></select></label>
       <div class="page-header">
         <div><div class="page-title">Склад</div><div class="page-desc">Каталог изделий</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -462,6 +464,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="stats-grid" id="crmStockStats" style="margin-bottom:12px"></div>
       <div class="filter-bar" id="crmStockCatTabs" style="flex-wrap:wrap;margin-bottom:12px"></div>
       <div style="margin-bottom:14px"><input id="crmStockSearch" type="search" placeholder="Поиск по названию или категории" style="max-width:340px"></div>
+      <label class="input-label"><input type="checkbox" id="crmWholeCatalog" onchange="crmRenderStock()"> Показать также позиции с нулевым остатком</label>
       <div id="crmStockGroups"></div>
       <div id="crmStockSelBar" class="stock-selbar" style="display:none">
         <span id="crmStockSelCount">Ничего не выбрано</span>
@@ -489,9 +492,14 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
           <div class="input-group"><label class="input-label">Сетап за ед. ₽</label><input type="number" id="crmStockSetupRate" min="0" value="0"></div>
         </div>
         <div class="crm-grid-2">
-          <div class="input-group"><label class="input-label">Количество</label><input type="number" id="crmStockQty" min="0" value="0"></div>
+          <div class="input-group"><label class="input-label" id="crmStockQtyLabel" for="crmStockQty">Количество</label><input type="number" step="any" id="crmStockQty" min="0" value="0"></div>
           <div class="input-group"><label class="input-label">Единица</label><input type="text" id="crmStockUnit" value="шт" placeholder="шт"></div>
         </div>
+        <details id="crmBranchTransfer" hidden><summary>Переместить на другой склад</summary>
+          <div class="input-group"><label class="input-label" for="crmTransferQty" id="crmTransferRoute"></label>
+          <input type="number" id="crmTransferQty" min="0" step="any" placeholder="Количество"></div>
+          <button type="button" class="btn btn-sm btn-secondary" id="crmTransferBtn" onclick="crmTransferStock()">Подтвердить приёмку</button>
+        </details>
         <div class="input-group" id="crmStockOwnerGroup" style="display:none">
           <label class="input-label">Собственность</label>
           <select id="crmStockOwner"><option value="">NANDRENT (наш товар)</option></select>
@@ -583,6 +591,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- ВЫДАЧА ЗАКАЗОВ (доска склада) -->
     <div id="page-warehouse" class="page">
+      <label class="input-label">Филиал <select data-warehouse-branch aria-label="Филиал"></select></label>
       <a href="offline.html#assembly" class="btn btn-sm btn-secondary">Сохранённая доска выдачи</a> <small role="status" data-offline-ready>Готовим доступ без связи…</small>
       <div class="page-header">
         <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат → Завершение.<span class="wh-desc-more"> В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты; залоги и компенсации закрывает менеджер</span></div></div>
@@ -902,6 +911,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     </div>
     <div class="crm-order-meta" id="crmOrderMeta" style="display:none"></div>
     <input type="hidden" id="crmOrderId">
+    <div class="input-group"><label class="input-label" for="crmOrderBranch">Склад выдачи</label><select id="crmOrderBranch"></select></div>
     <!-- Клиент занимает всю ширину: под ним раскрывается список подсказок -->
     <div class="input-group crm-row-wide">
       <label class="input-label">Клиент *</label>
@@ -1101,19 +1111,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20261128-orders"></script>
+<script src="radar-config.js?v=20261128-branches"></script>
 <script src="radar-offline.js?v=20261128-ios-1"></script>
 <script src="radar-pricing.js?v=20261128-catalog"></script>
 <script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
 <script src="radar-docs.js?v=20261128-orders"></script>
 <script src="supabase.js?v=20260912-3"></script>
-<script src="radar-store.js?v=20261128-ios-1"></script>
+<script src="radar-store.js?v=20261128-branches"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
 <script src="radar.js?v=20261128-orders"></script>
-<script src="crm.js?v=20261128-orders"></script>
+<script src="crm.js?v=20261128-branches"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
-<script src="radar-warehouse.js?v=20261128-orders"></script>
+<script src="radar-warehouse.js?v=20261128-branches"></script>
 <script src="radar-notify.js?v=20261128-ios-1"></script>
 <script src="radar-status.js?v=20260912-3"></script>
 <script>

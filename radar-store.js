@@ -139,6 +139,7 @@
 
     var order = {
       id: str(o.id),
+      branchId: str(o.branchId || o.warehouse_branch) || 'rostov',
       orderNumber: str(o.orderNumber || o.order_number),
       createdAt: str(o.createdAt || o.created_at) || null,
       updatedAt: str(o.updatedAt || o.updated_at) || null,
@@ -192,6 +193,7 @@
 
   var ORDER_COLUMN_MAP = {
     id: 'id',
+    branchId: 'warehouse_branch',
     orderNumber: 'order_number',
     createdAt: 'created_at',
     updatedAt: 'updated_at',
@@ -252,6 +254,7 @@
    */
   function filterToExistingColumns(table, row) {
     var known = columnCache[table];
+    if (table === 'orders' && row.warehouse_branch && row.warehouse_branch !== 'rostov' && known && !known.has('warehouse_branch')) throw new Error('База не поддерживает филиалы заказов');
     if (!known) return row;
     var out = {};
     var dropped = [];
@@ -277,6 +280,7 @@
   var TRACKED_FIELDS = {
     clientName: 'Клиент', clientPhone: 'Телефон', companyName: 'Компания',
     startDate: 'Дата получения', endDate: 'Дата возврата',
+    branchId: 'Филиал выдачи',
     status: 'Статус работы', paymentStatus: 'Статус оплаты',
     deliveryType: 'Тип получения', deliveryZone: 'Зона доставки', deliveryKm: 'Км за город',
     deliveryAddress: 'Адрес', deliveryCost: 'Доставка ₽', setupCost: 'Сетап ₽',
@@ -664,6 +668,7 @@
           id: str(s.id), name: str(s.name), category: str(s.category),
           material: str(s.material), documentName: str(s.document_name), catalogVariant: str(s.catalog_variant),
           price: num(s.price, 0), setupRate: num(s.setup_rate, 0),
+          branchQuantities: s.branch_quantities || {},
           qty: num(s.qty, 0), unit: str(s.unit) || 'шт',
           ownerType: partnerId ? 'partner' : (str(s.owner_type) || 'own'),
           partnerId: partnerId
@@ -705,24 +710,63 @@
     var partnerId = str(item.partnerId);
     var row = {
       name: str(item.name), category: str(item.category), price: num(item.price, 0),
-      setup_rate: num(item.setupRate, 0), qty: num(item.qty, 0), unit: str(item.unit) || 'шт',
+      setup_rate: num(item.setupRate, 0), unit: str(item.unit) || 'шт',
       owner_type: partnerId ? 'partner' : 'own',
       partner_id: partnerId || null
     };
+    if (item.qty !== undefined) row.qty = num(item.qty, 0);
+    if (item.branchQuantitiesWrite) row.branch_quantities = item.branchQuantitiesWrite;
     if (item.id) row.id = item.id;
     if (item.material !== undefined) row.material = str(item.material);
     if (item.documentName !== undefined) row.document_name = str(item.documentName);
     // Пока sql/partners-1-system.sql не применён, колонок владельца ещё нет —
     // отбрасываем их, чтобы склад продолжал сохраняться как раньше.
     var columns = await loadColumns('stock');
+    if (row.branch_quantities && columns && !columns.has('branch_quantities')) throw new Error('Требуется обновление базы для филиалов');
     if (columns && ((row.material && !columns.has('material')) || (row.document_name && !columns.has('document_name')))) {
       throw new Error('Для материала и названия в PDF требуется обновление каталога в базе.');
     }
     row = filterToExistingColumns('stock', row);
-    var res = await s.from('stock').upsert(row, { onConflict: item.id ? 'id' : 'name,category' }).select('*');
+    var query;
+    if (item.id) {
+      delete row.id;
+      query = s.from('stock').update(row).eq('id',item.id);
+      if (item.expectedQty !== undefined) query = query.eq('qty',item.expectedQty);
+      if (item.expectedBranchQuantities) query = query.eq('branch_quantities',JSON.stringify(item.expectedBranchQuantities));
+    } else {
+      query = s.from('stock').insert(row);
+    }
+    var res = await query.select('*');
     if (res.error) throw new Error(res.error.message);
-    if (!res.data || !res.data.length) throw new Error('Supabase не подтвердил запись позиции склада');
+    if (!res.data || !res.data.length) throw new Error('Позиция изменилась или недоступна. Обновите склад и повторите.');
     return res.data[0];
+  }
+  async function transferStock(item, from, to, quantity) {
+    const db = sb();
+    if (!db) throw new Error('Supabase не настроен');
+    const branches = CFG.warehouse;
+    if (from === to || !Object.hasOwn(branches.names,from) || !Object.hasOwn(branches.names,to) ||
+        !Number.isFinite(quantity) || quantity <= 0 || quantity > branches.quantity(item,from)) {
+      throw new Error('Проверьте филиалы и количество');
+    }
+    const other = {...item.branchQuantities};
+    let primary = Number(item.qty) || 0;
+    for (const [key,delta] of [[from,-quantity],[to,quantity]]) {
+      if (key === 'rostov') primary += delta;
+      else other[key] = branches.quantity(item,key) + delta;
+    }
+    // Оба остатка меняются одной записью, только если они всё ещё совпадают
+    // с показанными при открытии карточки.
+    const result = await db.from('stock').update({qty:primary, branch_quantities:other})
+      .eq('id',item.id).eq('qty',item.qty).eq('branch_quantities',JSON.stringify(item.branchQuantities || {})).select('id');
+    if (result.error) throw new Error(result.error.message);
+    if (!result.data?.length) throw new Error('Остаток уже изменился. Обновите склад и повторите.');
+    const cached = lsGet(CFG.cache.stockKey, []) || [];
+    const index = cached.findIndex(row => row.id === item.id);
+    if (index >= 0) {
+      cached[index] = {...cached[index], qty:primary, branchQuantities:other};
+      lsSet(CFG.cache.stockKey,cached);
+    }
   }
   async function deleteStockItem(id) {
     var s = sb();
@@ -1264,7 +1308,7 @@
     // запись
     saveOrder: saveOrder, deleteOrder: deleteOrder,
     saveClient: saveClient, deleteClient: deleteClient,
-    saveStockItem: saveStockItem, deleteStockItem: deleteStockItem, saveCategory: saveCategory,
+    transferStock: transferStock, saveStockItem: saveStockItem, deleteStockItem: deleteStockItem, saveCategory: saveCategory,
     // партнёрские товары и взаиморасчёты
     normalizePartner: normalizePartner,
     loadPartners: loadPartners,

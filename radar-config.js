@@ -54,6 +54,8 @@
       sessionKey: 'radar.session.v1'
     },
 
+    branchNames: {rostov:'Ростов-на-Дону', krasnodar:'Краснодар'},
+
     documents: {
       // 'pdfmake' — векторный PDF, одинаковый на всех устройствах (по умолчанию).
       // 'legacy'  — старый растровый рендер html2canvas + jsPDF (запасной вариант).
@@ -99,6 +101,32 @@
   };
   cfg.reset = function () {
     localStorage.removeItem('radar.config.v1');
+  };
+
+  // Идентификаторы сохраняются в заказах. Подписи можно менять независимо.
+  const branches = {rostov:cfg.branchNames.rostov, krasnodar:cfg.branchNames.krasnodar};
+  const branchKey = 'radar.warehouse.branch.v1';
+  let selected = 'rostov';
+  try {
+    const stored = localStorage.getItem(branchKey);
+    if (Object.hasOwn(branches, stored)) selected = stored;
+  } catch (error) {}
+  cfg.warehouse = {
+    names: branches,
+    get selected() { return selected; },
+    select(id) {
+      if (!Object.hasOwn(branches, id)) return;
+      selected = id;
+      try { localStorage.setItem(branchKey,id); } catch (error) {}
+      window.dispatchEvent(new Event('radar-branch'));
+    },
+    includes(order) { return (order.branchId || 'rostov') === selected; },
+    quantity(item, id = selected) {
+      return Number(id === 'rostov' ? item.qty || 0 : item.branchQuantities?.[id] || 0);
+    },
+    options(select, id = selected) {
+      select.replaceChildren(...Object.entries(branches).map(([key,label]) => new Option(label,key,false,key===id)));
+    }
   };
 
   cfg.sessionTTL = 14 * 86400000;

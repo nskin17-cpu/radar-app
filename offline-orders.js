@@ -101,7 +101,8 @@
       status.textContent = 'На устройстве пока нет сохранённых заказов. Откройте этот раздел при подключении к интернету.';
       return;
     }
-    orders = snapshot.orders;
+    RadarConfig.warehouse.options(el('offlineBranch'));
+    orders = snapshot.orders.filter(order=>RadarConfig.warehouse.includes(order));
     status.textContent = snapshot.at ? 'Только просмотр · Данные с сервера на ' + new Date(snapshot.at).toLocaleString('ru-RU') :
       'Только просмотр · На устройстве сохранены отдельные заказы';
     const options = new Set(orders.map(o => o.startDate?.slice(0,7)).filter(Boolean));
@@ -114,6 +115,8 @@
     el('orderFilters').hidden = false;
     draw();
   }
+  el('offlineBranch').onchange = event => RadarConfig.warehouse.select(event.target.value);
+  window.addEventListener('radar-branch',render);
   month.onchange = () => { months[view] = month.value; draw(); };
   search.oninput = draw;
   window.addEventListener('pageshow', render);
