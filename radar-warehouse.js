@@ -84,6 +84,7 @@
 
   function day0(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
   function parseDay(s) {
+    if (typeof crmParseDateLocal !== 'function' && /^\d{4}-\d{2}-\d{2}$/.test(s)) return day0(s + 'T00:00:00');
     var d = (typeof crmParseDateLocal === 'function') ? crmParseDateLocal(s) : (s ? new Date(s) : null);
     return d && !isNaN(d) ? day0(d) : null;
   }
@@ -174,12 +175,11 @@
   }
 
   /** Раскладка заказов по колонкам за выбранный месяц. */
-  function buildColumns() {
-    var month = selectedMonth();
-    var q = whSearch.trim().toLowerCase();
+  function buildColumns(list, month, search) {
+    var q = search.trim().toLowerCase();
     var out = { upcoming: [], todo: [], assembled: [], issued: [], resolution: [], done: [] };
 
-    orders().forEach(function (o) {
+    list.forEach(function (o) {
       if (!inMonth(o, month)) return;
       if (q && (String(o.orderNumber || '') + ' ' + String(o.clientName || '')).toLowerCase().indexOf(q) < 0) return;
       out[colOf(o, whGet(o))].push(o);
@@ -250,7 +250,7 @@
     var board = $('whBoard');
     if (!board) return;
     renderMonthPicker();
-    var cols = buildColumns();
+    var cols = buildColumns(orders(), selectedMonth(), whSearch);
     // На телефоне колонки листаются свайпом, поэтому сверху — короткие
     // переключатели: шесть столбцов пролистывать вслепую неудобно.
     var tabs = $('whTabs');
@@ -801,13 +801,13 @@
 
   // ── Акт: тот же PDF, что печатают менеджеры ────────────────────────────────
 
-  window.whPrintAct = function (id) {
+  window.whPrintAct = async function (id) {
     var o = findOrder(id); if (!o) return;
     try {
       if (!window.RadarDocs || !RadarDocs.ready()) { showToast('Генератор PDF ещё не загрузился — обновите страницу', 'error'); return; }
       var order = RadarStore.normalizeOrder(Object.assign({}, o));
       var calc = RadarPricing.calcEstimate(order, pricingCfg(), false);
-      RadarDocs.download('act', order, calc);
+      await RadarDocs.download('act', order, calc);
       showToast('Акт сформирован', 'success');
     } catch (e) { showToast('Ошибка акта: ' + (e && e.message || e), 'error'); }
   };
@@ -844,12 +844,14 @@
   // Правила доски (колонка, автосборка, месяц, адрес) не зависят от DOM —
   // отдаём их наружу, чтобы tests.html проверял логику напрямую, без кликов.
   window.RadarWarehouse = {
+    columns: COLS, buildColumns: buildColumns, currentMonthKey: currentMonthKey, monthLabel: monthLabel,
     colOf: colOf, whGet: whGet, autoAssembly: autoAssembly, inMonth: inMonth,
     deliveryOf: deliveryOf, monthKeyOf: monthKeyOf, needsResolution: needsResolution,
     checklistProgress: checklistProgress, WH_TO_STATUS: WH_TO_STATUS
   };
 
   // Открытие по навигации — оборачиваем switchPage поверх обёртки crm.js
+  if (typeof window.switchPage !== 'function') return;
   var prevSwitch = window.switchPage;
   window.switchPage = function (p) {
     prevSwitch(p);

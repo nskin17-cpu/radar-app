@@ -554,8 +554,36 @@
   }
 
   // ── Кэш для мгновенного старта и работы офлайн ───────────────────────────────────────────
-  function getOrdersCache() { var v = lsGet(CFG.cache.ordersKey, []); return Array.isArray(v) ? v.map(normalizeOrder) : []; }
-  function setOrdersCache(list) { lsSet(CFG.cache.ordersKey, list); }
+  function readOrdersSnapshot() {
+    var value = lsGet(CFG.cache.ordersKey, null);
+    // Legacy arrays have no owner. Only a successful server read can establish one.
+    if (Array.isArray(value)) return {orders: value, owner: null};
+    if (!value || !Array.isArray(value.orders) || value.owner !== CFG.readSession?.()?.username) return null;
+    return value;
+  }
+  function getOrdersCache() {
+    var snapshot = readOrdersSnapshot();
+    return snapshot ? snapshot.orders.map(normalizeOrder) : [];
+  }
+  function setOrdersCache(list) {
+    var snapshot = readOrdersSnapshot();
+    if (snapshot && snapshot.owner) lsSet(CFG.cache.ordersKey, Object.assign({}, snapshot, {orders:list}));
+    else {
+      var username = CFG.readSession?.()?.username;
+      if (!snapshot && username) lsSet(CFG.cache.ordersKey, {owner:username, at:null, orders:list});
+      else lsSet(CFG.cache.ordersKey, list);
+    }
+  }
+  function cacheServerOrders(list, username) {
+    if (!username) {
+      if (!CFG.readSession) setOrdersCache(list);
+      return;
+    }
+    if (CFG.readSession()?.username !== username) return;
+    if (!lsSet(CFG.cache.ordersKey, {owner:username, at:Date.now(), orders:list})) {
+      window.showToast?.('Не удалось обновить копию заказов на устройстве', 'error');
+    }
+  }
   function updateOrdersCache(order) {
     var list = getOrdersCache();
     var ix = list.findIndex(function (o) { return o.id === order.id; });
@@ -601,11 +629,12 @@
   }
 
   async function loadOrders() {
+    var username = CFG.readSession?.()?.username;
     try {
       var rows = await fetchAll('orders', '*', { column: 'start_date', ascending: true });
       if (rows.length && !columnCache.orders) columnCache.orders = new Set(Object.keys(rows[0]));
       var orders = rows.map(normalizeOrder);
-      setOrdersCache(orders);
+      cacheServerOrders(orders, username);
       return { orders: applyPendingOps(orders), fromCache: false };
     } catch (e) {
       console.warn('[store] заказы читаем из локального кэша:', e.message);
@@ -1250,7 +1279,7 @@
     // чтение
     loadOrders: loadOrders, loadClients: loadClients, loadStock: loadStock,
     loadCategories: loadCategories, loadPricing: loadPricing,
-    getOrdersCache: getOrdersCache, applyPendingOps: applyPendingOps,
+    cacheServerOrders: cacheServerOrders, getOrdersCache: getOrdersCache, applyPendingOps: applyPendingOps,
     // очередь
     flush: flush, pendingCount: pendingCount, readOutbox: readOutbox,
     onStatus: onStatus, getStatus: function () { return lastStatus; },

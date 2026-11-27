@@ -480,26 +480,49 @@
     return (opts && opts.withDiscount ? 'Смета_профессионал_' : 'Смета_') + num + '.pdf';
   }
 
-  function download(kind, order, calc, opts) {
-    createPdf(kind, order, calc, opts).download(fileName(kind, order, opts));
+  async function documentBlob(kind, order, calc, opts) {
+    var name = fileName(kind, order, opts);
+    var archive = window.RadarOffline?.capture(name, order.id || order.orderNumber);
+    var blob = await toBlob(kind, order, calc, opts);
+    if (archive) await archive(blob);
+    return blob;
   }
 
-  function open(kind, order, calc, opts) {
-    createPdf(kind, order, calc, opts).open();
+  function saveBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name; a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+
+  async function download(kind, order, calc, opts) {
+    var blob = await documentBlob(kind, order, calc, opts);
+    saveBlob(blob, fileName(kind, order, opts));
+  }
+
+  async function open(kind, order, calc, opts) {
+    var tab = window.open('');
+    try {
+      var blob = await documentBlob(kind, order, calc, opts);
+      if (!tab) { saveBlob(blob, fileName(kind, order, opts)); return; }
+      var url = URL.createObjectURL(blob);
+      tab.location.href = url;
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    } catch (error) {
+      if (tab) tab.close();
+      throw error;
+    }
   }
 
   async function share(kind, order, calc, opts) {
-    var blob = await toBlob(kind, order, calc, opts);
+    var blob = await documentBlob(kind, order, calc, opts);
     var name = fileName(kind, order, opts);
     var file = new File([blob], name, { type: 'application/pdf' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file] });
       return { shared: true };
     }
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = name; a.click();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    saveBlob(blob, name);
     return { shared: false };
   }
 

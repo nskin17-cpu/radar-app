@@ -1,17 +1,52 @@
-/**
- * Radar NR — сервис-воркер ТОЛЬКО для push-уведомлений.
- *
- * Здесь сознательно нет обработчика fetch и никакого кэширования:
- * приложение обновляется через ?v= в index.html, и кэширующий воркер
- * ломал бы этот механизм (страница «залипала» бы на старой версии).
- *
- * Пуш приходит из Supabase Edge Function notif-push (см. supabase/functions),
- * payload: { title, body, link } — link вида 'order:O123' или 'page:crm'.
- */
+// Пуш-уведомления и отдельная страница просмотра PDF без связи.
 'use strict';
 
-self.addEventListener('install', function (e) { self.skipWaiting(); });
-self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
+const scope = self.registration.scope;
+const shellPrefix = 'radar-offline-shell:' + new URL(scope).pathname + ':';
+const shellCache = shellPrefix + '20261128-2';
+const offlinePage = new URL('offline.html', scope).href;
+const assets = ['radar-config.js?v=20261128-orders', 'radar-offline.js?v=20261128-orders',
+  'radar-warehouse.js?v=20261128-orders', 'offline-orders.js?v=20261128-orders']
+  .map(path => new URL(path, scope).href);
+
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(shellCache);
+    await cache.addAll([offlinePage, ...assets].map(url => new Request(url, {cache:'reload'})));
+    await self.skipWaiting();
+  })());
+});
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith(shellPrefix) && key !== shellCache).map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  // Кэшируем только автономную страницу и её версионированные скрипты.
+  if (url.href === offlinePage || assets.includes(url.href)) {
+    event.respondWith(caches.open(shellCache).then(async cache => (await cache.match(request)) || fetch(request)));
+    return;
+  }
+  if (request.mode !== 'navigate' || url.origin !== self.location.origin ||
+      ![new URL(scope).pathname, new URL('index.html', scope).pathname].includes(url.pathname)) return;
+  event.respondWith((async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch(request, {signal: controller.signal});
+      if (response.status < 500) return response;
+    } catch (error) {
+      // Ошибка сети или тайм-аут: открываем локальный список документов.
+    } finally { clearTimeout(timer); }
+    return (await caches.open(shellCache)).match(offlinePage);
+  })());
+});
 
 self.addEventListener('push', function (e) {
   var d = {};

@@ -101,5 +101,14 @@
     localStorage.removeItem('radar.config.v1');
   };
 
+  cfg.sessionTTL = 14 * 86400000;
+  cfg.readSession = function () {
+    try {
+      var session = JSON.parse(localStorage.getItem(cfg.cache.sessionKey));
+      if (!session || !session.user || !session.at || Date.now() - session.at > cfg.sessionTTL) return null;
+      return session.user;
+    } catch (error) { return null; }
+  };
+
   window.RadarConfig = cfg;
 })();

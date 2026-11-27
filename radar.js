@@ -65,6 +65,12 @@ async function api(action,data={}){
   if(window.RadarConfig&&!window.RadarConfig.isGoogleActionAllowed(action)){
     return {success:false,disabled:true,error:`Google Sheets отключены (действие «${action}» пропущено)`};
   }
+  if(action==='getOrders'){
+    const username=RadarConfig.readSession()?.username;
+    const response=await gasApi(action,data);
+    if(response.success && Array.isArray(response.orders)) RadarStore.cacheServerOrders(response.orders.map(RadarStore.normalizeOrder),username);
+    return response;
+  }
   return gasApi(action,data);
 }
 
@@ -141,7 +147,8 @@ function radarIsAdmin(){return window.currentUser?.role==='admin'}
 function radarApplyPerms(){
   document.querySelectorAll('.nav-item[data-page]').forEach(item=>{
     const p=item.dataset.page;
-    const visible=p==='settings'?radarIsAdmin():radarCanView(RADAR_PAGE_AREA[p]||'');
+    const visible=p==='offlineFiles' ? radarCanView('orders') || radarCanView('assembly') :
+      p==='settings' ? radarIsAdmin() : radarCanView(RADAR_PAGE_AREA[p]||'');
     item.style.display=visible?'':'none';
   });
   // Кнопки «добавить/изменить» в шапках страниц
@@ -169,21 +176,14 @@ function radarStartPage(){
 // Проверка логина остаётся в Apps Script: в Supabase таблица users пуста,
 // своего бэкенда для хэшей паролей нет. Данные при этом читаются из Supabase,
 // поэтому недоступность Google на работу с заказами уже не влияет.
-const SESSION_TTL_MS=14*24*60*60*1000;
 function saveSession(user){
   try{localStorage.setItem(window.RadarConfig.cache.sessionKey,JSON.stringify({user,at:Date.now()}))}catch(e){}
 }
-function readSession(){
-  try{
-    const raw=localStorage.getItem(window.RadarConfig.cache.sessionKey);
-    if(!raw)return null;
-    const s=JSON.parse(raw);
-    if(!s||!s.user||!s.at)return null;
-    if(Date.now()-s.at>SESSION_TTL_MS)return null;
-    return s.user;
-  }catch(e){return null}
+function readSession(){return RadarConfig.readSession()}
+function clearSession(){
+  window.RadarOffline?.forget(window.RadarConfig.readSession()?.username);
+  try{localStorage.removeItem(window.RadarConfig.cache.sessionKey)}catch(e){}
 }
-function clearSession(){try{localStorage.removeItem(window.RadarConfig.cache.sessionKey)}catch(e){}}
 
 /**
  * Вход. Порядок проверки:

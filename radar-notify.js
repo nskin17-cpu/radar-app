@@ -507,8 +507,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     var t = $('notifTab-admin');
     if (t) t.style.display = 'none';
-    // Сервис-воркер только показывает пуши — кэшированием не занимается,
-    // поэтому регистрируем всегда: обновлениям приложения он не мешает.
+    // Регистрация нужна для уведомлений и просмотра локальных PDF.
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('sw.js').catch(function () { }); } catch (e) { }
     }

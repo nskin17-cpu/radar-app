@@ -35,7 +35,7 @@
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20260912-3';
+window.RADAR_BUILD='20261128-orders';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -99,10 +99,11 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="nav-item" data-page="competitors" onclick="switchPage('competitors')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="6"/><circle cx="7" cy="7" r="3"/><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none"/></svg></span> Конкуренты</div>
     <div class="nav-item" data-page="compare" onclick="switchPage('compare')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v12"/><path d="M2 4l2.5-2.5L7 4"/><path d="M7 10l2.5 2.5L12 10"/></svg></span> Сравнение</div>
     <div class="nav-section">CRM</div>
-    <div class="nav-item active" data-page="crm" onclick="switchPage('crm')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M5 5h4M5 8h4M5 11h2"/></svg></span> Заказы</div>
+    <a class="nav-item active" data-page="crm" href="offline.html#orders" onclick="if(!navigator.onLine)return;event.preventDefault();switchPage('crm')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M5 5h4M5 8h4M5 11h2"/></svg></span> Заказы</a>
+    <a class="nav-item" data-page="offlineFiles" href="offline.html">Просмотр без связи</a>
     <div class="nav-item" data-page="clients" onclick="switchPage('clients')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="2.2"/><path d="M1.5 11c.9-1.6 2.4-2.5 3.5-2.5s2.6.9 3.5 2.5"/><path d="M9 4h3M9 7h3M9 10h3"/></svg></span> Клиенты</div>
     <div class="nav-item" data-page="crmstock" onclick="switchPage('crmstock')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4l6-3 6 3v6l-6 3-6-3V4z"/><path d="M7 1v12M1 4l6 3 6-3"/></svg></span> Склад</div>
-    <div class="nav-item" data-page="warehouse" onclick="switchPage('warehouse')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="3.4" height="12" rx="0.8"/><rect x="5.3" y="1" width="3.4" height="8" rx="0.8"/><rect x="9.6" y="1" width="3.4" height="10" rx="0.8"/></svg></span> Выдача заказов</div>
+    <a class="nav-item" data-page="warehouse" href="offline.html#assembly" onclick="if(!navigator.onLine)return;event.preventDefault();switchPage('warehouse')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="3.4" height="12" rx="0.8"/><rect x="5.3" y="1" width="3.4" height="8" rx="0.8"/><rect x="9.6" y="1" width="3.4" height="10" rx="0.8"/></svg></span> Выдача заказов</a>
     <div class="nav-item" data-page="partners" onclick="switchPage('partners')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.6" cy="4.6" r="2.2"/><circle cx="9.4" cy="4.6" r="2.2"/><path d="M1 12c.6-2 2-3 3.6-3s3 1 3.6 3"/><path d="M9.4 9c1.6 0 3 1 3.6 3"/></svg></span> Партнёры</div>
     <div class="nav-item" data-page="crmdash" onclick="switchPage('crmdash')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 11l3-4 3 2 3-5 3 3"/></svg></span> CRM Дашборд</div>
     <div class="nav-section">Система</div>
@@ -251,6 +252,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
+      <a href="offline.html#orders" class="btn btn-sm btn-secondary">Сохранённые заказы</a>
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
         <button class="btn btn-sm" id="crmNewOrderBtn" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -576,6 +578,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 
     <!-- ВЫДАЧА ЗАКАЗОВ (доска склада) -->
     <div id="page-warehouse" class="page">
+      <a href="offline.html#assembly" class="btn btn-sm btn-secondary">Сохранённая доска выдачи</a>
       <div class="page-header">
         <div><div class="page-title">Выдача заказов</div><div class="page-desc">Сборка → Выдача → Возврат → Завершение.<span class="wh-desc-more"> В «Сборку» заказы попадают за 3 дня до выдачи после оплаты или предоплаты; залоги и компенсации закрывает менеджер</span></div></div>
         <div class="wh-toolbar">
@@ -1085,18 +1088,19 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div class="toast-container" id="toasts"></div>
 
 <!-- Порядок важен: конфигурация -> расчёты -> документы -> хранилище -> шлюз -> приложение -->
-<script src="radar-config.js?v=20260912-3"></script>
+<script src="radar-config.js?v=20261128-orders"></script>
+<script src="radar-offline.js?v=20261128-orders"></script>
 <script src="radar-pricing.js?v=20261128-catalog"></script>
 <script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
-<script src="radar-docs.js?v=20261128-catalog"></script>
+<script src="radar-docs.js?v=20261128-orders"></script>
 <script src="supabase.js?v=20260912-3"></script>
-<script src="radar-store.js?v=20261128-catalog"></script>
+<script src="radar-store.js?v=20261128-orders"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
-<script src="radar.js?v=20260912-3"></script>
-<script src="crm.js?v=20261128-catalog"></script>
+<script src="radar.js?v=20261128-orders"></script>
+<script src="crm.js?v=20261128-orders"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
-<script src="radar-warehouse.js?v=20260912-3"></script>
+<script src="radar-warehouse.js?v=20261128-orders"></script>
 <script src="radar-notify.js?v=20260912-3"></script>
 <script src="radar-status.js?v=20260912-3"></script>
 <script>

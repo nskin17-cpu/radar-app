@@ -2600,6 +2600,7 @@ function crmGetPdfOrderData(){
   };
 }
 function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
+  const archive=RadarOffline.capture(filename,document.getElementById('crmOrderId').value);
   const container=document.createElement('div');
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=htmlStr;
@@ -2618,7 +2619,9 @@ function crmRenderAndSavePDF(htmlStr,filename,cb,openInTab){
   crmRenderPdfFromContainer(container,isMobile).then(pdf=>{
     document.body.removeChild(container);
     if(cb)cb(pdf);
-    if(openInTab){const url=URL.createObjectURL(pdf.output('blob'));window.open(url,'_blank');}
+    const blob=pdf.output('blob');
+    archive(blob);
+    if(openInTab){const url=URL.createObjectURL(blob);window.open(url,'_blank');}
     else{pdf.save(filename);showToast('PDF скачан','success');}
   }).catch(()=>{showToast('Ошибка генерации PDF','error');if(document.body.contains(container))document.body.removeChild(container);});
 }
@@ -2881,7 +2884,7 @@ function crmWarnIfPdfNotReady(){
   }
 }
 
-function crmGenerateEstimatePDF(withDiscount){
+async function crmGenerateEstimatePDF(withDiscount){
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
@@ -2891,11 +2894,11 @@ function crmGenerateEstimatePDF(withDiscount){
       return;
     }
     const{order,calc}=crmDocContext(withDiscount);
-    RadarDocs.download('estimate',order,calc,{withDiscount});
+    await RadarDocs.download('estimate',order,calc,{withDiscount});
     showToast('Смета сформирована','success');
   }catch(e){showToast('Ошибка генерации PDF: '+(e?.message||e),'error')}
 }
-function crmGenerateActPDF(){
+async function crmGenerateActPDF(){
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
@@ -2904,24 +2907,26 @@ function crmGenerateActPDF(){
       return;
     }
     const{order,calc}=crmDocContext(false);
-    RadarDocs.download('act',order,calc);
+    await RadarDocs.download('act',order,calc);
     showToast('Акт сформирован','success');
   }catch(e){showToast('Ошибка генерации акта: '+(e?.message||e),'error')}
 }
-function crmDownloadAllPDF(){
+async function crmDownloadAllPDF(){
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
       const d=crmGetPdfOrderData();
-      crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),null,crmApplyEstimatePdfLink,true);
-      setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),null,crmApplyEstimatePdfLink,true),1200);
-      setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),null,null,true),2400);
+      crmRenderAndSavePDF(crmBuildEstimateHTML(d,true),`Смета_профессионал_${d.orderId}.pdf`,crmApplyEstimatePdfLink,true);
+      setTimeout(()=>crmRenderAndSavePDF(crmBuildEstimateHTML(d,false),`Смета_${d.orderId}.pdf`,crmApplyEstimatePdfLink,true),1200);
+      setTimeout(()=>crmRenderAndSavePDF(crmBuildActHTML(d),`Акт_${d.orderId}.pdf`,null,true),2400);
       return;
     }
     const pro=crmDocContext(true),std=crmDocContext(false);
-    RadarDocs.open('estimate',pro.order,pro.calc,{withDiscount:true});
-    RadarDocs.open('estimate',std.order,std.calc,{withDiscount:false});
-    RadarDocs.open('act',std.order,std.calc);
+    await Promise.all([
+      RadarDocs.open('estimate',pro.order,pro.calc,{withDiscount:true}),
+      RadarDocs.open('estimate',std.order,std.calc,{withDiscount:false}),
+      RadarDocs.open('act',std.order,std.calc)
+    ]);
   }catch(e){showToast('Ошибка генерации документов: '+(e?.message||e),'error')}
 }
 async function crmSharePDF(type){
@@ -2946,6 +2951,7 @@ function crmSharePDFLegacy(type){
   if(type==='pro'){html=crmBuildEstimateHTML(d,true);fname=`Смета_профессионал_${d.orderId}.pdf`}
   else if(type==='std'){html=crmBuildEstimateHTML(d,false);fname=`Смета_${d.orderId}.pdf`}
   else{html=crmBuildActHTML(d);fname=`Акт_${d.orderId}.pdf`}
+  const archive=RadarOffline.capture(fname,d.orderId);
   const container=document.createElement('div');
   container.style.cssText='position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
   container.innerHTML=html;
@@ -2954,6 +2960,7 @@ function crmSharePDFLegacy(type){
     document.body.removeChild(container);
     if(type!=='act')crmApplyEstimatePdfLink(pdf);
     const blob=pdf.output('blob');
+    archive(blob);
     const file=new File([blob],fname,{type:'application/pdf'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
       navigator.share({files:[file]}).then(()=>showToast('Отправлено','success')).catch(()=>{});

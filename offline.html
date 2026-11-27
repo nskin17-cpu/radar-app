@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Просмотр без связи · Radar</title>
+  <style>
+    * {box-sizing:border-box} body {margin:0;background:#f5f5f7;color:#202124;font:16px/1.5 system-ui,sans-serif}
+    main {max-width:78rem;margin:auto;padding:2rem 1.25rem} h1 {font-size:1.6rem}
+    ul {padding:0;list-style:none} li {margin:.5rem 0;padding:.8rem 1rem;background:white;border-radius:.6rem}
+    button {display:block;padding:.4rem 0;border:0;background:none;color:#21476d;text-align:left;font:inherit;cursor:pointer;overflow-wrap:anywhere}
+    small {color:#525964} a {color:#21476d}
+    nav {display:flex;flex-wrap:wrap;gap:.4rem;margin:1rem 0}
+    nav a {padding:.45rem .8rem;border:1px solid #c5c8cc;border-radius:.5rem;text-decoration:none}
+    nav a[aria-current="page"] {background:#233e55;color:white}
+    #orderFilters {display:flex;flex-wrap:wrap;gap:.75rem;margin:1rem 0}
+    input,select {font:inherit;padding:.45rem;max-width:100%}
+    details {border:1px solid #d7dadd;border-radius:.6rem;background:white;margin:.45rem 0;padding:.65rem}
+    summary {cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+    details p {margin:.45rem 0} details li {margin:0;padding:0}
+    .board {display:grid;grid-auto-flow:column;grid-auto-columns:minmax(15rem, 1fr);overflow-x:auto;gap:.75rem;padding-bottom:1rem}
+    .board section {background:#e8eaf0;padding:.55rem;border-radius:.6rem}
+    h2 {font-size:1rem;margin:.3rem 0}
+    [hidden] {display:none !important}
+  </style>
+</head>
+<body>
+  <main>
+    <a href="./">Вернуться в Radar</a>
+    <nav aria-label="Разделы Radar">
+      <a href="#orders" hidden>Заказы</a>
+      <a href="#assembly" hidden>Выдача заказов</a>
+      <a href="#files" hidden>Файлы</a>
+    </nav>
+    <h1 id="offlineTitle">Просмотр без связи</h1>
+    <section id="offlineOrders">
+      <p id="orderStatus" role="status"></p>
+      <div id="orderFilters" hidden>
+        <input id="orderSearch" type="search" aria-label="Номер заказа или заказчик" placeholder="Номер заказа или заказчик">
+        <select id="orderMonth" aria-label="Месяц"></select>
+      </div>
+      <div id="orderResults"></div>
+    </section>
+    <section id="offlineFiles" hidden>
+    <p id="offlineStatus" role="status">Открываем сохранённые файлы…</p>
+    <ul id="offlineList"></ul>
+    </section>
+  </main>
+  <script src="radar-config.js?v=20261128-orders"></script>
+  <script src="radar-offline.js?v=20261128-orders"></script>
+  <script src="radar-warehouse.js?v=20261128-orders"></script>
+  <script src="offline-orders.js?v=20261128-orders"></script>
+</body>
+</html>
