@@ -33,13 +33,13 @@ if (navigator.onLine === false) {
      не пришёл (сбой сети ровно в момент выкладки новой версии, закешированная
      неудача), браузер молча рисовал бы окно заказа голой разметкой. Тогда
      грузим тот же файл по адресу без версии — вёрстка остаётся на месте. -->
-<link rel="stylesheet" href="styles.css?v=20261128-stock-badge" onerror="this.onerror=null;this.href='styles.css'">
+<link rel="stylesheet" href="styles.css?v=20261128-wordmark" onerror="this.onerror=null;this.href='styles.css'">
 <link rel="stylesheet" href="radar-ui.css?v=20260912-3" onerror="this.onerror=null;this.href='radar-ui.css'">
 <script>
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-doc-client';
+window.RADAR_BUILD='20261128-wordmark';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -91,13 +91,13 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <div id="app" class="app">
   <div class="mobile-header">
     <button class="hamburger" onclick="toggleSidebar()">☰</button>
-    <span style="font-weight:800;font-size:12px;letter-spacing:3px;color:#fff">NANDRENT</span>
+    <span class="crm-wordmark" role="img" aria-label="NANDRENT">NANDRENT</span>
     <div style="width:20px"></div>
   </div>
   <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar(false)"></div>
 
   <nav class="sidebar" id="sidebar">
-    <div class="sidebar-logo"><span style="font-weight:800;font-size:13px;letter-spacing:3px;color:#fff">NANDRENT</span></div>
+    <div class="sidebar-logo"><span class="crm-wordmark" role="img" aria-label="NANDRENT">NANDRENT</span></div>
     <div class="nav-section">Аналитика</div>
     <div class="nav-item" data-page="dashboard" onclick="switchPage('dashboard')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="7" width="3" height="6"/><rect x="5.5" y="4" width="3" height="9"/><rect x="10" y="1" width="3" height="12"/></svg></span> Дашборд по конкурентам</div>
     <div class="nav-item" data-page="mycompany" onclick="switchPage('mycompany')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="12" height="9"/><path d="M5 13V9h4v4"/><path d="M1 4l6-3 6 3"/></svg></span> Моя компания</div>
@@ -1122,6 +1122,11 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <script src="radar-pricing.js?v=20261128-catalog"></script>
 <script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
 <script src="radar-docs.js?v=20261128-doc-client"></script>
+<script>
+  if (window.RadarDocs?.COMPANY.wordmark) {
+    document.querySelectorAll('.crm-wordmark').forEach(el => { el.innerHTML = RadarDocs.COMPANY.wordmark; });
+  }
+</script>
 <script src="supabase.js?v=20260912-3"></script>
 <script src="radar-store.js?v=20261128-branches"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
