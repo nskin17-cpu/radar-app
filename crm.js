@@ -2836,7 +2836,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   totalsBlock+=`<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:10px">Итог</div>`;
   totalsBlock+=totRow('Сумма товаров',crmFmtN(itemsTotal)+' ₽');
   if(withDiscount&&discountAmt>0){
-    totalsBlock+=totRow(`↓ Скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽','#7a9e7e','12px','600');
+    totalsBlock+=totRow(`Профессиональная скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽',RadarDocs.serviceColors.included,'12px','600');
     totalsBlock+=totRow('Товары со скидкой',crmFmtN(itemsAfterDiscount)+' ₽');
   }
   if(deliveryCost>0)totalsBlock+=totRow('Доставка в обе стороны',crmFmtN(deliveryCost)+' ₽');
@@ -2846,16 +2846,15 @@ function crmBuildEstimateHTML(d,withDiscount){
   totalsBlock+=totRow('Итого к оплате <span style="font-size:10px;color:#888;font-weight:500;margin-left:6px">без учета залога</span>',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
   totalsBlock+=`</div></div>`;
 
-  const discountBadge=withDiscount&&discountPct>0
-    ?`<span style="font-size:14px;font-weight:700;font-family:sans-serif">${discountPct}%</span><span style="display:inline-block;background:#1a1a1a;color:#fff;font-family:sans-serif;font-size:9.5px;letter-spacing:1px;padding:2px 9px;margin-left:7px">− ${crmFmtN(discountAmt)} ₽</span>`
-    :'';
+  const discountInfo=`<div style="font:600 14px sans-serif;color:${RadarDocs.serviceColors.included}">Профессиональная скидка ${discountPct}%</div>
+    <div style="font:12px sans-serif;color:${RadarDocs.serviceColors.included}">Ваша экономия — ${crmFmtN(discountAmt)} ₽</div>`;
 
   // meta rows — always: клиент, период, доставка, сетап, залог, пронос, [скидка, исполнитель]
   const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`${crmFmtN(depositAmt)} ₽`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
     :`<div style="${P}${PR}">${ML('Пронос / Подъём на этаж',carryMeta)}</div><div style="${PL}"></div>`;
   const executor='Компания NANDRENT<br>тел. +7 (966) 866-86-66';
   const lastRow=withDiscount&&discountPct>0
-    ?`<div style="${P}${PR};border-bottom:none">${ML('Индивидуальная скидка',discountBadge)}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
+    ?`<div style="${P}${PR};border-bottom:none">${discountInfo}</div><div style="${PL};border-bottom:none">${ML('Исполнитель',executor)}</div>`
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
 
   const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:${isMobile?'12.4px':'12px'};color:#333;line-height:${isMobile?'1.6':'1.6'}"><span style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;

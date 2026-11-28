@@ -78,8 +78,8 @@
     const lines = items.filter(item => item.qty > 0 && item.billable !== false);
     const count = lines.filter(item => item.setup !== false).length;
     if (!count) return { text:'Не предусмотрен', color:serviceColors.excluded, enabled:false };
-    if (count < lines.length) return { text:'Частично', color:serviceColors.partial, enabled:true };
-    return { text:'На все позиции', color:serviceColors.included, enabled:true };
+    if (count < lines.length) return { text:'Предусмотрен частично', color:serviceColors.partial, enabled:true };
+    return { text:'Предусмотрен на все позиции', color:serviceColors.included, enabled:true };
   }
   function carryStatus(order) {
     const included = order.carryFloor === 'yes';
@@ -250,7 +250,7 @@
     }
     var totalsBody = [totalRow('Сумма товаров', money(calc.itemsGross))];
     if (hasDiscount) {
-      totalsBody.push(totalRow('Профессиональная скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: '#5f9265', bold: true }));
+      totalsBody.push(totalRow('Профессиональная скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: serviceColors.included, bold: true }));
       totalsBody.push(totalRow('Товары со скидкой', money(calc.itemsTotal)));
     }
     if (calc.deliveryCost > 0) totalsBody.push(totalRow('Доставка в обе стороны', money(calc.deliveryCost)));
@@ -380,8 +380,8 @@
     metaRows.push(statusCell('Пронос / Подъём на этаж', carryStatus(order)));
     if (hasDiscount) {
       metaRows.push({ stack: [
-        { text: ['Профессиональная скидка  ', { text: calc.discountPct + '%', bold: true, color: '#42654c' }], fontSize: 9.5 },
-        { text: 'Ваша экономия — ' + money(calc.discountAmount), fontSize: 9, color: '#505650', margin: [0, 3, 0, 0] }
+        { text: ['Профессиональная скидка  ', { text: calc.discountPct + '%', bold: true }], fontSize: 9.5, color: serviceColors.included },
+        { text: 'Ваша экономия — ' + money(calc.discountAmount), fontSize: 9, color: serviceColors.included, margin: [0, 3, 0, 0] }
       ] });
     }
     metaRows.push(metaCell('Исполнитель', 'Компания ' + COMPANY.name + '\nтел. ' + COMPANY.phone));
@@ -577,7 +577,7 @@
     open: open,
     share: share,
     fileName: fileName,
-    itemSetupStatus, setupStatus, carryStatus, deliveryInfo,
+    serviceColors, itemSetupStatus, setupStatus, carryStatus, deliveryInfo,
     displayName: displayName,
     productPhoto: productPhoto,
     COMPANY: COMPANY
