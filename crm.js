@@ -2791,9 +2791,9 @@ function crmApplyEstimatePdfLink(pdf){
  */
 function crmDocumentCaptionHTML(item){
   const label=esc(item.documentName||crmGetItemDisplayName(item));
-  const setup=item.setup!==false;
+  const setup=RadarDocs.itemSetupStatus(item);
   const caption=item.material?label+'<div style="font-size:10px;font-weight:400;color:#626a70">Материал: '+esc(item.material)+'</div>':label;
-  return caption+`<div style="font:600 11px sans-serif;color:${setup?'#148044':'#686868'}">${setup?'Сетап включён':'Без сетапа'}</div>`;
+  return caption+`<div style="font:600 11px sans-serif;color:${setup.color}">${esc(setup.text)}</div>`;
 }
 function crmDocItems(d){
   try{return window.RadarPartners?RadarPartners.billableItems(d.items,d):d.items}
@@ -2801,10 +2801,10 @@ function crmDocItems(d){
 }
 function crmDocServices(d){
   const info=RadarDocs.deliveryInfo(d,d.items);
-  const badge=status=>`<span style="padding:3px 6px;background:${status.color};color:#242424">${esc(status.text)}</span>`;
+  const statusText=status=>`<strong style="color:${status.color}">${esc(status.text)}</strong>`;
   return {deliveryTitle:info.title,
     deliveryMeta:esc(info.address).replace(/\n/g,'<br>')+(info.note?'<br><small>'+esc(info.note)+'</small>':''),
-    setupMeta:badge(RadarDocs.setupStatus(d.items)),carryMeta:badge(RadarDocs.carryStatus(d))};
+    setupMeta:statusText(RadarDocs.setupStatus(d.items)),carryMeta:statusText(RadarDocs.carryStatus(d))};
 }
 function crmBuildEstimateHTML(d,withDiscount){
   d={...d,items:crmDocItems(d)};

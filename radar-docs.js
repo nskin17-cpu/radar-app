@@ -68,22 +68,25 @@
   function rentalPeriod(order) {
     return metaCell('Период аренды', 'Получение — ' + fmtDate(order.startDate) + '\nВозврат — ' + fmtDate(order.endDate));
   }
+  const serviceColors = {included:'#148044', partial:'#956111', excluded:'#a44c55'};
+  function itemSetupStatus(item) {
+    return item.setup !== false
+      ? {text:'Сетап включён',color:serviceColors.included}
+      : {text:'Без сетапа',color:serviceColors.excluded};
+  }
   function setupStatus(items) {
     const lines = items.filter(item => item.qty > 0 && item.billable !== false);
     const count = lines.filter(item => item.setup !== false).length;
-    if (!count) return { text:'Не предусмотрен', color:'#f8e6e5', enabled:false };
-    if (count < lines.length) return { text:'Частично', color:'#fff0ce', enabled:true };
-    return { text:'На все позиции', color:'#dcf2e3', enabled:true };
+    if (!count) return { text:'Не предусмотрен', color:serviceColors.excluded, enabled:false };
+    if (count < lines.length) return { text:'Частично', color:serviceColors.partial, enabled:true };
+    return { text:'На все позиции', color:serviceColors.included, enabled:true };
   }
   function carryStatus(order) {
     const included = order.carryFloor === 'yes';
-    return { text:included ? 'Да' : 'Нет', color:included ? '#dcf2e3' : '#f8e6e5' };
+    return { text:included ? 'Да' : 'Нет', color:included ? serviceColors.included : serviceColors.excluded };
   }
   function statusCell(title, status) {
-    return { stack:[label(title), {
-      table:{widths:['auto'],body:[[{text:status.text,fillColor:status.color,fontSize:9.5,color:INK,margin:[4,1,4,1]}]]},
-      layout:'noBorders'
-    }] };
+    return { stack:[label(title), {text:status.text, fontSize:9.5, bold:true, color:status.color}] };
   }
   function deliveryInfo(order, items) {
     if (order.deliveryType === 'pickup') {
@@ -109,10 +112,10 @@
   }
 
   function itemCell(item) {
-    var setup = item.setup !== false;
+    var setup = itemSetupStatus(item);
     var caption = { stack: [
       { text: displayName(item), fontSize: 9.5, color: INK },
-      { text: setup ? 'Сетап включён' : 'Без сетапа', fontSize: 8, bold: setup, color: setup ? '#148044' : '#686868', margin: [0, 2, 0, 0] }
+      { text: setup.text, fontSize: 8, bold: true, color: setup.color, margin: [0, 2, 0, 0] }
     ] };
     if (item.material) caption.stack.splice(1, 0, { text: 'Материал: ' + item.material, fontSize: 8, color: '#626a70', margin: [0, 2, 0, 0] });
     var photo = productPhoto(item);
@@ -574,7 +577,7 @@
     open: open,
     share: share,
     fileName: fileName,
-    setupStatus, carryStatus, deliveryInfo,
+    itemSetupStatus, setupStatus, carryStatus, deliveryInfo,
     displayName: displayName,
     productPhoto: productPhoto,
     COMPANY: COMPANY
