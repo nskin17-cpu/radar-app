@@ -39,7 +39,7 @@ if (navigator.onLine === false) {
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-stock-badge';
+window.RADAR_BUILD='20261128-orders-menu';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -258,7 +258,6 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <!-- CRM ORDERS -->
     <div id="page-crm" class="page active">
       <label class="input-label">Филиал <select data-warehouse-branch aria-label="Филиал"></select></label>
-      <a href="offline.html#orders" class="btn btn-sm btn-secondary">Сохранённые заказы</a> <small role="status" data-offline-ready>Готовим доступ без связи…</small>
       <div class="page-header"><div><div class="page-title">Заказы</div><div class="page-desc">CRM управление заказами</div></div>
         <button class="btn btn-sm" id="crmNewOrderBtn" onclick="crmOpenDialog()">+ Новый заказ</button></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
