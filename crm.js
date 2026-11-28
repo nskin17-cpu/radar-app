@@ -1474,6 +1474,15 @@ function crmBranchOrders(){return crmOrders.filter(order=>warehouse.includes(ord
 function crmBranchStock(){
   return document.getElementById('crmWholeCatalog')?.checked ? crmStock : crmStock.filter(s=>warehouse.quantity(s)>0);
 }
+function crmStockBranchNote(item){
+  const stocked=Object.entries(warehouse.names).filter(([id])=>warehouse.quantity(item,id)>0);
+  if(stocked.length<2)return '';
+  const unit=esc(item.unit||'шт');
+  const balances=stocked.map(([id,label])=>
+    `<span>${esc(label)} — ${warehouse.quantity(item,id)} ${unit}</span>`
+  ).join('');
+  return `<div class="stock-branch-note"><span class="badge badge-blue">На обоих складах</span>${balances}</div>`;
+}
 function crmRefreshBranchSelectors(){
   document.querySelectorAll('[data-warehouse-branch]').forEach(select=>{
     warehouse.options(select);
@@ -1562,7 +1571,7 @@ function crmRenderStock(){
       const isOpen=crmStockOpenGroups[cat]!==undefined?crmStockOpenGroups[cat]:idx===0;
       const rows=its.map(s=>`<tr>
         ${cbCell(s)}
-        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
+        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}${crmStockBranchNote(s)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
         <td><span class="badge ${warehouse.quantity(s)>20?'badge-green':warehouse.quantity(s)>5?'badge-amber':'badge-red'}">${warehouse.quantity(s)} ${esc(s.unit||'шт')}</span></td>
@@ -1577,7 +1586,7 @@ function crmRenderStock(){
       rows+=`<tr class="crm-month-sep"><td colspan="${cols}"><span>${esc(cat)} · ${its.length} поз.</span></td></tr>`;
       rows+=its.map(s=>`<tr>
         ${cbCell(s)}
-        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}</td>
+        <td style="font-weight:500">${esc(s.name)}${crmOwnerBadge(s.partnerId)}${crmStockBranchNote(s)}</td>
         <td class="mono">${fN(s.price)}₽</td>
         <td class="mono">${Number(s.setupRate)>0?fN(s.setupRate)+'₽':'—'}</td>
         <td><span class="badge ${warehouse.quantity(s)>20?'badge-green':warehouse.quantity(s)>5?'badge-amber':'badge-red'}">${warehouse.quantity(s)} ${esc(s.unit||'шт')}</span></td>

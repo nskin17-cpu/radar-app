@@ -68,6 +68,7 @@ td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.04);ver
 .crm-deposit-select.crm-deposit-comp{background-color:#ffe5ef!important}
 .mono{font-family:'JetBrains Mono',monospace;font-size:11px}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.25px;border:1px solid transparent}
+.stock-branch-note{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-top:4px;font-size:11px;line-height:1.35;font-weight:400;color:var(--text2);white-space:normal}
 .badge-green{background:var(--green-dim);color:var(--green);border-color:rgba(52,199,89,0.15)}.badge-amber{background:var(--amber-dim);color:var(--amber);border-color:rgba(255,149,0,0.18)}.badge-blue{background:var(--blue-dim);color:var(--blue);border-color:rgba(0,122,255,0.12)}.badge-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(175,82,222,0.16)}
 .charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-bottom:20px}
 .chart-card{background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
