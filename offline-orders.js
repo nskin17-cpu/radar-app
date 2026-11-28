@@ -72,7 +72,9 @@
     const sections = ['orders','assembly'].filter(allowed);
     if (sections.length) sections.push('files');
     const notification = new URLSearchParams(location.search).get('nl');
-    const requested = location.hash.slice(1) || (notification === 'page:warehouse' ? 'assembly' : 'orders');
+    const pulled = window.history.state?.radarPullPage;
+    const fromWarehouse = pulled?.page === 'warehouse' && pulled.user === user?.username;
+    const requested = location.hash.slice(1) || (notification === 'page:warehouse' || fromWarehouse ? 'assembly' : 'orders');
     const next = sections.includes(requested) ? requested : sections[0];
     if (view !== next || userName !== user?.username) search.value = '';
     view = next;

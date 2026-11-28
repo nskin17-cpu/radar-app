@@ -39,7 +39,7 @@ if (navigator.onLine === false) {
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-orders-menu';
+window.RADAR_BUILD='20261128-pull';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -1118,7 +1118,7 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <script src="supabase.js?v=20260912-3"></script>
 <script src="radar-store.js?v=20261128-branches"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
-<script src="radar.js?v=20261128-orders"></script>
+<script src="radar.js?v=20261128-pull"></script>
 <script src="crm.js?v=20261128-stock-badge"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
@@ -1407,5 +1407,6 @@ async function radarImportMissingOrders(){
 window.addEventListener('online',radarRefreshSyncPanel);
 window.addEventListener('offline',radarRefreshSyncPanel);
 </script>
+<script src="radar-pull-refresh.js?v=20261128-pull"></script>
 </body>
 </html>

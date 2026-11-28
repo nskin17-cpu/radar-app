@@ -227,7 +227,7 @@ async function handleLogin(){
     if(btn){btn.disabled=false;btn.textContent='Войти'}
   }
 }
-function showApp(){
+function showApp(preferredPage){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').classList.add('active');
   document.getElementById('userName').textContent=currentUser.username;
@@ -235,7 +235,9 @@ function showApp(){
   document.getElementById('userAvatar').textContent=currentUser.username[0].toUpperCase();
   window.currentUser=currentUser;
   radarApplyPerms();
-  switchPage(radarStartPage());
+  const allowed=preferredPage==='settings' ? radarIsAdmin() :
+    Object.hasOwn(RADAR_PAGE_AREA,preferredPage) && radarCanView(RADAR_PAGE_AREA[preferredPage]);
+  switchPage(allowed ? preferredPage : radarStartPage());
   // Аналитику конкурентов грузим только тем, кому она видна
   if(radarCanView('competitors'))loadAll();
 }
@@ -268,7 +270,9 @@ function sessionExpired(){
 document.addEventListener('DOMContentLoaded',()=>{
   const u=readSession();
   if(!u)return;
-  currentUser=u;showApp();
+  const {radarPullPage,...rest}=window.history.state||{};
+  if(radarPullPage)window.history.replaceState(rest,'');
+  currentUser=u;showApp(radarPullPage?.user===u.username ? radarPullPage.page : null);
   if(!window.RadarStore?.authRefresh)return;
   window.RadarStore.authRefresh().then(r=>{
     if(!r||r.alive===null)return;                  // офлайн или миграции нет — живём по кэшу

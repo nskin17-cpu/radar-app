@@ -3,10 +3,11 @@
 
 const scope = self.registration.scope;
 const shellPrefix = 'radar-offline-shell:' + new URL(scope).pathname + ':';
-const shellCache = shellPrefix + '20261128-branches';
+const shellCache = shellPrefix + '20261128-pull';
 const offlinePage = new URL('offline.html', scope).href;
 const assets = ['radar-config.js?v=20261128-branches', 'radar-offline.js?v=20261128-ios-1',
-  'radar-warehouse.js?v=20261128-branches', 'offline-orders.js?v=20261128-branches']
+  'radar-warehouse.js?v=20261128-branches', 'offline-orders.js?v=20261128-pull',
+  'radar-pull-refresh.js?v=20261128-pull']
   .map(path => new URL(path, scope).href);
 
 self.addEventListener('install', event => {
