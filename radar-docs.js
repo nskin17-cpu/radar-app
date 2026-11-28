@@ -65,6 +65,10 @@
   function metaCell(title, value) {
     return { stack: [label(title), { text: value, fontSize: 10, color: INK, lineHeight: 1.18 }] };
   }
+  function clientCell(order) {
+    const identity = [order.clientName, order.companyName].filter(Boolean).join(', ');
+    return metaCell('Клиент', [identity, order.clientPhone].filter(Boolean).join('\n'));
+  }
   function rentalPeriod(order) {
     return metaCell('Период аренды', 'Получение — ' + fmtDate(order.startDate) + '\nВозврат — ' + fmtDate(order.endDate));
   }
@@ -241,7 +245,7 @@
     // Итоги — единым неразрывным блоком
     function totalRow(text, value, style) {
       style = style || {};
-      var color = style.color || '#777777';
+      var color = '#777777';
       var caption = { text: text, fontSize: style.size || 9.5, color: color, bold: !!style.bold };
       return [
         caption,
@@ -250,7 +254,7 @@
     }
     var totalsBody = [totalRow('Сумма товаров', money(calc.itemsGross))];
     if (hasDiscount) {
-      totalsBody.push(totalRow('Профессиональная скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: serviceColors.included, bold: true }));
+      totalsBody.push(totalRow(['Профессиональная скидка ', {text:calc.discountPct + '%', color:serviceColors.included}], '− ' + money(calc.discountAmount), { color: serviceColors.included, bold: true }));
       totalsBody.push(totalRow('Товары со скидкой', money(calc.itemsTotal)));
     }
     if (calc.deliveryCost > 0) totalsBody.push(totalRow('Доставка в обе стороны', money(calc.deliveryCost)));
@@ -371,7 +375,7 @@
 
     // Мета-блок
     var metaRows = [
-      metaCell('Клиент', order.clientName + (order.companyName ? '\n' + order.companyName : '') + (order.clientPhone ? '\n' + order.clientPhone : '')),
+      clientCell(order),
       rentalPeriod(order),
       deliveryCell(order, calc.items),
       statusCell('Сетап', setupStatus(calc.items))
@@ -380,8 +384,8 @@
     metaRows.push(statusCell('Пронос / Подъём на этаж', carryStatus(order)));
     if (hasDiscount) {
       metaRows.push({ stack: [
-        { text: ['Профессиональная скидка  ', { text: calc.discountPct + '%', bold: true }], fontSize: 9.5, color: serviceColors.included },
-        { text: 'Ваша экономия — ' + money(calc.discountAmount), fontSize: 9, color: serviceColors.included, margin: [0, 3, 0, 0] }
+        { text: ['Профессиональная скидка  ', { text: calc.discountPct + '%', bold: true, color: serviceColors.included }], fontSize: 9.5, color: INK },
+        { text: ['Ваша экономия — ', {text:money(calc.discountAmount), color:serviceColors.included}], fontSize: 9, color: INK, margin: [0, 3, 0, 0] }
       ] });
     }
     metaRows.push(metaCell('Исполнитель', 'Компания ' + COMPANY.name + '\nтел. ' + COMPANY.phone));
@@ -452,7 +456,7 @@
 
     var metaRows = [
       metaCell('Исполнитель', 'Компания ' + COMPANY.name + '\nтел. ' + COMPANY.phone),
-      metaCell('Клиент', order.clientName + (order.companyName ? '\n' + order.companyName : '') + (order.clientPhone ? '\n' + order.clientPhone : '')),
+      clientCell(order),
       rentalPeriod(order),
       deliveryCell(order, calc.items),
       statusCell('Сетап', setupStatus(calc.items)),

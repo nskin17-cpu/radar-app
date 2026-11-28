@@ -2799,6 +2799,11 @@ function crmDocItems(d){
   try{return window.RadarPartners?RadarPartners.billableItems(d.items,d):d.items}
   catch(e){return d.items}
 }
+function crmClientMetaHTML(name,company,phone,companySize){
+  const studio=company?`<span style="display:inline-block;max-width:100%;overflow-wrap:anywhere;font-size:${companySize}px;color:#888">${esc(company)}</span>`:'';
+  const identity=[esc(name),studio].filter(Boolean).join(', ');
+  return [identity,esc(phone)].filter(Boolean).join('<br>');
+}
 function crmDocServices(d){
   const info=RadarDocs.deliveryInfo(d,d.items);
   const statusText=status=>`<strong style="color:${status.color}">${esc(status.text)}</strong>`;
@@ -2836,7 +2841,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   totalsBlock+=`<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#aaa;font-family:sans-serif;margin-bottom:10px">Итог</div>`;
   totalsBlock+=totRow('Сумма товаров',crmFmtN(itemsTotal)+' ₽');
   if(withDiscount&&discountAmt>0){
-    totalsBlock+=totRow(`Профессиональная скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽',RadarDocs.serviceColors.included,'12px','600');
+    totalsBlock+=totRow(`<span style="color:#777">Профессиональная скидка</span> ${esc(String(discountPct))}%`,'− '+crmFmtN(discountAmt)+' ₽',RadarDocs.serviceColors.included,'12px','600');
     totalsBlock+=totRow('Товары со скидкой',crmFmtN(itemsAfterDiscount)+' ₽');
   }
   if(deliveryCost>0)totalsBlock+=totRow('Доставка в обе стороны',crmFmtN(deliveryCost)+' ₽');
@@ -2846,8 +2851,8 @@ function crmBuildEstimateHTML(d,withDiscount){
   totalsBlock+=totRow('Итого к оплате <span style="font-size:10px;color:#888;font-weight:500;margin-left:6px">без учета залога</span>',crmFmtN(grandTotal)+' ₽','#1a1a1a','16px','700');
   totalsBlock+=`</div></div>`;
 
-  const discountInfo=`<div style="font:600 14px sans-serif;color:${RadarDocs.serviceColors.included}">Профессиональная скидка ${discountPct}%</div>
-    <div style="font:12px sans-serif;color:${RadarDocs.serviceColors.included}">Ваша экономия — ${crmFmtN(discountAmt)} ₽</div>`;
+  const discountInfo=`<div style="font:600 14px sans-serif;color:#1a1a1a">Профессиональная скидка <span style="color:${RadarDocs.serviceColors.included}">${esc(String(discountPct))}%</span></div>
+    <div style="font:12px sans-serif;color:#1a1a1a">Ваша экономия — <span style="color:${RadarDocs.serviceColors.included}">${crmFmtN(discountAmt)} ₽</span></div>`;
 
   // meta rows — always: клиент, период, доставка, сетап, залог, пронос, [скидка, исполнитель]
   const depositBlock=depositAmt>0?`<div style="${P}${PR}">${ML('Залог',`${crmFmtN(depositAmt)} ₽`)}</div><div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>`
@@ -2868,7 +2873,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="text-align:right;font-family:sans-serif"><div>${RadarDocs.COMPANY.estimateWordmark}</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
   </div>`;
   const metaBlock=`<div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
-    <div style="${P}${PR}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:12px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
+    <div style="${P}${PR}">${ML('Клиент',crmClientMetaHTML(clientName,companyName,clientPhone,12))}</div>
     <div style="${PL}">${ML('Период аренды','Получение — '+crmFmtDate(startDate)+'<br>Возврат — '+crmFmtDate(endDate))}</div>
     <div style="${P}${PR}">${ML(deliveryTitle,deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
@@ -2972,7 +2977,7 @@ function crmBuildActHTML(d){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел. +7 (966) 866-86-66')}</div>
-    <div style="${PL}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:11px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
+    <div style="${PL}">${ML('Клиент',crmClientMetaHTML(clientName,companyName,clientPhone,11))}</div>
     <div style="${P}${PR}">${ML('Период аренды','Получение — '+crmFmtDate(startDate)+'<br>Возврат — '+crmFmtDate(endDate))}</div>
     <div style="${PL}">${ML(deliveryTitle,deliveryMeta)}</div>
     <div style="${P}${PR}">${ML('Сетап',setupMeta)}</div>
