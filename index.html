@@ -39,7 +39,7 @@ if (navigator.onLine === false) {
 // Версия сборки. При каждом изменении CSS/JS меняйте её ЗДЕСЬ и в ?v= у всех
 // подключений ниже — иначе GitHub Pages (max-age=600) и Safari на iPhone
 // продолжат отдавать старые файлы из кеша, и правки «не появятся».
-window.RADAR_BUILD='20261128-pull';
+window.RADAR_BUILD='20261128-docs2';
 console.log('[Radar] build',window.RADAR_BUILD);
 // ── Защита от застревания на старой сборке ──────────────────────────────────
 // GitHub Pages отдаёт index.html с max-age=600, поэтому браузер какое-то время
@@ -927,7 +927,6 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
       <div class="input-group"><label class="input-label">Телефон</label><input type="tel" id="crmPhone" inputmode="tel"></div>
       <div class="input-group"><label class="input-label">Компания</label><input type="text" id="crmCompany"></div>
     </div>
-    <div class="input-group crm-row-wide"><label class="input-label">Адрес</label><input type="text" id="crmAddress"></div>
     <div class="crm-grid-2">
       <div class="input-group"><label class="input-label">Дата получения</label><input type="date" id="crmStartDate"></div>
       <div class="input-group"><label class="input-label">Дата возврата</label><input type="date" id="crmEndDate"></div>
@@ -939,6 +938,14 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
     <div class="crm-grid-2">
       <div class="input-group"><label class="input-label">Тип получения</label><select id="crmDeliveryType"><option value="delivery">Доставка</option><option value="pickup">Самовывоз</option></select></div>
       <div class="input-group"><label class="input-label">Пронос / этаж</label><select id="crmCarryFloor"><option value="no">Нет</option><option value="yes">Да</option></select></div>
+    </div>
+    <div id="crmDeliveryAddressFields">
+      <div class="crm-grid-2">
+        <div class="input-group"><label class="input-label" for="crmAddressCity">Город доставки *</label><input id="crmAddressCity" type="text" autocomplete="off" required></div>
+        <div class="input-group"><label class="input-label" for="crmAddress">Улица, дом *</label><input id="crmAddress" type="text" autocomplete="off" required></div>
+      </div>
+      <div class="input-group"><label class="input-label" for="crmAddressVenue">Заведение (если есть)</label><input id="crmAddressVenue" type="text" autocomplete="off"></div>
+      <small role="status" id="crmAddressNotice"></small>
     </div>
     <div class="crm-grid-2">
       <div class="input-group"><label class="input-label">Внесено ₽</label><input type="number" id="crmPaidAmount" min="0" value="0" inputmode="numeric"></div>
@@ -1114,12 +1121,12 @@ window.SUPABASE_ANON_KEY='sb_publishable_KADg_QBYffF_knlLGQHaqw_v4FMKzhX';
 <script src="radar-offline.js?v=20261128-ios-1"></script>
 <script src="radar-pricing.js?v=20261128-catalog"></script>
 <script src="doc-assets/product-photos.js?v=20261128-catalog" defer></script>
-<script src="radar-docs.js?v=20261128-orders"></script>
+<script src="radar-docs.js?v=20261128-docs2"></script>
 <script src="supabase.js?v=20260912-3"></script>
 <script src="radar-store.js?v=20261128-branches"></script>
 <script src="radar-gateway.js?v=20260912-3"></script>
 <script src="radar.js?v=20261128-pull"></script>
-<script src="crm.js?v=20261128-stock-badge"></script>
+<script src="crm.js?v=20261128-docs2"></script>
 <script src="radar-partners.js?v=20260912-3"></script>
 <script src="radar-partners-ui.js?v=20260912-3"></script>
 <script src="radar-warehouse.js?v=20261128-branches"></script>

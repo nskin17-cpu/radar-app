@@ -188,12 +188,55 @@ function crmSyncDepositUI(){
   const cf=document.getElementById('crmCompensationFields');
   if(cf)cf.style.display=status==='returned_comp'?'block':'none';
 }
+// Сохраняем составной адрес в существующем текстовом поле заказа. Старые
+// адреса без разметки сохраняются дословно, пока менеджер их не отредактирует.
+function crmAddressFields(){
+  return ['crmAddressCity','crmAddress','crmAddressVenue'].map(id=>document.getElementById(id));
+}
+function crmSetAddress(value=''){
+  value=String(value||'');
+  const fields=crmAddressFields();
+  const [city,street,venue]=fields;
+  city.value=''; street.value=value; venue.value='';
+  if(value.split('\n').every(line=>/^(Город|Адрес|Заведение): /.test(line))){
+    const labels=['Город','Адрес','Заведение'];
+    fields.forEach((input,i)=>{
+      const prefix=labels[i]+': ';
+      input.value=value.split('\n').find(line=>line.startsWith(prefix))?.slice(prefix.length)||'';
+    });
+  }else{
+    const old=/^((?:г\.\s*|город\s+)[^,]+|Ростов-на-Дону|Краснодар),\s*(.+)$/iu.exec(value);
+    if(old){city.value=old[1];street.value=old[2]}
+  }
+  fields.forEach(input=>{input.dataset.initial=input.value});
+  street.dataset.original=value;
+}
+function crmDeliveryAddress(){
+  const fields=crmAddressFields();
+  if(fields.every(input=>input.value===input.dataset.initial))return fields[1].dataset.original||'';
+  const labels=['Город','Адрес','Заведение'];
+  return fields.map((input,i)=>input.value.trim()?labels[i]+': '+input.value.trim():'').filter(Boolean).join('\n');
+}
+function crmCheckAddress(notify=false){
+  const delivery=document.getElementById('crmDeliveryType').value==='delivery';
+  const [city,street]=crmAddressFields();
+  const missing=delivery && (!city.value.trim()?city:!street.value.trim()?street:null);
+  const message=missing===city?'Укажите город доставки.':missing===street?'Укажите улицу и дом для доставки.':'';
+  document.getElementById('crmAddressNotice').textContent=message;
+  if(notify && missing){
+    showToast(message,'error');
+    missing.focus();
+  }
+  return !missing;
+}
 function crmSyncDeliveryControls(autoFocus=false){
   const type=document.getElementById('crmDeliveryType')?.value||'pickup';
   const zone=document.getElementById('crmDeliveryZone')?.value||'city';
   const block=document.getElementById('crmDeliveryOptions');
   const km=document.getElementById('crmDeliveryKm');
   if(block)block.style.display=type==='delivery'?'grid':'none';
+  document.getElementById('crmDeliveryAddressFields').hidden=type!=='delivery';
+  crmCheckAddress();
   if(km)km.disabled=!(type==='delivery'&&zone==='outside');
   if(autoFocus&&type==='delivery'&&zone==='outside')setTimeout(()=>km?.focus(),50);
 }
@@ -285,6 +328,7 @@ function crmBindDialogInputs(){
   const m=document.getElementById('crmOrderModal');
   if(!m)return;
   crmOrderInputsBound=true;
+  document.getElementById('crmDeliveryAddressFields').addEventListener('input',()=>crmCheckAddress());
   m.addEventListener('input',()=>{if(!crmOrderDialogInit)crmOrderDialogDirty=true});
   m.addEventListener('change',()=>{if(!crmOrderDialogInit)crmOrderDialogDirty=true});
   crmApplyZeroClearBehavior(m);
@@ -415,7 +459,7 @@ function crmRestoreDraft(d){
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v};
   crmOrderDialogInit=true;
   set('crmOrderBranch',f.branchId||'rostov');set('crmClient',f.clientName);set('crmPhone',f.clientPhone);set('crmCompany',f.companyName);
-  set('crmStartDate',f.startDate);set('crmEndDate',f.endDate);set('crmAddress',f.deliveryAddress);
+  set('crmStartDate',f.startDate);set('crmEndDate',f.endDate);crmSetAddress(f.deliveryAddress);
   set('crmStatus',f.status);set('crmPayment',f.paymentStatus);set('crmDeliveryType',f.deliveryType);
   set('crmDeliveryZone',f.deliveryZone);set('crmDeliveryKm',f.deliveryKm);set('crmCarryFloor',f.carryFloor);
   set('crmDiscount',f.discount);set('crmDeposit',f.depositAmount);set('crmComment',f.comment);
@@ -1959,7 +2003,7 @@ function crmOpenDialog(id){
     document.getElementById('crmDeliveryType').value=o.deliveryType;
     document.getElementById('crmDeliveryZone').value=o.deliveryZone||'city';
     document.getElementById('crmDeliveryKm').value=o.deliveryKm||0;
-    document.getElementById('crmAddress').value=o.deliveryAddress;
+    crmSetAddress(o.deliveryAddress);
     document.getElementById('crmDeliveryCost').value=o.deliveryCost||0;
     document.getElementById('crmSetupCost').value=o.setupCost||0;
     document.getElementById('crmDiscount').value=o.discount||0;
@@ -1985,7 +2029,8 @@ function crmOpenDialog(id){
   }else{
     document.getElementById('crmOrderId').value='';
     crmFillClientSelect('');
-    ['crmPhone','crmCompany','crmAddress','crmComment'].forEach(id=>document.getElementById(id).value='');
+    crmSetAddress();
+    ['crmPhone','crmCompany','crmComment'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('crmClient').value='';
     document.getElementById('crmAmount').value='';document.getElementById('crmAmount').dataset.manual='';document.getElementById('crmBudget').value='';document.getElementById('crmBudget').dataset.manual='';document.getElementById('crmDeposit').value='';
     document.getElementById('crmDeliveryCost').value='0';document.getElementById('crmSetupCost').value='0';document.getElementById('crmDiscount').value='0';document.getElementById('crmPaidAmount').value='0';document.getElementById('crmRemaining').value='0';if(document.getElementById('crmItemsTotal')){document.getElementById('crmItemsTotal').value='';document.getElementById('crmItemsTotal').dataset.manual='';}if(document.getElementById('crmDiscountAmount'))document.getElementById('crmDiscountAmount').value='';
@@ -2330,7 +2375,7 @@ function crmReadForm(){
     deliveryType:val('crmDeliveryType')||'pickup',
     deliveryZone:val('crmDeliveryZone')||'city',
     deliveryKm:Number(val('crmDeliveryKm'))||0,
-    deliveryAddress:val('crmAddress'),
+    deliveryAddress:crmDeliveryAddress(),
     carryFloor:val('crmCarryFloor')||'no',
     discount:Number(val('crmDiscount'))||0,
     extraChargeAmount:Number(val('crmExtraChargeAmount'))||0,
@@ -2594,6 +2639,7 @@ async function crmSaveOrder(){
   if(_crmSaving)return;
   const form=crmReadForm();
   if(!form.clientName){showToast('Укажите клиента','error');return}
+  if(!crmCheckAddress(true))return;
   // Незнакомый клиент — теперь предупреждение, а не отказ:
   // блокировать сохранение заполненного заказа опаснее, чем принять нового клиента.
   if(!crmClients.some(c=>c.name===form.clientName)){
@@ -2667,7 +2713,8 @@ function crmGetPdfOrderData(){
     startDate:document.getElementById('crmStartDate').value,
     endDate:document.getElementById('crmEndDate').value,
     deliveryType:document.getElementById('crmDeliveryType').value,
-    deliveryAddress:document.getElementById('crmAddress').value||'',
+    deliveryAddress:crmDeliveryAddress(),
+    branchId:document.getElementById('crmOrderBranch').value,
     setupCost:Number(document.getElementById('crmSetupCost').value)||0,
     deliveryCost:Number(document.getElementById('crmDeliveryCost').value)||0,
     discountPct:Number(document.getElementById('crmDiscount').value)||0,
@@ -2744,11 +2791,20 @@ function crmApplyEstimatePdfLink(pdf){
  */
 function crmDocumentCaptionHTML(item){
   const label=esc(item.documentName||crmGetItemDisplayName(item));
-  return item.material?label+'<div style="font-size:10px;font-weight:400;color:#626a70">Материал: '+esc(item.material)+'</div>':label;
+  const setup=item.setup!==false;
+  const caption=item.material?label+'<div style="font-size:10px;font-weight:400;color:#626a70">Материал: '+esc(item.material)+'</div>':label;
+  return caption+`<div style="font:600 11px sans-serif;color:${setup?'#148044':'#686868'}">${setup?'Сетап включён':'Без сетапа'}</div>`;
 }
 function crmDocItems(d){
   try{return window.RadarPartners?RadarPartners.billableItems(d.items,d):d.items}
   catch(e){return d.items}
+}
+function crmDocServices(d){
+  const info=RadarDocs.deliveryInfo(d,d.items);
+  const badge=status=>`<span style="padding:3px 6px;background:${status.color};color:#242424">${esc(status.text)}</span>`;
+  return {deliveryTitle:info.title,
+    deliveryMeta:esc(info.address).replace(/\n/g,'<br>')+(info.note?'<br><small>'+esc(info.note)+'</small>':''),
+    setupMeta:badge(RadarDocs.setupStatus(d.items)),carryMeta:badge(RadarDocs.carryStatus(d))};
 }
 function crmBuildEstimateHTML(d,withDiscount){
   d={...d,items:crmDocItems(d)};
@@ -2761,10 +2817,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const itemsAfterDiscount=(withDiscount&&manualItemsTotal!=null)?manualItemsTotal:(itemsTotal-discountAmt);
   const grandTotal=(withDiscount&&manualOrderAmount!=null)?manualOrderAmount:(itemsAfterDiscount+deliveryCost+setupCost+extraCharge);
   const prepay=Math.round(grandTotal*0.5);
-  const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+esc(deliveryAddress||'—');
-  const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
-  const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
+  const {deliveryTitle,deliveryMeta,setupMeta,carryMeta}=crmDocServices(d);
   const docSubtitle=withDiscount?'Для профессионала':'Стандарт';
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
@@ -2774,7 +2827,7 @@ function crmBuildEstimateHTML(d,withDiscount){
   const iName=`font-size:${isMobile?'10.6px':'14px'};color:#1a1a1a;font-family:sans-serif;margin-bottom:${isMobile?'1px':'3px'}`;
   const iDetail=`font-size:${isMobile?'9.1px':'12.5px'};color:#888;font-family:sans-serif`;
   const iRow=`padding:${isMobile?'3px':'7px'} 0;border-bottom:1px solid #f0f0f0`;
-  const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
+  const deliveryRow=deliveryCost>0?`<div style="${iRow}"><div style="${iName};color:#888;font-style:italic">Доставка в обе стороны</div><div style="${iDetail}">Сумма: ${crmFmtN(deliveryCost)} ₽</div></div>`:'';
   const setupRow=setupCost>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">Сетап</div><div style="${iDetail}">Сумма: ${crmFmtN(setupCost)} ₽</div></div>`:'';
   const extraChargeRow=extraCharge>0?`<div style="padding:7px 0"><div style="${iName};color:#888;font-style:italic">${esc(extraChargeNote||'Доп. услуга')}</div><div style="${iDetail}">Сумма: ${crmFmtN(extraCharge)} ₽</div></div>`:'';
 
@@ -2786,7 +2839,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     totalsBlock+=totRow(`↓ Скидка ${discountPct}%`,'− '+crmFmtN(discountAmt)+' ₽','#7a9e7e','12px','600');
     totalsBlock+=totRow('Товары со скидкой',crmFmtN(itemsAfterDiscount)+' ₽');
   }
-  if(deliveryCost>0)totalsBlock+=totRow('Доставка',crmFmtN(deliveryCost)+' ₽');
+  if(deliveryCost>0)totalsBlock+=totRow('Доставка в обе стороны',crmFmtN(deliveryCost)+' ₽');
   if(setupCost>0)totalsBlock+=totRow('Сетап',crmFmtN(setupCost)+' ₽');
   if(extraCharge>0)totalsBlock+=totRow(esc(extraChargeNote||'Доп. услуга'),crmFmtN(extraCharge)+' ₽');
   totalsBlock+=`<hr style="border:none;border-top:1px solid #ccc;margin:8px 0">`;
@@ -2806,19 +2859,19 @@ function crmBuildEstimateHTML(d,withDiscount){
     :`<div style="${P}${PR};border-bottom:none">${ML('Исполнитель',executor)}</div><div style="${PL};border-bottom:none"></div>`;
 
   const pi=(label,val)=>`<div style="font-family:sans-serif;font-size:${isMobile?'12.4px':'12px'};color:#333;line-height:${isMobile?'1.6':'1.6'}"><span style="font-size:${isMobile?'9px':'8px'};letter-spacing:1.5px;text-transform:uppercase;color:#bbb;display:block;margin-bottom:2px">${label}</span>${val}</div>`;
-  const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий`):'';
+  const depositPayBlock=depositAmt>0?pi('Залог',`<strong>${crmFmtN(depositAmt)} ₽</strong><br>Возвращается после возврата и проверки изделий на складе.`):'';
   const payGrid=depositAmt>0
-    ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Способы оплаты',`Безналичный расчёт по счёту или СБП<br>Счёт на оплату пришлём по запросу`)}</div>`
-    :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${pi('Предоплата',`50% для бронирования — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${pi('Способы оплаты',`Безналичный расчёт по счёту или СБП<br>Счёт на оплату пришлём по запросу`)}</div>`;
+    ?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">${pi('Предоплата',`Для бронирования изделий необходимо внести предоплату 50 % — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${depositPayBlock}${pi('Способы оплаты',`Безналичный расчёт по счёту или СБП<br>Счёт на оплату пришлём по запросу`)}</div>`
+    :`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${pi('Предоплата',`Для бронирования изделий необходимо внести предоплату 50 % — <strong>${crmFmtN(prepay)} ₽</strong><br>Остаток — не позднее чем за 2 дня до получения`)}${pi('Способы оплаты',`Безналичный расчёт по счёту или СБП<br>Счёт на оплату пришлём по запросу`)}</div>`;
   const pageShell=(inner)=>`<div data-pdf-page="1" style="width:794px;min-height:1123px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px;min-height:1039px">${inner}</div></div>`;
   const headerBlock=`<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
-    <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
-    <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Смета</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
+    <div><div>${RadarDocs.COMPANY.wordmark}</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
+    <div style="text-align:right;font-family:sans-serif"><div>${RadarDocs.COMPANY.estimateWordmark}</div><div style="font-size:10.5px;color:#666;margin-top:3px">${docSubtitle}</div></div>
   </div>`;
   const metaBlock=`<div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:12px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
-    <div style="${PL}">${ML('Период аренды',crmFmtDate(startDate)+'<br>— '+crmFmtDate(endDate))}</div>
-    <div style="${P}${PR}">${ML('Доставка',deliveryMeta)}</div>
+    <div style="${PL}">${ML('Период аренды','Получение — '+crmFmtDate(startDate)+'<br>Возврат — '+crmFmtDate(endDate))}</div>
+    <div style="${P}${PR}">${ML(deliveryTitle,deliveryMeta)}</div>
     <div style="${PL}">${ML('Сетап',setupMeta)}</div>
     ${depositBlock}
     ${lastRow}
@@ -2828,7 +2881,6 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="font-family:sans-serif;font-size:${isMobile?'10px':'9px'};letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:${isMobile?'13px':'10px'}">Условия оплаты</div>
     ${payGrid}
   </div>`;
-  const receiptBlock=`<div style="margin-top:${isMobile?'10px':'20px'};padding-top:${isMobile?'10px':'12px'};border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:${isMobile?'10.4px':'10px'};color:#555;font-family:sans-serif;font-weight:600">Пожалуйста, отправьте менеджеру чек после перевода</span></div>`;
   const importantBlock=`<div style="margin-top:12px;padding:${isMobile?'6px 10px':'12px 14px'};border:1px solid #d8d8d8;border-left:3px solid #8a8a8a;background:#f7f7f7;font-family:sans-serif;font-size:${isMobile?'8.2px':'10.5px'};color:#4f4f4f;line-height:${isMobile?'1.28':'1.5'}"><strong style="color:#2f2f2f">Важно:</strong> при отмене всего заказа или части позиций менее чем за 2 дня до получения удерживается полная стоимость аренды.</div>`;
   const termsBlock=`<div style="margin-top:10px;padding:${isMobile?'12px 14px':'10px 12px'};border:1px solid #e3e7ef;background:#fafbfd;border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:sans-serif">
     <div>
@@ -2838,7 +2890,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     <div style="white-space:nowrap;font-size:${isMobile?'11.2px':'10.5px'};color:#3478f6;font-weight:600">nandrent.ru/uslovia</div>
   </div>`;
   const footerBlock=`<div style="margin-top:18px;padding-top:10px;border-top:1px solid #d9d9d9;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#9b9b9b;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#555;font-family:sans-serif;font-weight:600">Спасибо за заказ</span></div>`;
-  const bottomSection=`${totalsBlock}${paymentBlock}${receiptBlock}${importantBlock}${termsBlock}${footerBlock}`;
+  const bottomSection=`${totalsBlock}${paymentBlock}${importantBlock}${termsBlock}${footerBlock}`;
 
   // Dynamic pagination: split items across pages so nothing gets cut
   const itemRowH=(isMobile?34:48)+(items.some(i=>i.material)?14:0);
@@ -2851,7 +2903,7 @@ function crmBuildEstimateHTML(d,withDiscount){
     const unitPrice=withDiscount&&discountPct>0?Math.round(Number(i.price)*(1-discountPct/100)):Number(i.price);
     const sum=unitPrice*Number(i.qty);
     const iDisplay=crmDocumentCaptionHTML(i);
-    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
+    return`<div style="${iRow}"><div style="${iName}">${iDisplay}</div><div style="${iDetail}">Кол-во: ${i.qty} шт. &nbsp;|&nbsp; Цена: ${crmFmtN(unitPrice)} ₽ &nbsp;|&nbsp; Сумма: ${crmFmtN(sum)} ₽</div></div>`;
   });
   if(deliveryCost>0)allItemRows.push(deliveryRow);
   if(setupCost>0)allItemRows.push(setupRow);
@@ -2897,10 +2949,7 @@ function crmBuildEstimateHTML(d,withDiscount){
 function crmBuildActHTML(d){
   d={...d,items:crmDocItems(d)};
   const{orderId,clientName,clientPhone,companyName,startDate,endDate,deliveryType,deliveryAddress,setupCost,depositAmt,carryFloor,deliveryZone,deliveryKm,items}=d;
-  const kmLine=(deliveryZone==='outside'&&deliveryKm>0)?deliveryKm+' км от города<br>':'';
-  const deliveryMeta=deliveryType==='pickup'?'Самовывоз':kmLine+esc(deliveryAddress||'—');
-  const setupMeta=setupCost>0?'Предусмотрен':'Не предусмотрен';
-  const carryMeta=carryFloor==='yes'?'Предусмотрен':'Не предусмотрен';
+  const {deliveryTitle,deliveryMeta,setupMeta,carryMeta}=crmDocServices(d);
   const P='padding:10px 16px 10px 0;border-bottom:1px solid #ebebeb;';
   const PL='padding:10px 16px 10px 24px;border-bottom:1px solid #ebebeb;';
   const PR='border-right:1px solid #ebebeb;';
@@ -2909,7 +2958,7 @@ function crmBuildActHTML(d){
   const aName='font-size:14px;color:#1a1a1a;font-family:sans-serif;margin-bottom:3px';
   const aDetail='font-size:12.5px;color:#888;font-family:sans-serif';
   const aRow='padding:9px 0;border-bottom:1px solid #f0f0f0';
-  const itemsRowsHTML=items.map(i=>{const aDisplay=crmDocumentCaptionHTML(i);return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт &nbsp;|&nbsp; Возвращено: ___</div></div>`}).join('');
+  const itemsRowsHTML=items.map(i=>{const aDisplay=crmDocumentCaptionHTML(i);return`<div style="${aRow}"><div style="${aName}">${aDisplay}</div><div style="${aDetail}">Получено: ${i.qty} шт. &nbsp;|&nbsp; Возвращено: ___ шт.</div></div>`}).join('');
 
   const sigLine=(label)=>`<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:32px;font-family:sans-serif;font-size:12px;color:#333">
     <span style="white-space:nowrap">${label}</span>
@@ -2919,14 +2968,14 @@ function crmBuildActHTML(d){
 
   return`<div style="width:794px;background:#fff;font-family:Georgia,serif"><div style="margin:0 60px;padding:44px 0 40px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:18px;margin-bottom:22px">
-    <div><div style="font-size:24px;font-weight:700;letter-spacing:6px;color:#1a1a1a;font-family:Georgia,serif">NANDRENT</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
+    <div><div>${RadarDocs.COMPANY.wordmark}</div><div style="font-size:8.5px;letter-spacing:3px;color:#999;text-transform:uppercase;font-family:sans-serif;margin-top:3px">Аренда посуды и мебели</div></div>
     <div style="text-align:right;font-family:sans-serif"><div style="font-size:16px;font-weight:700;color:#1a1a1a;letter-spacing:1px;text-transform:uppercase">Акт передачи</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;margin-bottom:20px">
     <div style="${P}${PR}">${ML('Исполнитель','Компания NANDRENT<br>тел. +7 (966) 866-86-66')}</div>
     <div style="${PL}">${ML('Клиент',esc(clientName)+(companyName?'<br><span style="font-size:11px;color:#888">'+esc(companyName)+'</span>':'')+(clientPhone?'<br>'+esc(clientPhone):''))}</div>
-    <div style="${P}${PR}">${ML('Получение / Возврат',crmFmtDate(startDate)+' — '+crmFmtDate(endDate))}</div>
-    <div style="${PL}">${ML('Доставка',deliveryMeta)}</div>
+    <div style="${P}${PR}">${ML('Период аренды','Получение — '+crmFmtDate(startDate)+'<br>Возврат — '+crmFmtDate(endDate))}</div>
+    <div style="${PL}">${ML(deliveryTitle,deliveryMeta)}</div>
     <div style="${P}${PR}">${ML('Сетап',setupMeta)}</div>
     <div style="${PL}">${ML('Пронос / Подъём на этаж',carryMeta)}</div>
     <div style="${P}${PR};border-bottom:none">${ML('Залог принят',depositAmt>0?`${crmFmtN(depositAmt)} ₽`:'—')}</div>
@@ -2939,7 +2988,7 @@ function crmBuildActHTML(d){
     ${sigLine('«Возвращено» подтверждаю:')}
     <div style="display:flex;align-items:flex-end;gap:14px"><span style="white-space:nowrap">С условиями ознакомлен/а. Услуга оказана в полном объёме</span><span style="flex:1;border-bottom:1px solid #1a1a1a;min-width:80px"></span></div>
   </div>
-  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #e3e3e3;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#b0b0b0;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#6a6a6a;font-family:sans-serif;font-weight:600">Залог возвращается после возврата и проверки изделий.</span></div>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #e3e3e3;display:flex;justify-content:space-between;align-items:center"><span style="font-size:9px;letter-spacing:3px;color:#b0b0b0;font-family:sans-serif;text-transform:uppercase">NANDRENT</span><span style="font-size:10px;color:#6a6a6a;font-family:sans-serif;font-weight:600">Залог возвращается после возврата и проверки изделий на складе.</span></div>
 </div></div>`;
 }
 // ── ДОКУМЕНТЫ ────────────────────────────────────────────────────────────────
@@ -2969,6 +3018,7 @@ function crmWarnIfPdfNotReady(){
 }
 
 async function crmGenerateEstimatePDF(withDiscount){
+  if(radarCanEdit('orders')&&!crmCheckAddress(true))return;
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
@@ -2983,6 +3033,7 @@ async function crmGenerateEstimatePDF(withDiscount){
   }catch(e){showToast('Ошибка генерации PDF: '+(e?.message||e),'error')}
 }
 async function crmGenerateActPDF(){
+  if(radarCanEdit('orders')&&!crmCheckAddress(true))return;
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
@@ -2996,6 +3047,7 @@ async function crmGenerateActPDF(){
   }catch(e){showToast('Ошибка генерации акта: '+(e?.message||e),'error')}
 }
 async function crmDownloadAllPDF(){
+  if(radarCanEdit('orders')&&!crmCheckAddress(true))return;
   crmWarnIfPdfNotReady();
   try{
     if(crmUseLegacyDocs()){
@@ -3014,6 +3066,7 @@ async function crmDownloadAllPDF(){
   }catch(e){showToast('Ошибка генерации документов: '+(e?.message||e),'error')}
 }
 async function crmSharePDF(type){
+  if(radarCanEdit('orders')&&!crmCheckAddress(true))return;
   crmWarnIfPdfNotReady();
   showToast('Готовим документ…','info');
   try{

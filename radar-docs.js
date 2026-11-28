@@ -29,11 +29,15 @@
     pickupAddress: 'Ростов-на-Дону, ул. Таганрогская, 106Б',
     // Надпись из макета № 14, Syne Bold 19 пт. Кривые не зависят от шрифтов устройства.
     wordmark: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"126.11\" height=\"19\" viewBox=\"0 0 126.11 19\"><path fill=\"#1a1a1a\" d=\"M13.93 12.49 13.13 12.81V2.71H15.66V15H13.13L3.19 5.29L3.99 4.97V15H1.46V2.71H3.99ZM20.38 12.32V10.21H28.51V12.32ZM17.32 15 23.1 2.71H25.83L31.67 15H28.91L23.86 3.92H25.07L20.06 15ZM45.8 12.49 45 12.81V2.71H47.53V15H45L35.06 5.29L35.86 4.97V15H33.33V2.71H35.86ZM57.36 2.71Q59.43 2.71 60.82 3.2Q62.21 3.7 63.03 4.54Q63.86 5.39 64.21 6.49Q64.56 7.59 64.56 8.81Q64.56 10.02 64.17 11.14Q63.78 12.26 62.94 13.13Q62.09 13.99 60.72 14.5Q59.34 15 57.36 15H50.33V2.71ZM52.86 12.83H57.3Q58.67 12.83 59.58 12.5Q60.48 12.17 61.01 11.6Q61.54 11.03 61.77 10.31Q62 9.59 62 8.81Q62 8.03 61.77 7.32Q61.54 6.62 61.01 6.07Q60.48 5.52 59.58 5.2Q58.67 4.87 57.3 4.87H52.86ZM66.91 15V2.71H75.25Q76.68 2.71 77.73 3.1Q78.79 3.49 79.38 4.31Q79.97 5.14 79.97 6.43Q79.97 7.31 79.66 7.91Q79.36 8.52 78.82 8.9Q78.28 9.28 77.57 9.48Q76.87 9.68 76.07 9.74L75.81 9.59Q77.14 9.6 77.99 9.8Q78.84 10 79.27 10.53Q79.7 11.05 79.7 12.07V15H77.17V12.25Q77.17 11.54 76.93 11.15Q76.68 10.76 76.04 10.61Q75.41 10.46 74.21 10.46H69.44V15ZM69.44 8.48H75.25Q76.32 8.48 76.88 7.97Q77.44 7.46 77.44 6.58Q77.44 5.75 76.88 5.31Q76.32 4.87 75.25 4.87H69.44ZM85.01 9.87V12.89H94.5V15H82.49V2.71H94.48V4.82H85.01V7.88H92.77V9.87ZM109.44 12.49 108.64 12.81V2.71H111.17V15H108.64L98.71 5.29L99.5 4.97V15H96.98V2.71H99.5ZM112.89 2.71H125.85V4.82H112.89ZM118.12 4.55H120.65V15H118.12Z\"/></svg>",
+    estimateWordmark: '<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Смета" width="90" height="18" viewBox="0 0 4264 1000"><path fill="#1a1a1a" d="M832 567Q823 645 777.0 700.0Q731 755 652.0 784.0Q573 813 464 813Q373 813 297.5 792.0Q222 771 167.5 729.0Q113 687 83.0 624.5Q53 562 53 478Q53 394 83.0 331.0Q113 268 167.5 225.5Q222 183 297.5 161.5Q373 140 464 140Q573 140 652.5 170.0Q732 200 778.0 255.5Q824 311 832 390H700Q687 348 656.5 317.5Q626 287 578.0 271.0Q530 255 464 255Q382 255 320.0 280.5Q258 306 224.0 355.5Q190 405 190 478Q190 550 224.0 599.0Q258 648 320.0 673.5Q382 699 464 699Q530 699 577.5 683.0Q625 667 655.5 637.0Q686 607 700 567ZM1465 734H1402L1774 153H1907V800H1774V330L1806 339L1509 800H1360L1063 341L1095 332V800H962V153H1095ZM2194 530V689H2693V800H2061V153H2692V264H2194V425H2602V530ZM2773 153H3455V264H2773ZM3048 250H3181V800H3048ZM3653 659V548H4081V659ZM3492 800 3796 153H3940L4247 800H4102L3836 217H3900L3636 800Z"/></svg>',
     tagline: 'Аренда посуды и мебели',
     phone: '+7 (966) 866-86-66',
     termsUrl: 'https://nandrent.ru/uslovia',
     termsLabel: 'nandrent.ru/uslovia'
   };
+
+  // Пять букв из Syne Bold для заголовка. Лицензия: doc-assets/Syne-OFL.txt.
+  var estimateHeadingFont = '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';
 
   function n(v) { return Math.round(Number(v) || 0).toLocaleString('ru-RU'); }
   function money(v) { return n(v) + ' ₽'; }
@@ -59,12 +63,42 @@
     return { text: String(text).toUpperCase(), fontSize: 6.5, characterSpacing: 1.4, color: '#aaaaaa', margin: [0, 0, 0, 3] };
   }
   function metaCell(title, value) {
-    return { stack: [label(title), { text: value, fontSize: 10, color: INK, lineHeight: 1.35 }] };
+    return { stack: [label(title), { text: value, fontSize: 10, color: INK, lineHeight: 1.18 }] };
   }
-  function deliveryCell(order) {
-    if (order.deliveryType === 'pickup') return metaCell('Самовывоз со склада', COMPANY.pickupAddress);
-    var distance = order.deliveryZone === 'outside' && order.deliveryKm > 0 ? order.deliveryKm + ' км от города\n' : '';
-    return metaCell('Доставка', distance + (order.deliveryAddress || '—'));
+  function rentalPeriod(order) {
+    return metaCell('Период аренды', 'Получение — ' + fmtDate(order.startDate) + '\nВозврат — ' + fmtDate(order.endDate));
+  }
+  function setupStatus(items) {
+    const lines = items.filter(item => item.qty > 0 && item.billable !== false);
+    const count = lines.filter(item => item.setup !== false).length;
+    if (!count) return { text:'Не предусмотрен', color:'#f8e6e5', enabled:false };
+    if (count < lines.length) return { text:'Частично', color:'#fff0ce', enabled:true };
+    return { text:'На все позиции', color:'#dcf2e3', enabled:true };
+  }
+  function carryStatus(order) {
+    const included = order.carryFloor === 'yes';
+    return { text:included ? 'Да' : 'Нет', color:included ? '#dcf2e3' : '#f8e6e5' };
+  }
+  function statusCell(title, status) {
+    return { stack:[label(title), {
+      table:{widths:['auto'],body:[[{text:status.text,fillColor:status.color,fontSize:9.5,color:INK,margin:[4,1,4,1]}]]},
+      layout:'noBorders'
+    }] };
+  }
+  function deliveryInfo(order, items) {
+    if (order.deliveryType === 'pickup') {
+      return { title:'Самовывоз со склада', address:order.branchId === 'krasnodar'
+        ? 'Краснодар. Адрес уточните у менеджера.' : COMPANY.pickupAddress };
+    }
+    const distance = order.deliveryZone === 'outside' && order.deliveryKm > 0 ? order.deliveryKm + ' км от города\n' : '';
+    return { title:'Доставка в обе стороны', address:distance + (order.deliveryAddress || '—'),
+      note:setupStatus(items).enabled ? '' : 'Погрузка и разгрузка не входят в стоимость доставки.' };
+  }
+  function deliveryCell(order, items) {
+    const info = deliveryInfo(order, items);
+    const cell = metaCell(info.title, info.address);
+    if (info.note) cell.stack.push({text:info.note,fontSize:8.5,color:'#555555',margin:[0,3,0,0]});
+    return cell;
   }
 
   function productPhoto(item) {
@@ -78,7 +112,7 @@
     var setup = item.setup !== false;
     var caption = { stack: [
       { text: displayName(item), fontSize: 9.5, color: INK },
-      { text: setup ? 'Сетап включён' : 'Без сетапа', fontSize: 8, color: setup ? '#42654c' : '#686868', margin: [0, 2, 0, 0] }
+      { text: setup ? 'Сетап включён' : 'Без сетапа', fontSize: 8, bold: setup, color: setup ? '#148044' : '#686868', margin: [0, 2, 0, 0] }
     ] };
     if (item.material) caption.stack.splice(1, 0, { text: 'Материал: ' + item.material, fontSize: 8, color: '#626a70', margin: [0, 2, 0, 0] });
     var photo = productPhoto(item);
@@ -96,8 +130,8 @@
     vLineColor: function () { return LINE; },
     paddingLeft: function (i) { return i === 0 ? 0 : 16; },
     paddingRight: function (i) { return i === 0 ? 16 : 0; },
-    paddingTop: function () { return 8; },
-    paddingBottom: function () { return 8; }
+    paddingTop: function () { return 5; },
+    paddingBottom: function () { return 5; }
   };
 
   var ITEMS_LAYOUT = {
@@ -112,7 +146,7 @@
 
   function headerBlock(docTitle, docSubtitle, orderNumber) {
     return {
-      margin: [0, 0, 0, 16],
+      margin: [0, 0, 0, 9],
       table: {
         widths: ['*', 'auto'],
         body: [[
@@ -127,7 +161,8 @@
             border: [false, false, false, true],
             alignment: 'right',
             stack: [
-              { text: String(docTitle).toUpperCase(), fontSize: 12, bold: true, characterSpacing: 1, color: INK },
+              docTitle === 'Смета' ? {text:'СМЕТА',font:'RadarHeading',fontSize:17,color:INK} :
+                {text:docTitle.toUpperCase(),fontSize:12,bold:true,characterSpacing:1,color:INK},
               { text: docSubtitle, fontSize: 8.5, color: '#666666', margin: [0, 3, 0, 0] },
               orderNumber ? { text: '№ ' + orderNumber, fontSize: 8, color: MUTED, margin: [0, 2, 0, 0] } : {}
             ]
@@ -141,7 +176,7 @@
         paddingLeft: function () { return 0; },
         paddingRight: function () { return 0; },
         paddingTop: function () { return 0; },
-        paddingBottom: function () { return 14; }
+        paddingBottom: function () { return 10; }
       }
     };
   }
@@ -182,7 +217,7 @@
     clientItems(calc).forEach(function (i) {
       body.push([
         itemCell(i),
-        { text: n(i.qty), fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
+        { text: n(i.qty) + ' шт.', fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
         { text: money(i.unitPrice), fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
         { text: money(i.unitTotal), fontSize: 9.5, color: INK, alignment: 'right', noWrap: true }
       ]);
@@ -196,7 +231,7 @@
         { text: money(amount), fontSize: 9.5, color: INK, alignment: 'right', noWrap: true }
       ]);
     }
-    if (calc.deliveryCost > 0) serviceRow('Доставка', calc.deliveryCost);
+    if (calc.deliveryCost > 0) serviceRow('Доставка в обе стороны', calc.deliveryCost);
     if (calc.setupCost > 0) serviceRow('Сетап', calc.setupCost);
     if (calc.extraCharge > 0) serviceRow(order.extraChargeNote || 'Доп. услуга', calc.extraCharge);
 
@@ -215,7 +250,7 @@
       totalsBody.push(totalRow('Профессиональная скидка ' + calc.discountPct + '%', '− ' + money(calc.discountAmount), { color: '#5f9265', bold: true }));
       totalsBody.push(totalRow('Товары со скидкой', money(calc.itemsTotal)));
     }
-    if (calc.deliveryCost > 0) totalsBody.push(totalRow('Доставка', money(calc.deliveryCost)));
+    if (calc.deliveryCost > 0) totalsBody.push(totalRow('Доставка в обе стороны', money(calc.deliveryCost)));
     if (calc.setupCost > 0) totalsBody.push(totalRow('Сетап', money(calc.setupCost)));
     if (calc.extraCharge > 0) totalsBody.push(totalRow(order.extraChargeNote || 'Доп. услуга', money(calc.extraCharge)));
     totalsBody.push([
@@ -225,7 +260,7 @@
 
     var totalsBlock = {
       unbreakable: true,
-      margin: [0, 16, 0, 0],
+      margin: [0, 10, 0, 0],
       stack: [
         {
           canvas: [{ type: 'line', x1: 0, y1: 0, x2: 475, y2: 0, lineWidth: 1.4, lineColor: INK }],
@@ -249,10 +284,10 @@
     };
 
     var payCells = [
-      metaCell('Предоплата', '50% для бронирования — ' + money(calc.prepay) + '\nОстаток — не позднее чем за 2 дня до получения')
+      metaCell('Предоплата', 'Для бронирования изделий необходимо внести предоплату 50 % — ' + money(calc.prepay) + '\nОстаток — не позднее чем за 2 дня до получения')
     ];
     if (order.depositAmount > 0) {
-      payCells.push(metaCell('Залог', money(order.depositAmount) + '\nВозвращается после возврата и проверки изделий'));
+      payCells.push(metaCell('Залог', money(order.depositAmount) + '\nВозвращается после возврата и проверки изделий на складе.'));
     }
     // Перевод на карту частного лица из сметы убран: клиенту предлагаются
     // только расчёты с компанией. Номера счёта здесь намеренно нет — счёт
@@ -261,7 +296,7 @@
 
     var paymentBlock = {
       unbreakable: true,
-      margin: [0, 16, 0, 0],
+      margin: [0, 10, 0, 0],
       table: {
         widths: ['*'],
         body: [[{
@@ -275,7 +310,7 @@
       },
       layout: {
         paddingLeft: function () { return 14; }, paddingRight: function () { return 14; },
-        paddingTop: function () { return 12; }, paddingBottom: function () { return 12; },
+        paddingTop: function () { return 8; }, paddingBottom: function () { return 8; },
         hLineWidth: function () { return 0; },
         vLineWidth: function (i) { return i === 0 ? 2.5 : 0; },
         vLineColor: function () { return INK; }
@@ -334,12 +369,12 @@
     // Мета-блок
     var metaRows = [
       metaCell('Клиент', order.clientName + (order.companyName ? '\n' + order.companyName : '') + (order.clientPhone ? '\n' + order.clientPhone : '')),
-      metaCell('Период аренды', fmtDate(order.startDate) + '\n— ' + fmtDate(order.endDate)),
-      deliveryCell(order),
-      metaCell('Сетап', calc.setupCost > 0 ? 'Предусмотрен' : 'Не предусмотрен')
+      rentalPeriod(order),
+      deliveryCell(order, calc.items),
+      statusCell('Сетап', setupStatus(calc.items))
     ];
     if (order.depositAmount > 0) metaRows.push(metaCell('Залог', money(order.depositAmount)));
-    metaRows.push(metaCell('Пронос / Подъём на этаж', order.carryFloor === 'yes' ? 'Предусмотрен' : 'Не предусмотрен'));
+    metaRows.push(statusCell('Пронос / Подъём на этаж', carryStatus(order)));
     if (hasDiscount) {
       metaRows.push({ stack: [
         { text: ['Профессиональная скидка  ', { text: calc.discountPct + '%', bold: true, color: '#42654c' }], fontSize: 9.5 },
@@ -350,7 +385,7 @@
 
     return {
       pageSize: 'A4',
-      pageMargins: [60, 44, 60, 46],
+      pageMargins: [54, 32, 54, 36],
       defaultStyle: { font: 'Roboto', fontSize: 10, color: INK },
       info: {
         title: 'Смета ' + (order.orderNumber || order.id),
@@ -372,7 +407,6 @@
           margin: [60, 8, 60, 0],
           columns: [
             { text: COMPANY.name, fontSize: 7, characterSpacing: 2, color: '#b0b0b0' },
-            { text: 'Пожалуйста, отправьте менеджеру чек после перевода', fontSize: 7.5, color: '#8a8a8a', alignment: 'center' },
             { text: currentPage + ' / ' + pageCount, fontSize: 7.5, color: '#b0b0b0', alignment: 'right' }
           ]
         };
@@ -390,8 +424,8 @@
     clientItems(calc).forEach(function (i) {
       body.push([
         itemCell(i),
-        { text: n(i.qty) + ' шт', fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
-        { text: '__________', fontSize: 9.5, color: '#bbbbbb', alignment: 'right' }
+        { text: n(i.qty) + ' шт.', fontSize: 9.5, color: '#555555', alignment: 'right', noWrap: true },
+        { text: '__________ шт.', fontSize: 9.5, color: '#bbbbbb', alignment: 'right' }
       ]);
     });
 
@@ -416,17 +450,17 @@
     var metaRows = [
       metaCell('Исполнитель', 'Компания ' + COMPANY.name + '\nтел. ' + COMPANY.phone),
       metaCell('Клиент', order.clientName + (order.companyName ? '\n' + order.companyName : '') + (order.clientPhone ? '\n' + order.clientPhone : '')),
-      metaCell('Получение / Возврат', fmtDate(order.startDate) + ' — ' + fmtDate(order.endDate)),
-      deliveryCell(order),
-      metaCell('Сетап', calc.setupCost > 0 ? 'Предусмотрен' : 'Не предусмотрен'),
-      metaCell('Пронос / Подъём на этаж', order.carryFloor === 'yes' ? 'Предусмотрен' : 'Не предусмотрен'),
+      rentalPeriod(order),
+      deliveryCell(order, calc.items),
+      statusCell('Сетап', setupStatus(calc.items)),
+      statusCell('Пронос / Подъём на этаж', carryStatus(order)),
       metaCell('Залог принят', order.depositAmount > 0 ? money(order.depositAmount) : '—'),
       {}
     ];
 
     return {
       pageSize: 'A4',
-      pageMargins: [60, 44, 60, 46],
+      pageMargins: [54, 32, 54, 36],
       defaultStyle: { font: 'Roboto', fontSize: 10, color: INK },
       info: { title: 'Акт передачи ' + (order.orderNumber || order.id), author: COMPANY.name },
       content: [
@@ -448,7 +482,7 @@
           margin: [60, 8, 60, 0],
           columns: [
             { text: COMPANY.name, fontSize: 7, characterSpacing: 2, color: '#b0b0b0' },
-            { text: 'Залог возвращается после возврата и проверки изделий.', fontSize: 7.5, color: '#8a8a8a', alignment: 'center' },
+            { text: 'Залог возвращается после возврата и проверки изделий на складе.', fontSize: 7.5, color: '#8a8a8a', alignment: 'center' },
             { text: currentPage + ' / ' + pageCount, fontSize: 7.5, color: '#b0b0b0', alignment: 'right' }
           ]
         };
@@ -463,7 +497,12 @@
 
   function createPdf(kind, order, calc, opts) {
     if (!ready()) throw new Error('Библиотека pdfmake не загрузилась');
-    return window.pdfMake.createPdf(build(kind, order, calc, opts));
+    const pdf = window.pdfMake;
+    const fonts = Object.assign({Roboto:{normal:'Roboto-Regular.ttf',bold:'Roboto-Medium.ttf',
+      italics:'Roboto-Italic.ttf',bolditalics:'Roboto-MediumItalic.ttf'}},pdf.fonts,
+      {RadarHeading:{normal:'RadarHeading.ttf'}});
+    return pdf.createPdf(build(kind, order, calc, opts), null, fonts,
+      Object.assign({}, pdf.vfs, {'RadarHeading.ttf':estimateHeadingFont}));
   }
 
   function toBlob(kind, order, calc, opts) {
@@ -535,6 +574,7 @@
     open: open,
     share: share,
     fileName: fileName,
+    setupStatus, carryStatus, deliveryInfo,
     displayName: displayName,
     productPhoto: productPhoto,
     COMPANY: COMPANY
